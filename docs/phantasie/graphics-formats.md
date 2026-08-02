@@ -478,6 +478,7 @@ recognisable as the named creature.
 | `.set` (P3) | confirmed (header/map/picture split, byte-exact) | confirmed (same ST encoding) | picture confirmed legible; map array's terrain-panel *semantics* unverified | **confirmed** (container layout); **hypothesis** (map cell meaning) |
 | `.pat` sprite banks (P1) | confirmed, byte-exact | confirmed (via executable table, `data-tables.md` §1.3) | confirmed legible, name-matched sprites | **confirmed** |
 | `.cmp` sprite-bank grid math (P3) | confirmed (structural) | n/a (inherits CMP palette) | confirmed visually consistent | **confirmed** (grid); **not independently re-derived** (spriteIndex→bank table) |
+| `.pat` sprite banks (P2) | confirmed, ST word-interleaved (interleave=2) | confirmed (`PHANT.PRG` executable table, `data-tables.md` §2.3) | confirmed legible, name-matched sprites (skeleton, orc, cobra, human/dwarf/ogre race sprites) | **confirmed** |
 
 ## 9. Open questions
 
@@ -499,17 +500,47 @@ recognisable as the named creature.
 - **P3 `.cmp` sprite-bank `spriteIndex` mapping table** (§6) — transcribed
   from source, structurally plausible, but not independently re-derived
   from the raw monster data or cross-checked against a second source.
-- **Phantasie II (Atari ST) graphics** — `data/phantasieii/atarist/`
-  currently contains only raw `.stx` Pasti floppy-disk images, not
-  individually extracted files (a sibling investigation's concern, not
-  addressed in this pass). Based on the reference source
-  (`MonstersManagerP2.cs`/`RacesManagerP2.cs` calling `Sprite.CreateBitmap`
-  with `ModesEnum.Interleaved`/interleave=2 — the same convention as P3's
-  CMP container, not P1's raw Planar convention), P2's `MSTR*.PAT`/
-  `PARTY*.PAT` sprite banks are expected to use the **ST word-interleaved**
-  layout rather than P1's Amiga contiguous-planar layout, despite sharing
-  P1's `.pat` naming convention and (per the reference tool's bundled
-  sample files, viewed only as supplementary, unauthoritative reference)
-  apparently the same file sizes. This is a **hypothesis carried over from
-  the reference source only** — none of it could be checked against this
-  project's own data, since no P2 files are extracted yet.
+- **Phantasie II (Atari ST) graphics — RESOLVED, confirmed.** `data/phantasieii/atarist/`'s
+  two `.stx` Pasti floppy-disk images have been desectorized and their
+  individual files extracted to `data/phantasieii/atarist/extracted/`; see
+  `docs/phantasie/stx-extraction.md` for the extraction method. Both
+  candidate plane layouts (P1's raw contiguous `Planar` convention and the
+  ST `Interleaved`/interleave=2 convention used by P3's CMP container) were
+  independently rendered against real extracted data using the confirmed
+  P2 executable palette (`data-tables.md` §2.3) and read against the
+  project's own real `PHANT.PRG` sprite offset/dimension tables (also newly
+  confirmed, `data-tables.md` §2):
+
+  | File | Index | Dims | `Planar` render | `Interleaved` render |
+  |------|-------|------|-------------------|--------------------------|
+  | `MSTR1.PAT` | 0 (SKELETON) | 32×34 | noise | clean skeleton figure, arms down |
+  | `MSTR1.PAT` | 8 (ORC) | 32×32 | noise | clean red/brown warrior with sword+round shield |
+  | `MSTR1.PAT` | 17 | 80×39 | noise | clean orange/red cobra/serpent |
+  | `MSTR2.PAT` | 0 (SKELETON, attack pose) | 32×34 | noise | clean skeleton, arms raised (attacking) |
+  | `PARTY1.PAT` | 0 (HUMAN) | 32×32 | noise | clean knight figure, sword+green shield |
+  | `PARTY1.PAT` | 1 (DWARF) | 32×32 | noise | clean blue/gold armoured figure with axe |
+  | `PARTY1.PAT` | 7 (OGRE) | 32×32 | noise | clean grey/tan figure with round shield |
+
+  Every `Interleaved` render is immediately recognisable, legible sprite art
+  matching the creature/race the index/name resolves to (per the newly
+  confirmed name tables, `data-tables.md` §2); every `Planar` render of the
+  same bytes is unstructured noise. **Confidence: confirmed** — both for
+  `MSTR*.PAT` (as hypothesized) **and** for `PARTY*.PAT` (which the
+  file-size-match with P1 had suggested, incorrectly, might keep P1's
+  layout — see the correction below). The generic `Interleaved` pixel
+  formula in §1 applies unchanged, using the P2 executable's own palette
+  (`data-tables.md` §2.3) rather than P1's `game+0x194BC` table.
+
+  > **Correction:** `stx-extraction.md` §7's file-size-match observation
+  > (`PARTY1.PAT`/`PARTY2.PAT` being byte-exact size matches with P1's
+  > `party1.pat`/`party2.pat`, unlike the larger `MSTR*.PAT`) was flagged
+  > there as "consistent with... but not confirming" a per-file layout
+  > split. The render evidence above shows this reasoning does not hold:
+  > **all four P2 `.pat` files use the same ST word-interleaved layout**,
+  > including `PARTY*.PAT` despite its coincidental size match with P1's
+  > planar-layout files. Byte count alone cannot distinguish the two
+  > layouts (both conventions store the same total
+  > `width/8 * height * bitplanes` bytes per sprite, just arranged
+  > differently) — this was a case of a plausible-looking but ultimately
+  > unrelated coincidence, not a real correlation. Only a pixel-level
+  > render, done here, resolves it.

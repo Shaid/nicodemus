@@ -111,32 +111,89 @@ NUL terminator ends, with no garbage in between). `party1.pat`'s size
 
 ## 2. Phantasie II (Atari ST) — monster and race tables
 
-**Not independently verified** — `data/phantasieii/atarist/` currently
-contains only raw `.stx` Pasti floppy-disk images, not individually
-extracted files (a sibling investigation's concern, out of scope for this
-pass). The reference source's `MonstersManagerP2.cs`/`RacesManagerP2.cs`
-describe a **structurally identical** layout to P1 (§1), reading from a
-`PHANT.PRG` executable instead of `game`, at different offsets:
+**Confirmed, byte-exact against the real `PHANT.PRG`**
+(`data/phantasieii/atarist/extracted/disk1/PHANT.PRG`, 155,785 bytes — see
+`docs/phantasie/stx-extraction.md` for the `.stx` extraction). Unlike
+Phantasie III's Amiga-vs-ST offset mismatch (§4/§8 below), **every one of
+the reference source's cited P2 offsets carried over unchanged** — expected,
+since `PHANT.PRG` *is* the same-platform (Atari ST) binary the reference
+source's offsets were originally recorded against, not a cross-platform
+port:
 
-| Table | P1 offset (`game`) | P2 offset (`PHANT.PRG`, unverified) |
-|-------|----------------------|----------------------------------------|
-| Monster names (58-byte stride, 80 entries) | `0x0C88` | `0x1FF2A` |
-| Monster sprite offset table (4-byte stride, 80 entries) | `0x16842` | `0x23D90` |
-| Monster width/height table (4-byte stride, 80 entries) | `0x1EA8` | `0x2114A` |
-| Palette (16 words) | `0x194BC` | `0x23A9E` |
-| Race names (sequential strings) | `0x69BE` | `0x1F01C` |
+| Table | P1 offset (`game`) | P2 offset (`PHANT.PRG`) | Status |
+|-------|----------------------|----------------------------|--------|
+| Monster names (58-byte stride, 80 entries) | `0x0C88` | `0x1FF2A` | **confirmed** |
+| Monster sprite offset table (4-byte stride, 80 entries) | `0x16842` | `0x23D90` | **confirmed** |
+| Monster width/height table (4-byte stride, 80 entries) | `0x1EA8` | `0x2114A` | **confirmed** |
+| Palette (16 words) | `0x194BC` | `0x23A9E` | **confirmed** |
+| Race names (sequential strings) | `0x69BE` | `0x1F01C` | **confirmed** |
 
-The only structural *difference* from P1 (beyond the offsets, which are
-naturally different per-binary) is the sprite bitplane layout: P2's
-`Sprite.CreateBitmap` calls use `ModesEnum.Interleaved`/interleave=2 (the
-ST word-interleaved convention, same as P3's CMP container — see
-`graphics-formats.md` §1/§7) rather than P1's `ModesEnum.Planar` — i.e.
-P2's `.pat` files are expected to use a **different plane layout** than
-P1's despite the shared file-naming convention and (per the reference
-tool's bundled sample files) apparently-matching file sizes. **Confidence:
-hypothesis, carried over from the reference source only** — none of this
-was checked against real Phantasie II Amiga-equivalent data, since P2 only
-ever shipped on Atari ST and no extracted data exists yet in this project.
+### 2.1 Monster name table — confirmed
+
+Reading 80 fixed 58-byte NUL-terminated slots from `0x1FF2A` yields legible,
+distinct, in-genre monster names for all 80 entries with zero garbage (0 of
+80 slots printable-decode failures): `SKELETON, BANTIR, DRIP SLIME, GREEN
+MUCK, GIANT ANT, GIANT BEE, VIPER, WILD DOG, ORC, KOBOLD, RANGER, SCRIBE,
+APPRENTICE DEVIL, ZOMBIE, GHOUL, ...` through index 79 (`PLUTO`). Note P2's
+roster differs from P1's at a few indices (e.g. index 3 is `GREEN MUCK` here
+vs. P1's `SKUM`, index 7 is `WILD DOG` vs. P1's `COYOTE`) — expected, since
+P1 and P2 are different games sharing an engine, not the same content. The
+table's declared extent (`0x1FF2A + 80*58 = 0x2114A`) lands **exactly** on
+the width/height table's own confirmed start offset — an independent
+structural cross-check, not just a coincidence of the two offsets being
+individually correct.
+
+### 2.2 Monster sprite address + dimension tables — confirmed, byte-exact
+
+Summing `width/8 * height * 4` (Planar-mode-equivalent byte count; the total
+byte count is identical whether the underlying data uses P1's Planar layout
+or P2's actual Interleaved layout — see `graphics-formats.md` §9) across all
+80 entries of the width/height table at `0x2114A` reproduces **exactly**
+76,832 bytes — the real size of `MSTR1.PAT`/`MSTR2.PAT` — with the 80
+offsets from `0x23D90` landing perfectly contiguously in index order (no
+gaps, no overlaps, first offset 0, last `offset+size` = 76,832 exactly).
+Widths are mostly 32 (61 of 80 entries), with larger monsters at 48/64/80 —
+structurally consistent with P1's own width distribution. **Confidence:
+confirmed, byte-exact** (same verification method as P1 §1.2). Pixel-level
+render confirmation: `graphics-formats.md` §9.
+
+### 2.3 Palette table — confirmed
+
+Decoding the 16 words at `0x23A9E` under the **raw ST 3-bit-per-channel**
+lookup (§2's `ST` table — *not* the Amiga `AmigaToST` even-nibble variant,
+since `PHANT.PRG` is itself the Atari ST binary, storing genuine 3-bit
+nibbles rather than Amiga's doubled 4-bit nibbles) yields a fully plausible,
+distinct 16-colour palette: black, brown (182,73,36), red, orange, gold,
+yellow, green, dark green, olive, cyan, sky blue, blue, a light pink/white
+shade (255,219,219), grey, magenta, white — the same colour *family* as
+P1's `game+0x194BC` palette (`§1.3`) at every index. Notably, **index 12
+resolves cleanly here** (nibbles `7,6,6` under the raw ST lookup) where
+P1's `AmigaToST`-decoded version of the same palette family left index 12
+as an unrepresented odd-nibble outlier — this P2 finding independently
+explains what that P1 outlier's true colour intent was (a light pink/white
+shade), since the Amiga port's even-nibble-only lookup simply cannot
+represent odd ST nibble values exactly. **Confidence: confirmed.**
+
+### 2.4 Race name table — confirmed
+
+Reading sequential NUL-terminated strings from `0x1F01C` yields exactly 16
+names, **byte-identical to P1's race list**: `HUMAN, DWARF, ELF, HALFLING,
+GNOME, PIXIE, SPRITE, OGRE, GNOLL, TROLL, KOBOLD, ORC, GOBLIN, LIZ.MAN,
+MINOTAUR, UNDEAD` — the 17th string (`DEAD`) is unrelated status-name data,
+confirming the table is exactly 16 entries as documented for P1.
+**Confidence: confirmed.**
+
+### 2.5 Sprite bitplane layout — confirmed (see `graphics-formats.md` §9)
+
+The reference source's `Sprite.CreateBitmap` calls using
+`ModesEnum.Interleaved`/interleave=2 for P2 (the ST word-interleaved
+convention, same as P3's CMP container) is **confirmed against real pixel
+renders** — see `graphics-formats.md` §9 for the full render comparison
+table. This applies to **both** `MSTR*.PAT` and `PARTY*.PAT`, correcting an
+earlier size-based guess that `PARTY*.PAT` might keep P1's layout because
+its file size matches P1's byte-for-byte (`stx-extraction.md` §7) — the
+render evidence shows this reasoning doesn't hold; both file families use
+the same Interleaved layout on P2 regardless of size coincidence.
 
 ## 3. Phantasie III (Amiga) — monster table (`monsinfo.dat`)
 
@@ -152,7 +209,7 @@ the CMP/CSH/SET files (`3072 = 128 * 24` exactly).
 
 | Offset (within record) | Size | Field | Notes |
 |--------------------------|------|-------|-------|
-| `0x00` | up to 14 | Name | NUL-terminated ASCII, remaining bytes to offset 14 unused/zero-padded |
+| `0x00` | up to 14 | Name | Space-padded ASCII (`0x20`) up to a single trailing NUL terminator, not zero-padded throughout — e.g. `"Skeleton"` is followed by 5 space bytes then one `0x00` (confirmed during implementation; decoders should `.trimEnd()`, not stop at the first NUL) |
 | `0x0E` (14) | 1 | `nb` | Encounter group size (number of this monster that appear together) |
 | `0x0F` (15) | 1 | Attack | Raw byte value; reference tool multiplies by 10 for display (`attack = byte * 10`) |
 | `0x10` (16) | 1 | Weapon | Weapon-type index (into an item/weapon table — table location not identified in this pass) |
@@ -373,10 +430,11 @@ Noted briefly per task scope (not deep-dived):
 - **P3 skills table's anomalous 15th-level values** (§5.2) — a handful of
   classes' final skill-level byte breaks the otherwise-clean monotonic
   progression; not investigated further.
-- **Phantasie II (Atari ST) monster/race tables** — entirely unverified;
-  `data/phantasieii/atarist/` has no extracted files yet (see
-  `graphics-formats.md`'s Open Questions for the graphics side of the same
-  gap). The offsets in §2 are carried over from the reference source only.
+- ~~**Phantasie II (Atari ST) monster/race tables**~~ — **resolved.** All
+  five §2 offsets confirmed byte-exact against the real `PHANT.PRG`
+  (`data/phantasieii/atarist/extracted/disk1/PHANT.PRG`), and the sprite
+  bitplane layout confirmed via pixel-level render (`graphics-formats.md`
+  §9). See §2.1-§2.5 above.
 - **P1 `game`/`run` HUNK structure vs. the offsets used** — every P1
   offset in §1 works as a **raw, unadjusted file offset**, which is
   genuinely puzzling: `game`'s `HUNK_HEADER` parses cleanly as a real

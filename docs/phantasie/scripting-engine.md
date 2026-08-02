@@ -285,9 +285,16 @@ single-sized records).
 | `0x17`* | 1 | (P2 only) "!! GAME WON !!" — win-condition marker | Forces stop |
 
 *`0x14`-`0x17` are gated behind the P2 flag in the P1/P2 engine; Phantasie I
-data throws if encountered (i.e. this project's `data/phantasie/amiga/dng*`
-files should never contain these opcodes — not independently verified by
-scanning all ten files' decoded actions in this pass).
+data throws if encountered. **Confirmed** by scanning all ten
+`data/phantasie/amiga/dng*` files' decoded action-table opcodes: the
+per-file maximum opcode value never exceeds `0x13` across any of the 10
+files (P1 never emits `0x14`+). **Independently confirmed on the P2 side
+too**: scanning all 8 real `data/phantasieii/atarist/extracted/disk2/DNG1`-
+`DNG8` files' decoded action-table opcodes finds `0x14`-`0x17` values
+actually present and used in shipped content (e.g. `DNG8`'s highest opcode
+observed is `0x17`, the win-condition marker) — the documented P1/P2
+opcode-space split is real, not just a static gate in the reference tool
+that happens to never fire. See `dungeon-format.md` §7.
 
 Phantasie III's own `0x14`-`0x1B` (a disjoint, differently-numbered set —
 **do not conflate with P2's `0x14`-`0x17` above**, they are different
@@ -341,5 +348,5 @@ against this project's own `data/` files in this pass — see
 | P3 `0xF0` embedded-newline code (§3.2) | Documented from the reference parser | Not observed in the small sample of Amiga messages decoded in this pass — unconfirmed against real Amiga data |
 | P1 opcode `0x12` (§5) | Two conflicting descriptions in the reference source (conditional vs. unconditional) | Neither is confirmed against actual P1 game behavior; the interpreter code doesn't implement either interpretation's mutation, only a display string |
 | P2 opcode `0x13`'s "goto Action" (§5) | Declared in the display string | The actual interpreter never performs the jump — always shows a message instead. Unresolved whether this is a reference-tool bug or the accurate original behavior |
-| P2-exclusive opcodes `0x14`-`0x17` | Full effect table extracted from source | Not verified against any of this project's own `dng*` files (would require scanning all ten P1 files' decoded action opcodes and confirming none reach `0x14`+, and ideally locating real P2 data that does) |
+| ~~P2-exclusive opcodes `0x14`-`0x17`~~ | **Resolved** — confirmed absent from all 10 P1 `dng*` files and confirmed present/used in all 8 real P2 `DNG*` files (§5 above, `dungeon-format.md` §7) | Exact per-opcode semantics (jump targets, percent-chance rolls) still only source-derived, not independently re-derived from the raw bytes |
 | Stat/item/monster name tables (§6) | Approximate sizes and index-range structure from the reference source | Not derived from or cross-checked against this project's `data/` files at all — likely embedded in the game executables rather than these dungeon-format data files, and out of scope for this pass |

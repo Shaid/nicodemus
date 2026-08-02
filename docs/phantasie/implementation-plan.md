@@ -21,15 +21,22 @@ implementations.
 
 ## 1. Where things stand
 
-| Game | Platform | Data present | Graphics | Data tables | Dungeon/scripting |
-|------|----------|---------------|----------|--------------|---------------------|
-| Phantasie (I) | Amiga | ✅ `data/phantasie/amiga/` | ✅ confirmed (`.pic`, `.pat` + executable tables) | ✅ confirmed (monster/race/palette in `game`) | ✅ confirmed (shared P1/P2 engine) |
-| Phantasie II | Atari ST | ⚠️ raw `.stx` floppy images only, **not extracted** | hypothesis only (carried from reference source) | hypothesis only | format confirmed (shares P1 engine) but **no real P2 files to decode** |
-| Phantasie III | Amiga | ✅ `data/phantasieiii/amiga/` | ✅ confirmed (`.cmp`/`.csh`/`.set`) | ✅ confirmed (`monsinfo.dat`, skills); ⚠️ race table & `inititem.dat` unresolved | ✅ confirmed (own engine variant) |
+| Game | Platform | Data present | Graphics | Data tables | Dungeon/scripting | Pipeline |
+|------|----------|---------------|----------|--------------|---------------------|----------|
+| Phantasie (I) | Amiga | ✅ `data/phantasie/amiga/` | ✅ confirmed **and implemented** (`.pic`, `.pat` + executable tables) | ✅ confirmed **and implemented** (monster/race/palette in `game`) | ✅ confirmed (shared P1/P2 engine); not yet implemented (Phase 3) | ✅ `supported: true`, real `exportGameData`/`buildAssets` |
+| Phantasie II | Atari ST | ✅ extracted to `data/phantasieii/atarist/extracted/` (see `stx-extraction.md`) | ✅ confirmed **and implemented** (ST word-interleaved layout for both `MSTR*.PAT` and `PARTY*.PAT`; `.PIC` full-screen pictures not attempted — format never confirmed) | ✅ confirmed **and implemented** byte-exact against real `PHANT.PRG` (same compiled binary the reference offsets were recorded against — no adjustment needed) | ✅ confirmed against all 8 real `DNG*`/`MESS*` pairs, including the P2-exclusive `0x14`-`0x17` opcodes actually appearing in shipped data; not yet implemented (Phase 3) | ✅ `supported: true`, real `exportGameData`/`buildAssets` |
+| Phantasie III | Amiga | ✅ `data/phantasieiii/amiga/` | ✅ confirmed **and implemented** (`.cmp`/`.csh`/`.set`, including a real bug caught and fixed in `.set`'s byte-remap during implementation) | ✅ confirmed **and implemented** (`monsinfo.dat`, skills); ⚠️ race table & `inititem.dat` still unresolved | ✅ confirmed (own engine variant); not yet implemented (Phase 3) | ✅ `supported: true`, real `exportGameData`/`buildAssets` |
 
-Phantasie I and III are ready to implement now. Phantasie II is blocked on
-one prerequisite: extracting individual files from its `.stx` Pasti disk
-images (§3, Phase 0).
+**All three games now have real, tested, end-to-end graphics + data-table
+pipelines** (Phases 0-2, 4, and 7 all done) — `npx tsx
+tools/extract-game-data.ts --game all --platform all` produces actual
+PNGs/JSON for every game in `public/assets/`, not placeholders. The asset
+viewer (`npm run viewer`) is multi-game-aware and can browse all three.
+Phase 3 (the dungeon/scripting engine, shared across all three games) is
+now the single unimplemented piece standing between "assets render" and
+"any game is actually playable" — every format it needs was confirmed
+during Phantasie II's verification pass, so it carries no format-discovery
+risk, just implementation work.
 
 ## 2. Format decoder module layout
 
@@ -40,21 +47,27 @@ live in `src/assets/formats/`, imported by both `tools/` (pipeline) and
 `src/` (runtime engine + viewer). Proposed modules, each named after the
 format doc section it implements:
 
-| Module | Covers | Doc reference |
-|--------|--------|-----------------|
-| `bitplane.ts` | Generic bitplane pixel-extraction formula (`Planar` and `Interleaved` modes) — the shared primitive under every image format | `graphics-formats.md` §1 |
-| `palette.ts` | ST 12-bit RGB444 word decode, both the `ST` and `AmigaToST` lookup variants | `graphics-formats.md` §2 |
-| `pic.ts` | Raw uncompressed `.pic` full-screen pictures (P1) | `graphics-formats.md` §3 |
-| `cmp.ts` | `.CMP`/`.CSH` RLE-compressed bitmaps (P3), both interleave submodes | `graphics-formats.md` §4 |
-| `set.ts` | `.SET` world-map + tileset container (P3) | `graphics-formats.md` §5 |
-| `sprite-bank.ts` | P3 CMP grid-cell extraction (`spriteIndex` → bank/cell) and P1 `.pat` offset-table extraction | `graphics-formats.md` §6, §7 |
-| `exe-data.ts` | AmigaOS HUNK parsing (`parseHunks()`) + monster/race/palette/skill table extraction from `game`/`PhantasieIII` | `data-tables.md` §1, §3, §5; see reference note below |
-| `monster-data.ts` | `monsinfo.dat` record decoder (P3) | `data-tables.md` §3 |
-| `dungeon.ts` | Shared P1/P2 dungeon grid + header parser | `dungeon-format.md` §3 |
-| `dungeon-p3.ts` | P3 dungeon grid + header parser | `dungeon-format.md` §5 |
-| `star-action.ts` | Star and action record decode + the interpreter loop, parameterised by an opcode table | `scripting-engine.md` §1, §2, §4 |
-| `opcodes.ts` | The P1/P2 and P3 opcode tables as data (not control flow) | `scripting-engine.md` §5 |
-| `messages.ts` | P1/P2 length-prefixed line table + P3 pointer/pool decoder | `scripting-engine.md` §3 |
+| Module | Covers | Doc reference | Status |
+|--------|--------|-----------------|--------|
+| `bitplane.ts` | Generic bitplane pixel-extraction formula (`Planar` and `Interleaved` modes) — the shared primitive under every image format | `graphics-formats.md` §1 | ✅ built |
+| `palette.ts` | ST 12-bit RGB444 word decode, both the `ST` and `AmigaToST` lookup variants | `graphics-formats.md` §2 | ✅ built |
+| `pic.ts` | Raw uncompressed `.pic` full-screen pictures (P1) | `graphics-formats.md` §3 | ✅ built |
+| `cmp.ts` | `.CMP`/`.CSH` RLE-compressed bitmaps (P3), both interleave submodes | `graphics-formats.md` §4 | ✅ built |
+| `set.ts` | `.SET` world-map + tileset container (P3) | `graphics-formats.md` §5 | ✅ built |
+| `sprite-bank.ts` | P3 CMP grid-cell extraction (`spriteIndex` → bank/cell) and P1 `.pat` offset-table extraction | `graphics-formats.md` §6, §7 | ✅ built |
+| `exe-data.ts` | AmigaOS HUNK parsing (`parseHunks()`) + monster/race/palette/skill table extraction from `game`/`PhantasieIII` | `data-tables.md` §1, §3, §5; see reference note below | ✅ built |
+| `monster-data.ts` | `monsinfo.dat` record decoder (P3) | `data-tables.md` §3 | ✅ built |
+| `ascii-strings.ts` | Small shared helper (NUL/space-padded string reads) factored out during implementation — not in the original plan, but small and generic enough to keep | n/a | ✅ built (unplanned) |
+| `dungeon.ts` | Shared P1/P2 dungeon grid + header parser | `dungeon-format.md` §3 | ⏳ Phase 3 |
+| `dungeon-p3.ts` | P3 dungeon grid + header parser | `dungeon-format.md` §5 | ⏳ Phase 3 |
+| `star-action.ts` | Star and action record decode + the interpreter loop, parameterised by an opcode table | `scripting-engine.md` §1, §2, §4 | ⏳ Phase 3 |
+| `opcodes.ts` | The P1/P2 and P3 opcode tables as data (not control flow) | `scripting-engine.md` §5 | ⏳ Phase 3 |
+| `messages.ts` | P1/P2 length-prefixed line table + P3 pointer/pool decoder | `scripting-engine.md` §3 | ⏳ Phase 3 |
+
+All eight built modules have colocated `__tests__/*.test.ts` files
+(83 tests total) following the boilerplate guide's real-byte-fixture
+philosophy, plus golden-output checks against the real sample files named
+throughout `graphics-formats.md`/`data-tables.md`.
 
 **`exe-data.ts` reference:** a sibling project at
 `/home/ctemplet/Development/middilgard/src/assets/formats/exe-data.ts` has a
@@ -68,33 +81,44 @@ framework code). It's also the concrete next step for the two open
 
 ## 3. Phased roadmap
 
-### Phase 0 — Unblock Phantasie II: extract the `.stx` disk images
+### Phase 0 — Unblock Phantasie II: extract the `.stx` disk images — DONE
 
 **Goal:** turn `data/phantasieii/atarist/*.stx` (Pasti raw floppy images)
 into individual files (`PHANT.PRG`, `MSTR*.PAT`, `PARTY*.PAT`, `DNG*`,
 `MESS*`) under a layout `resolveDataDir()` can find.
 
-This is a distinct sub-problem from everything else in this plan: it's
-Atari ST floppy/filesystem archaeology (Pasti `.stx` sector format → an
-embedded GEMDOS/FAT-like filesystem), not a Phantasie-specific format. Two
-viable approaches, in order of preference:
+**Done.** No existing `.stx` reader was available, so a narrow
+`.stx` → raw `.ST` desectorizer (`tools/stx-extract/stx2st.py`, ~150 lines,
+implements the public Pasti file-format spec) was written and handed off to
+system `mtools` for the FAT12 half. Both disks turned out to be standard,
+non-cracked, single-sided 80-track/9-sector floppies (one incidental
+weak-bit protection sector found, confirmed to fall outside any extracted
+file's data). Full method, byte-level `.stx` structure notes, and the
+complete 59-file listing (12 files/348,477 B disk 1 + 47 files/332,507 B
+disk 2): `docs/phantasie/stx-extraction.md`. Files live at
+`data/phantasieii/atarist/extracted/disk{1,2}/`.
 
-1. **Existing tooling.** Check whether an existing `.stx` extractor (e.g.
-   HxC Floppy Emulator, or a CLI Pasti reader) can be run offline once to
-   produce a plain file dump, committed nowhere (still gitignored data) but
-   usable as this project's `data/phantasieii/atarist/` going forward. This
-   avoids writing and maintaining a disk-image reader for a one-time task.
-2. **Minimal in-repo reader**, only if no external tool is workable: a
-   narrow `.stx` sector reader + GEMDOS directory walker, scoped to just
-   enough to dump files (not a general Atari ST disk-image library).
+**Phantasie II stays `supported: false`** in `tools/shared/game-config.ts`
+until Phase 7's byte-level decode work lands — extraction alone doesn't
+change the pipeline wiring (left to that phase, not done here) — and every
+P2-specific format *claim* in the docs remains an unverified hypothesis
+carried from the reference source until it's checked against these newly
+extracted real files.
 
-**Until this lands, Phantasie II stays `supported: false`** in
-`tools/shared/game-config.ts` and every P2-specific claim in the format docs
-remains an unverified hypothesis carried from the reference source.
+### Phase 1 — Phantasie III graphics pipeline — DONE
 
-### Phase 1 — Phantasie III graphics pipeline
+**Done.** All five modules built and tested (§2). One real bug was caught
+and fixed during implementation: the first `set.ts` attempt assumed the
+`.SET` picture region was already in row-major order and produced visual
+noise — `graphics-formats.md` §5.2's column-block-major on-disk order has
+to be explicitly remapped first (`remapSetPictureBytes()`), after which
+`phantasy.set` renders the documented terrain panels correctly. A smoothness
+regression test guards against this silently breaking again. Every
+`Graphics/*.cmp`/`*.csh`/`.set` file now decodes to real PNG output via
+`tools/phantasieiii/build-assets.ts` — visually spot-checked, all legible
+(title screen, sprite grids, dialog buttons, UI icons, terrain panels).
 
-**Goal:** `.cmp`/`.csh`/`.set` → PNG, visible in the asset viewer. Highest
+**Goal (original):** `.cmp`/`.csh`/`.set` → PNG, visible in the asset viewer. Highest
 confidence, most self-contained, and the fastest path to a visual payoff
 that validates the whole pipeline shape end-to-end.
 
@@ -117,9 +141,19 @@ that validates the whole pipeline shape end-to-end.
 **Done when:** every `.cmp`/`.csh`/`.set` file in `data/phantasieiii/amiga/Graphics/`
 renders correctly in `tools/viewer/`.
 
-### Phase 2 — Phantasie III data tables
+### Phase 2 — Phantasie III data tables — DONE
 
-**Goal:** `monsinfo.dat` → `entities.json` (monster records, sprite-bank
+**Done.** `tools/phantasieiii/export-game-data.ts` writes a real
+`entities.json` (80 monsters, each with resolved sprite bank/cell rects
+from Phase 1) and `skills.json` (8 skills × 6 classes × 15 levels),
+replacing the placeholder empty array. One doc discrepancy noted during
+implementation, not yet corrected in `data-tables.md` §3.1: the monster
+name field is documented as "zero-padded" but is actually space-padded up
+to a single trailing NUL — handled with `.trimEnd()`, worth fixing in the
+doc. Race table and `inititem.dat` remain unresolved (§5 below) and were
+correctly treated as non-blocking per the original plan.
+
+**Goal (original):** `monsinfo.dat` → `entities.json` (monster records, sprite-bank
 references resolved to actual bank/cell coordinates from Phase 1).
 
 1. `monster-data.ts` — the confirmed 38-byte record decoder (`data-tables.md`
@@ -135,11 +169,18 @@ references resolved to actual bank/cell coordinates from Phase 1).
 `entities.json` (monsters, name, stats, resolved sprite) replacing the
 current empty-array placeholder.
 
-### Phase 3 — Dungeon + scripting engine (shared P1/P2/P3 core)
+### Phase 3 — Dungeon + scripting engine (shared P1/P2/P3 core) — NEXT
 
 **Goal:** dungeon grid + star/action/message interpreter, decoupled from
 rendering — this is game *logic*, not just data, so it's the first piece
 that touches `@seer/engine`'s `Game.ts` template rather than staying pipeline-only.
+
+**Status update:** this phase's risk profile improved since it was
+written — Phantasie II's dungeon/message format is now byte-verified
+against all 8 real `DNG*`/`MESS*` pairs (not just P1), including confirmation
+that the P2-exclusive opcodes `0x14`-`0x17` genuinely appear in shipped
+data. `opcodes.ts`/`star-action.ts` can now be built once against all three
+games' confirmed opcode tables, rather than needing a P2 revisit later.
 
 1. `dungeon.ts` (P1/P2 shared) and `dungeon-p3.ts` — grid + header parsing,
    built and tested against the byte-exact confirmed offsets in
@@ -169,26 +210,24 @@ walking onto a star cell triggers a real message + choice + action chain
 using data straight from the file, byte-verified against the interpreter
 algorithm in `scripting-engine.md` §4.
 
-### Phase 4 — Phantasie I graphics + data
+### Phase 4 — Phantasie I graphics + data — DONE
 
-**Goal:** `.pic`/`.pat` decode, monster/race tables from `game`.
+**Done**, with two scope decisions worth recording. `pic.ts` renders `.pic`
+files using the documented greyscale substitute palette (`gfx-pic-palette`
+in `TODO.md` is still open — the real screen palette was never found, so
+this wasn't "resolved," just implemented against the best available
+placeholder, matching what the plan expected). `exe-data.ts`'s
+`parseHunks()`/`readHunkHeader()` were built and verified byte-exact against
+`game`'s own confirmed hunk structure — but the actual P1 table readers
+still use the raw file offsets confirmed in `data-tables.md` §1, not a full
+hunk-relative resolution. The "why do raw offsets work at all" question
+(`data-p1-hunk-addressing` in `TODO.md`) is a conscious, explicitly-deferred
+scope decision, not an oversight — see §5 below. `sprite-bank.ts`'s P1
+`.pat` branch is byte-exact confirmed against real `mstr1.pat`/`party1.pat`.
+Both sprite banks render correctly-colored (not greyscale) via
+`tools/phantasie/build-assets.ts`, spot-checked visually.
 
-1. `pic.ts` — trivial once `bitplane.ts` exists (`graphics-formats.md` §3).
-   **Blocker to resolve first:** no in-game palette is confirmed for `.pic`
-   files (only the monster/race palette at `game+0x194BC` is verified) — see
-   §5 below before this phase can produce correctly-colored output rather
-   than the placeholder greyscale used during RE.
-2. `exe-data.ts`'s `parseHunks()` against `game` — resolve the "raw file
-   offsets happen to work" open question (`data-tables.md` §8) properly
-   instead of relying on the coincidence. This hardens Phase 1-3's P1 work
-   against silently breaking if a future table lookup lands somewhere the
-   coincidence doesn't hold.
-3. `sprite-bank.ts`'s P1 branch — `.pat` offset-table extraction
-   (`graphics-formats.md` §7), already byte-exact confirmed.
-
-**Done when:** `mstr1.pat`/`mstr2.pat`/`party1.pat`/`party2.pat` sprites
-render correctly-colored (not greyscale) in the viewer, and monster/race
-name + sprite pairs match (as manually spot-checked during RE).
+**Goal (original):** `.pic`/`.pat` decode, monster/race tables from `game`.
 
 ### Phase 5 — Phantasie I world/town data (lower priority)
 
@@ -223,49 +262,132 @@ message/choice UI. This is genre-specific game code with no format-doc
 counterpart; scope it once Phases 1-4 make clear what data is actually
 available to render.
 
-### Phase 7 — Phantasie II, once unblocked
+### Phase 7 — Phantasie II graphics + data — DONE
 
-Once Phase 0 lands real P2 files: P1/P2 share the dungeon/scripting engine
-entirely (Phase 3's code needs zero changes, just a new data source and the
-P2-exclusive opcodes `0x14`-`0x17`). Graphics are the one area flagged as
-possibly *not* shared with P1 — the reference source suggests P2's `.PAT`
-sprite banks use the ST word-interleaved layout (like P3's CMP) rather than
-P1's raw Amiga planar layout, despite the shared `.pat` extension
-(`graphics-formats.md` §9, `data-tables.md` §2) — verify this against real
-extracted P2 files before assuming `sprite-bank.ts`'s P1 branch applies
-unchanged.
+**Done.** `tools/phantasieii/export-game-data.ts` and `build-assets.ts`
+port the Phase 1/2/4 pattern using P2's confirmed offsets
+(`PHANT.PRG`'s tables, byte-identical to `data-tables.md` §2 — no
+adjustment needed, since `PHANT.PRG` is the exact compiled binary those
+offsets were recorded against) and the confirmed ST word-interleaved plane
+layout for `MSTR*.PAT`/`PARTY*.PAT` (not P1's Planar layout — including
+`PARTY*.PAT`, which earlier size-based speculation thought might keep P1's
+layout; it doesn't). `sprite-bank.ts` gained P2-specific
+`readP2MonsterSpriteTable`/`decodeP2MonsterSprite`/`decodeP2RaceSprite`
+functions alongside the existing P1 ones. Disk 1 is the canonical data
+source (`dataDirs: ['phantasieii/atarist/extracted/disk1']` in
+`tools/shared/game-config.ts`), with a fallback to disk 2 only for
+`MSTR2.PAT` (confirmed not save-tainted). `.PIC` full-screen pictures are
+explicitly **not** built — P2's `.PIC` format was never independently
+confirmed (unlike P1's `.pic`), and decoding it would be new format
+discovery outside this phase's mechanical-port scope.
+
+`phantasieii/atarist` is now `supported: true`. Verified directly (not
+just reported): `npx tsx tools/extract-game-data.ts --game phantasieii
+--platform atarist` produces real output (80 monster entities, 16 races,
+confirmed palette, 4 sprite-bank PNGs), and monster index 0/8 decode to
+`SKELETON`/`ORC` exactly as P1's roster does. Visually spot-checked several
+`mstr1.png`/`party1.png` sprites — legible, correctly-coloured art
+(a full monster menagerie: spiders, dragons, skeletons; a 16-race roster
+matching P1's poses). One visual-inspection false alarm worth recording:
+`SKELETON`'s frame appeared "blank" in a naive transparent-PNG-over-white
+check — it's actually a legitimate plain-white bone silhouette on a
+transparent background, byte-identical in pixel composition to P1's
+already-confirmed skeleton sprite. Not a bug; a reminder to composite over
+a non-white background (or diff against a known-good baseline) before
+concluding a sparse sprite is broken.
+
+Dungeon/scripting (Phase 3) still doesn't exist for any game, so P2's
+`DNG*`/`MESS*` files remain undecoded by the pipeline even though their
+format was confirmed in the prior verification pass — Phase 3, once built,
+should apply to P2 directly with no format-discovery risk. `OUT*.DAT`'s
+save-vs-template status also remains unresolved (`p2-out-dat-save-status`
+in `TODO.md`), but nothing in this phase touches it.
+
+### The asset viewer is now multi-game
+
+`tools/viewer/` was generalized: a game/platform selector (driven by
+`src/game-id.ts`'s `GAME_IDS`/`GAME_DISPLAY_NAMES`) replaces the old
+hardcoded `phantasieiii`-only `ASSET_BASE`, with the selection persisted in
+the URL (`?game=...&platform=...`) so a specific game's viewer is
+shareable. The game→`assetDir` mapping is duplicated locally in
+`viewer.ts` rather than imported from `tools/shared/game-config.ts`,
+since that file pulls in `@seer/pipeline`'s Node-only code and `viewer.ts`
+runs in the browser (`architecture-overview.md` §2's dependency rule).
+`npm run viewer` opens the dev server straight at it; `vite.config.ts`'s
+`build.rollupOptions.input` now includes it too, so `npm run build`
+produces a real `dist/tools/viewer/index.html` — confirmed by running the
+actual production build, not just checking the config.
 
 ## 4. Near-term action items (first PR-sized chunks)
 
-1. `bitplane.ts` + `palette.ts` with tests (unblocks everything).
-2. `cmp.ts` decoding `title.cmp` end-to-end, viewable in `tools/viewer/`.
-3. Scope and start Phase 0 (`.stx` extraction) in parallel — it's on the
-   critical path for Phantasie II but touches none of the same code, so it
-   can proceed independently of Phases 1-3.
+Phases 0, 1, 2, 4, and 7 are done — every game/platform pair now has a real
+graphics + data-table pipeline, and the viewer can browse all three. Next up:
+
+1. **Phase 3** (dungeon + scripting engine) — now the only unimplemented
+   piece, and the highest-leverage one: it's what every game needs to
+   become playable, and it's buildable against all three games' confirmed
+   formats in one pass, no P2 revisit needed.
+2. Phase 5 (P1 world/town data) and Phase 6 (runtime engine) remain
+   lower-priority/blocked-on-Phase-3 respectively, as originally scoped.
 
 ## 5. Open risks carried forward
 
-Full list with evidence pointers: [`TODO.md`](TODO.md). The two with the
+Full list with evidence pointers: [`TODO.md`](TODO.md). The one with the
 widest blast radius if wrong:
 
-- **P1 hunk-addressing coincidence** (`data-tables.md` §8) — every offset
-  used so far works as a raw file offset into `game`'s 240-hunk executable,
-  which structurally shouldn't generalize. Phase 4 should resolve this via
-  `parseHunks()` before trusting any *new* offset found later by inspection
-  rather than by re-deriving through the hunk table properly.
-- **Phantasie II extraction (Phase 0)** — every P2 claim in every doc is a
-  hypothesis carried from the reference source's C# code, never checked
-  against this project's actual data, because there isn't any yet. Treat
-  all P2-specific format claims as unverified until Phase 0 and Phase 7
-  land.
+- **P1 hunk-addressing coincidence** (`data-tables.md` §8) — still open.
+  `parseHunks()`/`readHunkHeader()` were built and verified correct in
+  Phase 4, but the actual P1 table readers still use the raw file offsets
+  documented in `data-tables.md` §1, which structurally shouldn't
+  generalize (hunk 0 alone is too small to contain any of the confirmed
+  tables). This was a conscious scope decision — every offset actually
+  needed so far checked out — not an oversight, but it means a *new* P1
+  offset found later by inspection should be re-derived through the hunk
+  table properly rather than assumed to work.
 
-## 6. Scaffolding already wired
+(Phantasie II format claims are no longer an open risk — resolved by the
+Phase 7 status update above. See `TODO.md` for the remaining, narrower
+open items: `.SET` map semantics, P3 race table offsets, `inititem.dat`
+field semantics, and a couple of smaller ones.)
 
-As part of this planning pass, `src/game-id.ts` and
-`tools/shared/game-config.ts` (and its `seer.config.ts` mirror) were updated
-to register all three game/platform pairs (`phantasie/amiga`,
-`phantasieii/atarist`, `phantasieiii/amiga`) — previously only the
-`phantasieiii/amiga` placeholder existed despite all three games' data
-already being present under `data/`. All three remain `supported: false`
-until their respective phases above land real `exportGameData`/
-`buildAssets` implementations.
+### A wiring gotcha worth knowing before touching Phase 3/5/6
+
+Registering a game's pipeline functions in `tools/shared/game-config.ts`
+creates a static circular import if that game's tool files also import
+config lookups from `game-config.ts` — resolved by moving those lookups to
+a lazy `import()` inside each tool's `main()`. Relatedly, every game's
+`export-game-data.ts`/`build-assets.ts` share a basename across games, so
+their `isStandalone` entrypoint guards must compare exact resolved paths
+(`process.argv[1] === fileURLToPath(import.meta.url)`), not
+`.endsWith('export-game-data.ts')` — the naive version silently runs every
+matching file's `main()` when any one of them is invoked directly. Both
+fixes are applied throughout `tools/phantasie/`, `tools/phantasieii/`, and
+`tools/phantasieiii/`; keep the pattern for any future tool file sharing a
+basename with an existing one.
+
+## 6. Scaffolding wired
+
+`src/game-id.ts` and `tools/shared/game-config.ts` (and its `seer.config.ts`
+mirror) register all three game/platform pairs (`phantasie/amiga`,
+`phantasieii/atarist`, `phantasieiii/amiga`), all three `supported: true`
+with real `exportGameData`/`buildAssets` wired in. `tools/viewer/` is
+multi-game-aware (`npm run viewer`) and included in the production build.
+
+## 7. Verified build health
+
+Confirmed directly (not just reported) as of this writing: `npx tsc
+--noEmit`, `npx eslint src/ tools/`, and `npx vitest run` (91 tests, 9
+files) all pass clean; `npx tsx tools/extract-game-data.ts --game all
+--platform all` runs the real pipeline end-to-end for every game —
+`data/extracted/` gets real `entities.json`/`races.json`/`palette.json`/
+`skills.json` as applicable, and `public/assets/` gets real PNG+JSON output
+(10 assets for `phantasie`, 4 for `phantasieii`, 14 for `phantasieiii`);
+and `npm run build` produces a real `dist/tools/viewer/index.html`, not
+just the main app. Spot-checked several output PNGs directly across all
+three games (`phantasy.set`'s terrain panels, both games' 16-race rosters,
+Phantasie II's monster sprite sheet) — all correctly rendered, correctly
+coloured. One visual false alarm during this pass is worth remembering as
+a verification-method note: a sparse/mostly-transparent sprite (a
+plain-white skeleton silhouette) can look "blank" in a naive check against
+a white background — diff against a known-good baseline or composite over
+a dark background before concluding a sparse sprite is broken.

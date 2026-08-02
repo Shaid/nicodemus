@@ -39,14 +39,17 @@ message storage scheme — see §5).
 
 **Confidence: confirmed** — verified against `data/phantasie/amiga/dng1`
 through `dng10` (see §3) using the shared engine's offsets with the
-Phantasie I flag.
+Phantasie I flag, and independently confirmed against real Phantasie II
+data too (`data/phantasieii/atarist/extracted/disk2/DNG1`-`DNG8`, see §7) —
+the exact same header offsets, grid layout, and star/action table formats
+decode cleanly on both games' own real files.
 
 ## 2. File pairing
 
 | Game | Dungeon file | Message file | Relationship |
 |------|-------------|---------------|--------------|
 | Phantasie I | `dngN` (N=1..10) | `messN` (matching index) | Two separate files per dungeon level; the dungeon file's numeric suffix selects the paired message file (`dng3` → `mess3`). |
-| Phantasie II | `DNGN` / `MESSN` | same pairing convention | Not yet extracted from our `data/phantasieii/atarist/` `.stx` floppy images (see §7). Reference-tool bundled sample files (`DNG1`–`DNG8`, `MESS1`–`MESS8`) were used to confirm the shared-engine offsets apply unchanged to Phantasie II. |
+| Phantasie II | `DNG1`-`DNG8` / `MESS1`-`MESS8` | same pairing convention, 8 levels (not P1's 10) | Extracted from `data/phantasieii/atarist/` `.stx` floppy images to `data/phantasieii/atarist/extracted/disk2/` — see §7 and `stx-extraction.md`. **Byte-level decode against these real files confirmed, see §7.** |
 | Phantasie III | `dnga.dat`..`dngk.dat` (11 files, letters a–k) | none — messages are embedded in the same file | Single self-contained file per dungeon level. Our files are renamed from the reference archive's `dng0.dat`..`dng10.dat` numeric convention; letter order (a=first) is assumed to match numeric order (0=first) based on identical file size (4352 bytes) and count (11), but this pairing has not been independently confirmed against in-game level order. |
 
 ## 3. Phantasie I / II — shared header + grid layout
@@ -224,18 +227,72 @@ author independently reached the same conclusion from source alone: P3's
 trap-flavour-text lookup is off by one message slot relative to P2's
 (presumably-correct) mapping.
 
-## 7. Phantasie II (Atari ST) — not yet extracted
+## 7. Phantasie II (Atari ST) — confirmed against real extracted files
 
-`data/phantasieii/atarist/` currently contains only raw `.stx` Pasti floppy
-disk images; individual `DNGn`/`MESSn` files have not been extracted from
-them in this project. The header offsets, grid dimensions, and record
-formats documented above for "Phantasie I/II" were validated against
-Phantasie I's real `data/phantasie/amiga/dng*`/`mess*` files and separately
-sanity-checked against a handful of pre-extracted Phantasie II sample files
-that ship alongside the reference tool (not part of this project's `data/`
-tree, and not reproduced here) — both confirm the same shared-engine layout.
-Extracting Phantasie II's actual dungeon/message files from the `.stx`
-images is out of scope for this pass.
+> **Correction:** the two `.stx` Pasti floppy images have been desectorized
+> and their GEMDOS/FAT12 filesystem extracted — see
+> `docs/phantasie/stx-extraction.md` for the full method. Real `DNG1`-`DNG8`
+> and `MESS1`-`MESS8` files exist at
+> `data/phantasieii/atarist/extracted/disk2/`, and the shared P1/P2 header
+> offsets/grid layout/record formats documented in §3 above have now been
+> applied directly against all 8 real P2 dungeon files and all 8 real P2
+> message files, with **zero decode failures**:
+>
+> - **Level bytes** (`0x04E7`) across `DNG1`-`DNG8`: `0, 1, 2, 3, 4, 4, 5, 5`
+>   — a non-strictly-increasing progression with repeats, structurally the
+>   same shape as P1's own `dng1`-`dng10` levels (`0, 1, 2, 3, 3, 4, 4, 5, 5,
+>   5`), i.e. both games' engines assign multiple dungeon files to the same
+>   "depth level" for monster-roster purposes.
+> - **Fixed-encounter table** (`0x04E8`, 10 bytes): every value across all 8
+>   files is a plausible monster-table index (max value seen: 79, exactly
+>   the last valid index of the confirmed 80-entry monster table, §2.2) —
+>   zero out-of-range values.
+> - **Star table** (`0x04FB`, 35-slot packed scan, record-size formula
+>   `((byte1+1)/5)+1`): decodes cleanly across all 8 files (9-24 real star
+>   records per file, remainder empty slots), no malformed records, no
+>   exceptions.
+> - **Action table** (`0x05AA`, 2-byte-aligned packed scan, `0x0D 0x0D`
+>   terminator): the terminator is found in every one of the 8 files, at
+>   offsets `0x6cc`-`0x736` (relative range 290-396 bytes from `0x05AA`) —
+>   the **same range** as P1's own terminator positions (`0x6CC`-`0x6D4`
+>   across all 10 P1 files, §3.1). 116-195 action records decoded per file.
+> - **P2-exclusive opcodes `0x14`-`0x17` (`scripting-engine.md` §5) are
+>   confirmed present and actively used in real shipped P2 content** — the
+>   per-file max opcode value seen ranges up to `0x17` (`DNG8`), with several
+>   files using `0x14`-`0x17` values. Cross-checked against all 10 real P1
+>   `dng*` files using the identical decode walk: **P1's max opcode value
+>   never exceeds `0x13`** across any of the 10 files — confirming the
+>   documented P1/P2 opcode-space split holds in practice, not just in the
+>   reference source's gating logic.
+> - **Message file format** (`0x00E6`-based 115-entry little-endian word
+>   table, 41-byte length-prefixed line units): decoded cleanly across
+>   `MESS1`-`MESS8` with zero garbage. Sample decoded lines: `"   POISON
+>   DARTS FLY FROM THE CEILING.   "`, `"       ------ GARBAGE PIT ------
+>   "`, `"    ---OUTSIDE IN KOBOLD VILLAGE---     "`, `"  A LARGE PIT OPENS
+>   BENEATH YOUR FEET!  "`, `"           AN EXPLOSION TRAP!           "` —
+>   all legible, in-genre, correctly space-padded dungeon flavour text and
+>   room descriptions, including multi-line messages that continue into a
+>   second 41-byte slot (e.g. `MESS8` index 10/11: `"--STONE PASSAGE THROUGH
+>   VOLCANIC ROCK"` continuing into `"...CK..."`).
+>
+> **Confidence: confirmed** — the shared P1/P2 dungeon/star/action/message
+> engine (§1-§4 above, `scripting-engine.md` §1-§4) applies unchanged to
+> real Phantasie II data, at the exact same header offsets as Phantasie I.
+> This closes `data-p2-tables`/`p2-dungeon-decode` in `TODO.md`. Not
+> independently re-derived by this pass: the P1/P2 message choice-count
+> heuristics (`scripting-engine.md` §3.1, still carried from the reference
+> source only) and the semantic meaning of the two unidentified header gaps
+> (`0x04F2`-`0x04FA`) — out of this pass's scope, still open.
+>
+> Extraction-level facts for context: P2 has only 8 dungeon/message pairs
+> (not P1's 10), and every `DNGn` file is a uniform 2,048 bytes (P1's vary,
+> 1,922-1,984 bytes) — see `stx-extraction.md` §7 for the full size
+> comparison. The uniform, larger P2 size is **not** explained by a larger
+> reserved action-table region (the confirmed terminator positions above
+> land in the same absolute range as P1's), so the extra ~65-125 bytes
+> per file are most likely additional trailing content after the
+> terminator (§3.1's "leftover/unused region") — not independently
+> investigated further in this pass.
 
 ## 8. Non-dungeon Phantasie I world/town files
 
@@ -407,7 +464,7 @@ in-executable character-record layout, which was out of scope here.
 | P1/P2 header gap `0x04F2`-`0x04FA` (9 bytes) | Fixed position/size, sample bytes recorded | Field meaning |
 | P3 header gap `0x02DB`-`0x02E3` (9 bytes) | Same position/size as P1/P2's gap | Field meaning |
 | P1/P2 trailing bytes after the action-table terminator | Position varies per file; often holds an `"...ENDING SEQUENCE"` string | Whether this is meaningful game content or a development artifact |
-| Phantasie II dungeon/message files | Format confirmed via shared-engine analysis and reference-tool sample files | Not yet extracted from our own `data/phantasieii/atarist/` `.stx` images |
+| ~~Phantasie II dungeon/message files~~ | **Resolved** — byte-level decode confirmed against all 8 real extracted `DNG1`-`DNG8`/`MESS1`-`MESS8` files, see §7 | n/a |
 | Phantasie III `a`-`k` dungeon-file letter-to-level-number mapping | Same size/count as reference archive's numeric `dng0`-`dng10` | Ordering assumed, not confirmed against actual level order |
 | `twns.int` 292-byte record | Stride, name-field offset, 12-town roster confirmed | Every other field in the record; the two non-empty non-name "slots" at the end |
 | `out*.dat` | POI text block confirmed (offset, encoding) | Leading grid region's dimensions and tile-code meaning |
