@@ -1,6 +1,40 @@
 import { setHidden, type AtlasMeta, type PaletteData, type AtlasFrame } from './shared.ts';
+import {
+  GAME_IDS,
+  GAME_DISPLAY_NAMES,
+  DEFAULT_GAME,
+  DEFAULT_PLATFORM,
+  isGameId,
+  isPlatformId,
+  type GameId,
+  type PlatformId,
+} from '../../src/game-id.ts';
 
-const ASSET_BASE = '/assets/phantasieiii/amiga';
+/**
+ * Per-game/platform asset output directory, mirroring the `assetDir` field
+ * each entry declares in `tools/shared/game-config.ts`. Duplicated here
+ * (rather than imported) because that file is Node-oriented — it imports
+ * `@seer/pipeline` — and importing it directly into this browser-run script
+ * would pull Node-only code into the viewer's bundle (architecture-overview.md
+ * §2's dependency rule: `src/`/browser code must never depend on `tools/`
+ * Node internals). Every game happens to have `assetDir === gameId` today,
+ * but this map is keyed independently so that stops being an assumption
+ * baked into the viewer if a future game's `assetDir` ever diverges.
+ */
+const GAME_PLATFORMS: Record<GameId, { platform: PlatformId; assetDir: string }[]> = {
+  phantasie: [{ platform: 'amiga', assetDir: 'phantasie' }],
+  phantasieii: [{ platform: 'atarist', assetDir: 'phantasieii' }],
+  phantasieiii: [{ platform: 'amiga', assetDir: 'phantasieiii' }],
+};
+
+function assetDirFor(game: GameId, platform: PlatformId): string {
+  const entry = GAME_PLATFORMS[game].find((p) => p.platform === platform);
+  return entry?.assetDir ?? game;
+}
+
+function assetBaseFor(game: GameId, platform: PlatformId): string {
+  return `/assets/${assetDirFor(game, platform)}/${platform}`;
+}
 
 interface ManifestEntry {
   name: string;
@@ -12,6 +46,9 @@ interface ManifestEntry {
 const listEl = document.getElementById('list')!;
 const listMetaEl = document.getElementById('list-meta')!;
 const searchEl = document.getElementById('search') as HTMLInputElement;
+const pageTitleEl = document.getElementById('page-title')!;
+const gameSelectEl = document.getElementById('game-select') as HTMLSelectElement;
+const platformSelectEl = document.getElementById('platform-select') as HTMLSelectElement;
 const titleEl = document.getElementById('title')!;
 const metaEl = document.getElementById('meta')!;
 const frameInfoEl = document.getElementById('frame-info')!;
@@ -30,6 +67,57 @@ let currentPalette: PaletteData | null = null;
 let currentFrames: AtlasFrame[] = [];
 let currentFrame = 0;
 
+let currentGame: GameId = DEFAULT_GAME;
+let currentPlatform: PlatformId = DEFAULT_PLATFORM;
+let ASSET_BASE = assetBaseFor(currentGame, currentPlatform);
+
+/** Read `?game=`/`?platform=` from the URL, falling back to the game-id
+ *  module's defaults, and clamping to a platform that's actually valid for
+ *  the chosen game (per `GAME_PLATFORMS` above). */
+function parseInitialSelection(): { game: GameId; platform: PlatformId } {
+  const params = new URLSearchParams(location.search);
+  const gameParam = params.get('game');
+  const platformParam = params.get('platform');
+
+  const game = isGameId(gameParam) ? gameParam : DEFAULT_GAME;
+  const platformsForGame = GAME_PLATFORMS[game];
+  const platform =
+    isPlatformId(platformParam) && platformsForGame.some((p) => p.platform === platformParam)
+      ? platformParam
+      : platformsForGame[0].platform;
+
+  return { game, platform };
+}
+
+function updateUrl() {
+  const url = new URL(location.href);
+  url.searchParams.set('game', currentGame);
+  url.searchParams.set('platform', currentPlatform);
+  history.replaceState({}, '', url);
+}
+
+function populateGameSelect() {
+  gameSelectEl.innerHTML = '';
+  for (const id of GAME_IDS) {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = GAME_DISPLAY_NAMES[id];
+    gameSelectEl.appendChild(opt);
+  }
+  gameSelectEl.value = currentGame;
+}
+
+function populatePlatformSelect() {
+  platformSelectEl.innerHTML = '';
+  for (const { platform } of GAME_PLATFORMS[currentGame]) {
+    const opt = document.createElement('option');
+    opt.value = platform;
+    opt.textContent = platform;
+    platformSelectEl.appendChild(opt);
+  }
+  platformSelectEl.value = currentPlatform;
+}
+
 async function loadManifest(): Promise<ManifestEntry[]> {
   try {
     const res = await fetch(`${ASSET_BASE}/manifest.json`);
@@ -46,6 +134,31 @@ async function loadJSON<T>(name: string): Promise<T | null> {
     if (!res.ok) return null;
     return await res.json();
   } catch { return null; }
+}
+
+/** Switch to a different game/platform: recompute the asset base, update
+ *  the URL and page chrome, and reload the manifest from scratch. */
+async function switchGamePlatform(game: GameId, platform: PlatformId) {
+  currentGame = game;
+  currentPlatform = platform;
+  ASSET_BASE = assetBaseFor(currentGame, currentPlatform);
+  updateUrl();
+
+  pageTitleEl.textContent = `${GAME_DISPLAY_NAMES[currentGame]} (${currentPlatform}) — Asset Viewer`;
+  document.title = pageTitleEl.textContent;
+
+  selected = null;
+  currentAtlas = null;
+  currentPalette = null;
+  currentFrames = [];
+  currentFrame = 0;
+
+  manifest = await loadManifest();
+  if (manifest.length === 0) {
+    listEl.innerHTML = '<div class="no-results"><p>No assets found.</p><p style="margin-top:8px;font-size:11px;">Run <code>npm run build-assets</code> first.</p></div>';
+  }
+  renderList();
+  drawAsset();
 }
 
 function renderList() {
@@ -208,10 +321,30 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+gameSelectEl.addEventListener('change', () => {
+  const game = gameSelectEl.value;
+  if (!isGameId(game)) return;
+  const platform = GAME_PLATFORMS[game][0].platform;
+  populatePlatformSelectAndSwitch(game, platform);
+});
+
+platformSelectEl.addEventListener('change', () => {
+  const platform = platformSelectEl.value;
+  if (!isPlatformId(platform)) return;
+  void switchGamePlatform(currentGame, platform);
+});
+
+function populatePlatformSelectAndSwitch(game: GameId, platform: PlatformId) {
+  currentGame = game;
+  populatePlatformSelect();
+  void switchGamePlatform(game, platform);
+}
+
 (async () => {
-  manifest = await loadManifest();
-  if (manifest.length === 0) {
-    listEl.innerHTML = '<div class="no-results"><p>No assets found.</p><p style="margin-top:8px;font-size:11px;">Run <code>npm run build-assets</code> first.</p></div>';
-  }
-  renderList();
+  const initial = parseInitialSelection();
+  currentGame = initial.game;
+  currentPlatform = initial.platform;
+  populateGameSelect();
+  populatePlatformSelect();
+  await switchGamePlatform(currentGame, currentPlatform);
 })();

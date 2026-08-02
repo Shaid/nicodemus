@@ -42,7 +42,26 @@ function serveDataDir(): Plugin {
 export default defineConfig({
   plugins: [serveDataDir()],
   server: { port: 3000 },
-  build: { target: 'es2023' },
+  build: {
+    target: 'es2023',
+    rollupOptions: {
+      // The asset viewer (tools/viewer/) is a genuinely useful production
+      // artifact, not just a dev-time tool — it's the fastest way to
+      // visually spot-check a deployed build's actual PNG/JSON output
+      // (no separate dev server, no rebuild), and its selection-in-URL
+      // support (src/game-id.ts-driven game/platform dropdowns) makes a
+      // built copy shareable. Without an explicit `input` here, Vite's
+      // default multi-page build only picks up the root `index.html` and
+      // silently drops this second entry point.
+      input: {
+        // resolve() with no base resolves against process.cwd(), same
+        // convention serveDataDir() above already uses (project root, since
+        // build/dev always run from there).
+        main: resolve('index.html'),
+        viewer: resolve('tools/viewer/index.html'),
+      },
+    },
+  },
   test: {
     include: ['src/**/*.test.ts', 'tools/**/*.test.ts'],
   },

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
+    "viewer": "vite --host --open /tools/viewer/index.html",
     "build": "tsc && vite build",
     "preview": "vite preview --host",
     "test": "vitest run",

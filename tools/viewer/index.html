@@ -3,14 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Phantasie III — Asset Viewer</title>
+  <title>Asset Viewer</title>
   <link rel="stylesheet" href="viewer.css" />
 </head>
 <body>
   <div id="app">
     <div id="sidebar">
       <div id="sidebar-header">
-        <h1>Phantasie III — Asset Viewer</h1>
+        <h1 id="page-title">Asset Viewer</h1>
+        <div id="game-select-row">
+          <label>Game
+            <select id="game-select"></select>
+          </label>
+          <label>Platform
+            <select id="platform-select"></select>
+          </label>
+        </div>
         <input id="search" type="text" placeholder="Search assets…" />
       </div>
       <div id="list-meta"></div>
