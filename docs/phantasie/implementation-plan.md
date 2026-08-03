@@ -173,7 +173,7 @@ current empty-array placeholder.
 
 **Goal:** dungeon grid + star/action/message interpreter, decoupled from
 rendering — this is game *logic*, not just data, so it's the first piece
-that touches `@seer/engine`'s `Game.ts` template rather than staying pipeline-only.
+that touches `@seer/engine-2d`'s `Game.ts` template rather than staying pipeline-only.
 
 **Status update:** this phase's risk profile improved since it was
 written — Phantasie II's dungeon/message format is now byte-verified
@@ -254,7 +254,7 @@ purely additive overworld content.
 ### Phase 6 — Runtime engine
 
 Once Phase 3 produces a working dungeon simulation and Phase 1/2/4 produce
-renderable assets: build out `@seer/engine`'s `Game.ts` template (or a
+renderable assets: build out `@seer/engine-2d`'s `Game.ts` template (or a
 dedicated `src/dungeon/` + `src/town/` split, per Phase 3's note) into an
 actual playable loop — tile rendering via `pixi-helpers.ts`'s viewport
 culling, `InputManager` wired to grid movement instead of free pan/zoom,
