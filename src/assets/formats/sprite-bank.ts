@@ -11,7 +11,7 @@
  * addressed by byte-offset tables stored in the game executable.
  */
 
-import { r16, r32 } from '@seer/core';
+import { r16, r32 } from '@seer-project/core';
 import { cropIndices, decodeBitplaneIndices, type BitplaneConfig } from './bitplane.ts';
 
 // ---------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-import { defineGameConfig } from '@seer/pipeline';
+import { defineGameConfig } from '@seer-project/pipeline';
 import { exportGameData as exportPhantasieGameData } from './tools/phantasie/export-game-data.ts';
 import { buildAssets as buildPhantasieAssets } from './tools/phantasie/build-assets.ts';
 import { exportGameData as exportPhantasieIIGameData } from './tools/phantasieii/export-game-data.ts';

@@ -8,7 +8,7 @@
 import { resolve } from 'node:path';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { writeJson, findFileCI, type PlatformConfig } from '@seer/pipeline';
+import { writeJson, findFileCI, type PlatformConfig } from '@seer-project/pipeline';
 import { readP1MonsterNames, readP1RaceNames, readP1Palette } from '../../src/assets/formats/exe-data.ts';
 import { readP1MonsterSpriteTable } from '../../src/assets/formats/sprite-bank.ts';
 // getGameConfig is dynamically imported inside main() (CLI-only) to avoid a

@@ -8,7 +8,7 @@
 import { resolve } from 'node:path';
 import { existsSync, readFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { writeJson, findFileCI, type PlatformConfig } from '@seer/pipeline';
+import { writeJson, findFileCI, type PlatformConfig } from '@seer-project/pipeline';
 import { decodeMonsterTable, type MonsterRecord } from '../../src/assets/formats/monster-data.ts';
 import {
   resolveMonsterSpriteIndex,

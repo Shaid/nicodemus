@@ -21,7 +21,7 @@
  * proper hunk-relative resolution.
  */
 
-import { r32 } from '@seer/core';
+import { r32 } from '@seer-project/core';
 import { readCString } from './ascii-strings.ts';
 import { decodePalette16, type RGB } from './palette.ts';
 

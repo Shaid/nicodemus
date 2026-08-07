@@ -8,7 +8,7 @@
 import { existsSync, readFileSync, readdirSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { writePNG, writeJson, findFileCI, type PlatformConfig } from '@seer/pipeline';
+import { writePNG, writeJson, findFileCI, type PlatformConfig } from '@seer-project/pipeline';
 import { decodePic, picToRGBA, picGreyscalePalette } from '../../src/assets/formats/pic.ts';
 import { indicesToRGBA, type RGB } from '../../src/assets/formats/palette.ts';
 import { readP1MonsterNames, readP1RaceNames, readP1Palette } from '../../src/assets/formats/exe-data.ts';

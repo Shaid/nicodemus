@@ -15,9 +15,9 @@
     "build-assets": "npx tsx tools/extract-game-data.ts --assets-only"
   },
   "dependencies": {
-    "@seer/core": "file:../seer/packages/core",
-    "@seer/engine-2d": "file:../seer/packages/engine-2d",
-    "@seer/pipeline": "file:../seer/packages/pipeline",
+    "@seer-project/core": "file:../seer/packages/core",
+    "@seer-project/engine-2d": "file:../seer/packages/engine-2d",
+    "@seer-project/pipeline": "file:../seer/packages/pipeline",
     "pixi.js": "^8.9.0",
     "pngjs": "^7.0.0"
   },

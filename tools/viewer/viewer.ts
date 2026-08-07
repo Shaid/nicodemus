@@ -14,7 +14,7 @@ import {
  * Per-game/platform asset output directory, mirroring the `assetDir` field
  * each entry declares in `tools/shared/game-config.ts`. Duplicated here
  * (rather than imported) because that file is Node-oriented — it imports
- * `@seer/pipeline` — and importing it directly into this browser-run script
+ * `@seer-project/pipeline` — and importing it directly into this browser-run script
  * would pull Node-only code into the viewer's bundle (architecture-overview.md
  * §2's dependency rule: `src/`/browser code must never depend on `tools/`
  * Node internals). Every game happens to have `assetDir === gameId` today,
