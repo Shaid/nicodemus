@@ -49,14 +49,14 @@ describe('resolveMonsterSpriteIndex — P3 piecewise bank/cell mapping (graphics
     expect(resolveMonsterSpriteIndex(47)).toEqual({ bank: 6, cell: 3, isGiant: true });
   });
 
-  it('applies the two hardcoded single-value patches (elemental=48, wild dog=65), never giant', () => {
-    expect(resolveMonsterSpriteIndex(48)).toEqual({ bank: 0, cell: 11, isGiant: false });
-    expect(resolveMonsterSpriteIndex(65)).toEqual({ bank: 2, cell: 0, isGiant: false });
-  });
-
-  it('throws for spriteIndex values outside the documented ranges', () => {
-    expect(() => resolveMonsterSpriteIndex(49)).toThrow();
-    expect(() => resolveMonsterSpriteIndex(64)).toThrow();
+  it('clamps any out-of-range value (>=48) to the bank/cell for spriteIndex 14 — disassembly-confirmed self-correction, not the previously-documented per-value patches', () => {
+    // Real monsinfo.dat: Mud Elemental has spriteIndex 48, Wolf has 65 —
+    // both real, shipped monsters that hit this path (graphics-formats.md §6).
+    const fallback = resolveMonsterSpriteIndex(14);
+    expect(fallback).toEqual({ bank: 2, cell: 14, isGiant: false });
+    expect(resolveMonsterSpriteIndex(48)).toEqual(fallback);
+    expect(resolveMonsterSpriteIndex(65)).toEqual(fallback);
+    expect(resolveMonsterSpriteIndex(1000)).toEqual(fallback);
   });
 });
 

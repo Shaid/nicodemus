@@ -6,10 +6,25 @@
  * not a generic sprite sheet, despite sharing the `.cmp`/`.csh` family's
  * ST palette convention.
  *
- * The map array's byte -> terrain-panel semantics are an open hypothesis
- * (graphics-formats.md §5.3, TODO `gfx-set-map-semantics`) — this module
- * only decodes the confirmed container layout (header, map array, picture),
- * not any terrain interpretation of the map bytes.
+ * **Map array byte -> terrain semantics (graphics-formats.md §5.3, TODO
+ * `gfx-set-map-semantics`): confirmed hypothesis.** Each map-cell byte is
+ * an X pixel-column index (0-241, within the picture's 0-319 width) into
+ * the accompanying picture — the picture is a horizontal strip of
+ * contiguous terrain-type bands (water / city-skyline / mountains / hills
+ * / forest / water / forest / water, left to right), not a single scenic
+ * view. Sampling `picture[row][mapValue]` for *any* fixed row reproduces
+ * the already-confirmed continent silhouette (graphics-formats.md §5.3's
+ * greyscale-heightmap render) plus geographically coherent features that
+ * emerge purely from the raw bytes: winding connected lines of a single
+ * value (rivers), blob regions of another (forests), and — decisively — a
+ * run of 26 sequential byte values (24-49) that each occur in the map
+ * array *exactly once*, scattered across distinct (x,y) cells, landing
+ * squarely in the picture's city-skyline column range: consistent with
+ * one map cell per named town/landmark, using that column's distinct
+ * building-facade colour as a location marker. `terrainColumnForMapValue`
+ * below documents the (identity) value->column relationship; the exact
+ * row the original game samples was not determined — no downstream code
+ * in this pipeline depends on it yet.
  */
 
 import { decodeBitplaneIndices, type BitplaneConfig } from './bitplane.ts';
@@ -99,4 +114,31 @@ export function decodeSet(data: Uint8Array): SetFile {
     mapArray,
     picture: { width: SET_PICTURE_WIDTH, height: SET_PICTURE_HEIGHT, indices },
   };
+}
+
+/**
+ * The X pixel-column in the `.set` picture that a map-cell byte value
+ * selects (graphics-formats.md §5.3 — confirmed hypothesis: identity,
+ * clamped to the picture's width). Every map value observed in the real
+ * `phantasy.set` file (0-241) already falls within range.
+ */
+export function terrainColumnForMapValue(value: number): number {
+  return Math.min(Math.max(value, 0), SET_PICTURE_WIDTH - 1);
+}
+
+/**
+ * Sample the picture's palette-index at a map cell's terrain column, for a
+ * given picture row. The row is NOT confirmed against the real game (see
+ * this module's top-of-file comment) — callers needing a single
+ * representative colour per terrain value should pick a row and treat the
+ * result as a rendering choice, not a verified fact.
+ */
+export function terrainPixelIndexForMapValue(
+  picture: SetFile['picture'],
+  value: number,
+  row: number,
+): number {
+  const x = terrainColumnForMapValue(value);
+  const clampedRow = Math.min(Math.max(row, 0), picture.height - 1);
+  return picture.indices[clampedRow * picture.width + x];
 }

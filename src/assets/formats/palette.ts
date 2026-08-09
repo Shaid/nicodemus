@@ -36,7 +36,25 @@ export const AMIGA_TO_ST_CHANNEL_LOOKUP: readonly number[] = [
   0x00, 0x00, 0x24, 0x00, 0x49, 0x00, 0x6d, 0x00, 0x92, 0x00, 0xb6, 0x00, 0xdb, 0x00, 0xff, 0x00,
 ];
 
-export type PaletteVariant = 'st' | 'amigaToSt';
+/**
+ * Native Amiga OCS 4-bit-per-channel -> 8-bit: `component * 17`
+ * (equivalently `n << 4 | n`), the exact 0-15 -> 0-255 mapping.
+ *
+ * This — not `AMIGA_TO_ST_CHANNEL_LOOKUP` — is the correct decode for the
+ * palettes embedded in `data/phantasie/amiga/game`, whose words are handed
+ * verbatim to `graphics.library/LoadRGB4` (call site byte-confirmed at
+ * `game+0x1F218`; see data-tables.md §1.3a). `LoadRGB4` honours all four
+ * bits per channel, so every nibble value 0-15 is legal and the even-only
+ * ST doubling table silently zeroes the odd ones — which really happens in
+ * 5 of the 240 nibbles across P1's five palettes (the value 11), including
+ * `pal4[2]`/`pal2[3]` `0x0EB0`, where the even-only lookup turns a
+ * yellow-orange into pure red. See data-tables.md §1.3's correction block.
+ */
+export const AMIGA_OCS_CHANNEL_LOOKUP: readonly number[] = [
+  0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+];
+
+export type PaletteVariant = 'st' | 'amigaToSt' | 'amiga';
 
 /** Decode one 16-bit ST-style RGB444 word into an 8-bit RGB triple. */
 export function decodeColorWord(word: number, variant: PaletteVariant): RGB {
@@ -48,6 +66,13 @@ export function decodeColorWord(word: number, variant: PaletteVariant): RGB {
       r: ST_CHANNEL_LOOKUP[r & 7],
       g: ST_CHANNEL_LOOKUP[g & 7],
       b: ST_CHANNEL_LOOKUP[b & 7],
+    };
+  }
+  if (variant === 'amiga') {
+    return {
+      r: AMIGA_OCS_CHANNEL_LOOKUP[r],
+      g: AMIGA_OCS_CHANNEL_LOOKUP[g],
+      b: AMIGA_OCS_CHANNEL_LOOKUP[b],
     };
   }
   return {

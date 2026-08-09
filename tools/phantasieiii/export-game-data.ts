@@ -32,8 +32,11 @@ export interface EntitySpriteRef {
 }
 
 export interface EntityRecord extends MonsterRecord {
-  /** Resolved sprite-bank/cell reference (graphics-formats.md §6), or null
-   *  if this record's spriteIndex falls outside every documented range. */
+  /** Resolved sprite-bank/cell reference (graphics-formats.md §6). Null only
+   *  as a defensive fallback — `resolveMonsterSpriteIndex` no longer throws
+   *  for any real `spriteIndex` byte value (0-255): out-of-range values
+   *  (>=48) now resolve via the disassembly-confirmed self-correction
+   *  fallback (bank 2 cell 14) rather than throwing. */
   sprite: EntitySpriteRef | null;
 }
 

@@ -46,13 +46,32 @@ export interface BankCellRef {
 
 /**
  * Maps a monster's `spriteIndex` field (`monsinfo.dat` +0x1B) to a bank/cell
- * pair, per the piecewise mapping in graphics-formats.md §6. Race sprites
- * (P3) don't go through this — they always use bank 0 at 32x48.
+ * pair, per the piecewise mapping in graphics-formats.md §6.
+ *
+ * **Independently re-derived and byte-verified this session** against
+ * `PhantasieIII` (real file offset `0x1B4F0`-`0x1B6E2`, the 6-way range
+ * dispatcher — see graphics-formats.md §6 for the disassembly evidence):
+ * every threshold and bank assignment for `spriteIndex` 0-47 matches the
+ * originally source-transcribed table exactly (byte-exact `CMPI.W`
+ * constants 0x0F/0x1C/0x24/0x2A/0x2C/0x30 and bank numbers 2/1/0/3/4/5/6,
+ * in order). **The two `==48`/`==65` single-value patches did NOT
+ * verify** — the real function has no per-value special case at all;
+ * *any* `spriteIndex >= 48` (not just 48 or 65) is clamped to 48 and the
+ * call returns without drawing, but first writes the fallback value `14`
+ * back into the monster's own struct field — i.e. the self-correction
+ * target is bank 2 cell 14 (the same generic piecewise formula, re-applied
+ * to 14), not the previously-documented bank0/cell11 or bank2/cell0.
+ * Real `monsinfo.dat` has two monsters that actually hit this path
+ * (`Mud Elemental`, `spriteIndex 48`; `Wolf`, `spriteIndex 65` — not
+ * "wild dog" as previously guessed, `Wild Dog` itself has `spriteIndex 0`).
+ * Race sprites (P3) don't go through this — they always use bank 0 at
+ * 32x48.
  */
 export function resolveMonsterSpriteIndex(spriteIndex: number): BankCellRef {
-  // Two hardcoded single-value patches, checked first.
-  if (spriteIndex === 48) return { bank: 0, cell: 11, isGiant: false };
-  if (spriteIndex === 65) return { bank: 2, cell: 0, isGiant: false };
+  // Confirmed via disassembly: any out-of-range value (>=48) falls back to
+  // the same formula applied to a fixed constant (14), not a per-value
+  // patch table — see the doc comment above.
+  if (spriteIndex >= 48) return resolveMonsterSpriteIndex(14);
 
   const isGiant = spriteIndex > 41;
 
@@ -62,9 +81,7 @@ export function resolveMonsterSpriteIndex(spriteIndex: number): BankCellRef {
   if (spriteIndex <= 35) return { bank: 3, cell: spriteIndex - 28, isGiant };
   if (spriteIndex <= 41) return { bank: 4, cell: spriteIndex - 36, isGiant };
   if (spriteIndex <= 43) return { bank: 5, cell: spriteIndex - 42, isGiant };
-  if (spriteIndex <= 47) return { bank: 6, cell: spriteIndex - 44, isGiant };
-
-  throw new Error(`spriteIndex ${spriteIndex} out of known range (0-48 or 65)`);
+  return { bank: 6, cell: spriteIndex - 44, isGiant };
 }
 
 export interface SpriteCellRect {

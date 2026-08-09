@@ -9,9 +9,19 @@ import { existsSync, readFileSync, readdirSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writePNG, writeJson, findFileCI, type PlatformConfig } from '@seer-project/pipeline';
-import { decodePic, picToRGBA, picGreyscalePalette } from '../../src/assets/formats/pic.ts';
+import {
+  decodePic,
+  picToRGBA,
+  picGreyscalePalette,
+  PIC_PALETTE_SLOT_BY_FILE,
+} from '../../src/assets/formats/pic.ts';
 import { indicesToRGBA, type RGB } from '../../src/assets/formats/palette.ts';
-import { readP1MonsterNames, readP1RaceNames, readP1Palette } from '../../src/assets/formats/exe-data.ts';
+import {
+  readP1MonsterNames,
+  readP1RaceNames,
+  readP1Palette,
+  readP1PaletteSlot,
+} from '../../src/assets/formats/exe-data.ts';
 import {
   readP1MonsterSpriteTable,
   decodeP1MonsterSprite,
@@ -45,23 +55,36 @@ function upsertManifest(outDir: string, entries: ManifestEntry[]): void {
 }
 
 // ---------------------------------------------------------------------------
-// .pic full-screen pictures — greyscale (no in-game palette confirmed, see
-// graphics-formats.md §3/§9, TODO gfx-pic-palette).
+// .pic full-screen pictures. All six files now have a confirmed in-game
+// palette, selected per file by `PIC_PALETTE_SLOT_BY_FILE` (an index into
+// the executable's five-slot palette array) — see graphics-formats.md §3 and
+// data-tables.md §1.3a. The greyscale substitute survives only for a `.pic`
+// that isn't in the map (i.e. an unexpected extra file), and for the case
+// where the executable itself is missing from the data dir.
 // ---------------------------------------------------------------------------
 
-function buildPicAssets(dataDir: string, outDir: string): ManifestEntry[] {
+function buildPicAssets(dataDir: string, outDir: string, game: Uint8Array | null): ManifestEntry[] {
   const files = readdirSync(dataDir).filter((f) => /\.pic$/i.test(f));
-  const palette = picGreyscalePalette();
+  const greyscale = picGreyscalePalette();
   const entries: ManifestEntry[] = [];
 
   for (const file of files) {
     const name = file.replace(/\.pic$/i, '');
+    const slot = PIC_PALETTE_SLOT_BY_FILE[name.toLowerCase()];
+    const palette = game && slot !== undefined ? readP1PaletteSlot(game, slot) : greyscale;
+    if (palette === greyscale) {
+      console.warn(`  ⚠ ${file}: no confirmed palette slot — falling back to greyscale`);
+    }
     const data = new Uint8Array(readFileSync(resolve(dataDir, file)));
     const image = decodePic(data);
     const rgba = picToRGBA(image, palette);
     writePNG(resolve(outDir, `${name}.png`), rgba, image.width, image.height);
     writeJson(resolve(outDir, `${name}.pal.json`), { colors: palette });
-    writeJson(resolve(outDir, `${name}.json`), { frames: [], width: image.width, height: image.height });
+    writeJson(resolve(outDir, `${name}.json`), {
+      frames: [],
+      width: image.width,
+      height: image.height,
+    });
     entries.push({ name, sprites: 0, hasPalette: true, png: `${name}.png` });
   }
 
@@ -189,13 +212,16 @@ export function buildAssets(config: PlatformConfig, dataDir: string): void {
   mkdirSync(outDir, { recursive: true });
 
   const entries: ManifestEntry[] = [];
-  entries.push(...buildPicAssets(dataDir, outDir));
 
   const exeName = config.executable ?? 'game';
   const gamePath = resolve(dataDir, findFileCI(dataDir, exeName));
-  if (existsSync(gamePath)) {
-    const game = new Uint8Array(readFileSync(gamePath));
-    const palette = readP1Palette(game);
+  const game = existsSync(gamePath) ? new Uint8Array(readFileSync(gamePath)) : null;
+  const monsterRacePalette = game ? readP1Palette(game) : undefined;
+
+  entries.push(...buildPicAssets(dataDir, outDir, game));
+
+  if (game) {
+    const palette = monsterRacePalette!;
 
     const mstr1 = buildMonsterBankAsset(dataDir, outDir, 'mstr1.pat', 'mstr1', game, palette);
     if (mstr1) entries.push(mstr1);

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
-import { decodeSet, remapSetPictureBytes } from '../set.ts';
+import { decodeSet, remapSetPictureBytes, terrainColumnForMapValue, terrainPixelIndexForMapValue } from '../set.ts';
 
 const SET_PATH = resolve('data/phantasieiii/amiga/Graphics/phantasy.set');
 
@@ -87,5 +87,44 @@ describe('decodeSet — phantasy.set (graphics-formats.md §5)', () => {
       expect(v).toBeLessThanOrEqual(241);
     }
     expect(distinct.size).toBeGreaterThan(50);
+  });
+});
+
+describe('terrain semantics — map byte = X column in the picture (graphics-formats.md §5.3)', () => {
+  it('every real map value already falls within the picture width unclamped', () => {
+    const data = new Uint8Array(readFileSync(SET_PATH));
+    const set = decodeSet(data);
+    for (const v of set.mapArray) {
+      expect(terrainColumnForMapValue(v)).toBe(v);
+    }
+  });
+
+  it('26 map values (24-49) each occur exactly once — real, scattered town/landmark markers, not terrain fill', () => {
+    const data = new Uint8Array(readFileSync(SET_PATH));
+    const set = decodeSet(data);
+    const counts = new Map<number, number>();
+    for (const v of set.mapArray) counts.set(v, (counts.get(v) ?? 0) + 1);
+    for (let v = 24; v <= 49; v++) {
+      expect(counts.get(v)).toBe(1);
+    }
+  });
+
+  it('sampling the picture at a common bulk-terrain value (197, the single most frequent map byte) gives a consistent, in-range colour index', () => {
+    const data = new Uint8Array(readFileSync(SET_PATH));
+    const set = decodeSet(data);
+    const idx = terrainPixelIndexForMapValue(set.picture, 197, 100);
+    expect(idx).toBeGreaterThanOrEqual(0);
+    expect(idx).toBeLessThan(set.palette.length);
+    // Same value at the same row must always resolve to the same colour —
+    // this is a pure function of (picture, value, row), not per-cell state.
+    expect(terrainPixelIndexForMapValue(set.picture, 197, 100)).toBe(idx);
+  });
+
+  it('value 0 (the dominant border/background value, 889 of 3750 cells) samples a picture pixel — not a decode error', () => {
+    const data = new Uint8Array(readFileSync(SET_PATH));
+    const set = decodeSet(data);
+    const idx = terrainPixelIndexForMapValue(set.picture, 0, 100);
+    expect(idx).toBeGreaterThanOrEqual(0);
+    expect(idx).toBeLessThan(set.palette.length);
   });
 });

@@ -11,11 +11,17 @@ import {
   readP2MonsterNames,
   readP2RaceNames,
   readP2Palette,
+  readP2CoverPalette,
+  readP2TownPalette,
+  readP3ItemNames,
+  readP3SpellNames,
+  readP3RaceNames,
 } from '../exe-data.ts';
 
 const GAME_PATH = resolve('data/phantasie/amiga/game');
 const P3_EXE_PATH = resolve('data/phantasieiii/amiga/PhantasieIII');
 const P2_EXE_PATH = resolve('data/phantasieii/atarist/extracted/disk1/PHANT.PRG');
+const P2_START_PATH = resolve('data/phantasieii/atarist/extracted/disk1/START.PRG');
 
 describe('readHunkHeader / parseHunks — against real HUNK executables', () => {
   it('parses `game`\'s HUNK_HEADER and reproduces every structural fact confirmed in data-tables.md §8', () => {
@@ -204,5 +210,90 @@ describe('readP2Palette — data-tables.md §2.3', () => {
     // Index 12 resolves cleanly under the raw ST lookup (nibbles 7,6,6),
     // unlike P1's AmigaToST-decoded odd-nibble outlier at the same index.
     expect(palette[12]).not.toEqual({ r: 0, g: 0, b: 0 });
+  });
+});
+
+describe('readP2CoverPalette — graphics-formats.md §10', () => {
+  it('decodes START.PRG file offset 0x172 — the Setpalette operand at file offset 0x94, governing COVER1.PIC/COVER2.PIC', () => {
+    const startPrg = new Uint8Array(readFileSync(P2_START_PATH));
+    const palette = readP2CoverPalette(startPrg);
+    expect(palette).toHaveLength(16);
+    // Word 0x0000 (index 0) is black — the stone-floor shadow colour.
+    expect(palette[0]).toEqual({ r: 0, g: 0, b: 0 });
+    // Word 0x0777 (index 15) is white — used by the "PHANTASIE II" logotype.
+    expect(palette[15]).toEqual({ r: 255, g: 255, b: 255 });
+    // Distinct from the all-black loading palette at file offset 0x192.
+    const distinct = new Set(palette.map((c) => `${c.r},${c.g},${c.b}`));
+    expect(distinct.size).toBeGreaterThan(2);
+  });
+
+  it('is a different table from the all-black pre-load palette at file offset 0x192', () => {
+    const startPrg = new Uint8Array(readFileSync(P2_START_PATH));
+    // File offset 0x192 (16 words immediately after 0x172's table + one
+    // stray word) is all-zero — the "hide the loading flicker" palette set
+    // before cover1.pic is read, never the one rendered assets should use.
+    const blackRegion = startPrg.subarray(0x192, 0x192 + 32);
+    expect(Array.from(blackRegion).every((b) => b === 0)).toBe(true);
+  });
+});
+
+describe('readP2TownPalette — graphics-formats.md §10', () => {
+  it('decodes PHANT.PRG file offset 0x23a7e — the Setpalette operand at file offset 0x2d44, governing PELNOR.PIC', () => {
+    const exe = new Uint8Array(readFileSync(P2_EXE_PATH));
+    const palette = readP2TownPalette(exe);
+    expect(palette).toHaveLength(16);
+    // Distinct from the already-confirmed monster/race palette at 0x23a9e —
+    // two genuinely different tables, not an off-by-one re-read of one.
+    const monsterRace = readP2Palette(exe);
+    expect(palette).not.toEqual(monsterRace);
+  });
+});
+
+describe('readP3ItemNames — data-tables.md §3.1', () => {
+  it('reads all 181 item names, index 0 the "0" placeholder', () => {
+    const exe = new Uint8Array(readFileSync(P3_EXE_PATH));
+    const names = readP3ItemNames(exe);
+    expect(names).toHaveLength(181);
+    expect(names[0]).toBe('0');
+    expect(names[1]).toBe('Glove');
+    expect(names[180]).toBe('Wand of Nikademus');
+  });
+});
+
+describe('readP3SpellNames — data-tables.md §3.1', () => {
+  it('reads all 58 spell names, index 0 the "0" placeholder', () => {
+    const exe = new Uint8Array(readFileSync(P3_EXE_PATH));
+    const names = readP3SpellNames(exe);
+    expect(names).toHaveLength(58);
+    expect(names[0]).toBe('0');
+    expect(names[1]).toBe('Healing I');
+    expect(names[57]).toBe('Divine Aid');
+  });
+});
+
+describe('readP3RaceNames — data-tables.md §4', () => {
+  it('reads all 18 race names via the HUNK_RELOC32-located pointer table', () => {
+    const exe = new Uint8Array(readFileSync(P3_EXE_PATH));
+    const names = readP3RaceNames(exe);
+    expect(names).toEqual([
+      'Human',
+      'Dwarven',
+      'Elven',
+      'Gnome',
+      'Halfling',
+      'Random',
+      'Gnoll',
+      'Goblin',
+      'Kobold',
+      'Lizard Man',
+      'Minotaur',
+      'Ogre',
+      'Orc',
+      'Pixie',
+      'Sprite',
+      'Troll',
+      'Elemental',
+      'Undead',
+    ]);
   });
 });

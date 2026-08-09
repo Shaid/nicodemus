@@ -20,12 +20,20 @@ export interface MonsterRecord {
   /** Raw stored byte. Display value is `attackRaw * 10` (see `attack`). */
   attackRaw: number;
   attack: number;
-  /** Index into an unidentified weapon/item table (data-tables.md §8). */
-  weaponIndex: number;
-  armorIndex: number;
+  /**
+   * Raw combat-power stat, NOT an index into the item table (data-tables.md
+   * §3.1/§8) — despite the reference source's field name, correlates
+   * strongly with `hp` (r=0.81) and `attackRaw` (r=0.82) across all 80
+   * monsters and grows monotonically with monster tier, which an
+   * item-catalogue index (unrelated to monster power) would not do.
+   */
+  weaponRating: number;
+  /** Same reframing as `weaponRating` — correlates with `attackRaw` (r=0.96) and `hp` (r=0.77), not an item index. */
+  armorRating: number;
   defense: number;
   threat: number;
   spellProbability: number;
+  /** Index into the P3 spell name table (`exe-data.ts`'s `readP3SpellNames`) — confirmed, data-tables.md §3.1. 0 = no spell. */
   spell1: number;
   spell2: number;
   spell3: number;
@@ -58,8 +66,8 @@ export function decodeMonsterRecord(data: Uint8Array, index: number): MonsterRec
     encounterGroupSize: data[o + 0x0e],
     attackRaw,
     attack: attackRaw * 10,
-    weaponIndex: data[o + 0x10],
-    armorIndex: data[o + 0x11],
+    weaponRating: data[o + 0x10],
+    armorRating: data[o + 0x11],
     defense: data[o + 0x12],
     threat: data[o + 0x13],
     spellProbability: data[o + 0x14],

@@ -1,17 +1,18 @@
 /**
- * Stage 2: decode Phantasie II's raw `.PAT` sprite banks into web-native
- * PNG + JSON assets, using the confirmed ST word-Interleaved plane layout
+ * Stage 2: decode Phantasie II's raw `.PAT` sprite banks and `.PIC`
+ * full-screen pictures into web-native PNG + JSON assets.
+ *
+ * `.PAT` uses the confirmed ST word-Interleaved plane layout
  * (graphics-formats.md §9) — not P1's Planar layout, despite identical
  * `.pat`/`.PAT` naming and (for `PARTY*.PAT`) a matching file size with P1.
  *
- * `.PIC` full-screen pictures are *not* built here: unlike P1's `.pic`
- * (graphics-formats.md §3, confirmed layout), P2's `.PIC` format was never
- * independently confirmed — `stx-extraction.md` §7 flags it as "likely P2's
- * equivalent... unexplored." Decoding it would be new format discovery,
- * out of scope for this mechanical port (see implementation-plan.md Phase 7
- * and the ground rules for this task).
+ * `.PIC` (graphics-formats.md §10) uses the same ST word-Interleaved
+ * layout plus one of three disassembly-confirmed per-file palette
+ * sources — `COVER1.PIC`/`COVER2.PIC` from `START.PRG`, `PELNOR.PIC` from
+ * `PHANT.PRG`'s town palette, and `DECOR.PIC`/`FINAL2.PIC`/`CROWD.PIC`
+ * from `PHANT.PRG`'s existing monster/race palette.
  *
- * See docs/phantasie/graphics-formats.md §9, docs/phantasie/data-tables.md
+ * See docs/phantasie/graphics-formats.md §9-§10, docs/phantasie/data-tables.md
  * §2, and docs/phantasie/implementation-plan.md Phase 7.
  */
 import { existsSync, readFileSync, mkdirSync } from 'node:fs';
@@ -19,13 +20,25 @@ import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writePNG, writeJson, findFileCI, type PlatformConfig } from '@seer-project/pipeline';
 import { indicesToRGBA, type RGB } from '../../src/assets/formats/palette.ts';
-import { readP2MonsterNames, readP2RaceNames, readP2Palette } from '../../src/assets/formats/exe-data.ts';
+import {
+  readP2MonsterNames,
+  readP2RaceNames,
+  readP2Palette,
+  readP2CoverPalette,
+  readP2TownPalette,
+} from '../../src/assets/formats/exe-data.ts';
 import {
   readP2MonsterSpriteTable,
   decodeP2MonsterSprite,
   decodeP2RaceSprite,
   P2_RACE_COUNT,
 } from '../../src/assets/formats/sprite-bank.ts';
+import {
+  decodeP2Pic,
+  picToRGBA,
+  P2_PIC_PALETTE_SOURCE_BY_FILE,
+  type P2PicPaletteSource,
+} from '../../src/assets/formats/pic.ts';
 // getGameConfig is dynamically imported inside main() (CLI-only) to avoid a
 // static circular import — game-config.ts imports buildAssets from this
 // file to register the pipeline step.
@@ -189,6 +202,57 @@ function buildRaceBankAsset(
   return writeAtlas(outDir, atlasName, atlas, palette);
 }
 
+// ---------------------------------------------------------------------------
+// .PIC full-screen pictures — graphics-formats.md §10. Fixed filename list
+// (not a directory scan) since the six files are split across disk1/disk2
+// and resolved the same way `.PAT` is, via `resolveP2File`.
+// ---------------------------------------------------------------------------
+
+const P2_PIC_FILES = ['COVER1.PIC', 'COVER2.PIC', 'PELNOR.PIC', 'DECOR.PIC', 'FINAL2.PIC', 'CROWD.PIC'];
+
+function buildP2PicAssets(
+  dataDir: string,
+  outDir: string,
+  exe: Uint8Array | null,
+  startPrg: Uint8Array | null,
+): ManifestEntry[] {
+  const entries: ManifestEntry[] = [];
+
+  const paletteBySource: Partial<Record<P2PicPaletteSource, RGB[]>> = {};
+  if (startPrg) paletteBySource.cover = readP2CoverPalette(startPrg);
+  if (exe) paletteBySource.town = readP2TownPalette(exe);
+  if (exe) paletteBySource.monsterRace = readP2Palette(exe);
+
+  for (const file of P2_PIC_FILES) {
+    const picPath = resolveP2File(dataDir, file);
+    if (!picPath) {
+      console.warn(`  ⚠ ${file} not found — skipping`);
+      continue;
+    }
+    const name = file.replace(/\.pic$/i, '').toLowerCase();
+    const source = P2_PIC_PALETTE_SOURCE_BY_FILE[name];
+    const palette = source ? paletteBySource[source] : undefined;
+    if (!palette) {
+      console.warn(`  ⚠ ${file}: no palette available for source '${source}' — skipping`);
+      continue;
+    }
+
+    const data = new Uint8Array(readFileSync(picPath));
+    const image = decodeP2Pic(data);
+    const rgba = picToRGBA(image, palette);
+    writePNG(resolve(outDir, `${name}.png`), rgba, image.width, image.height);
+    writeJson(resolve(outDir, `${name}.pal.json`), { colors: palette });
+    writeJson(resolve(outDir, `${name}.json`), {
+      frames: [],
+      width: image.width,
+      height: image.height,
+    });
+    entries.push({ name, sprites: 0, hasPalette: true, png: `${name}.png` });
+  }
+
+  return entries;
+}
+
 /** Stage 2 entrypoint — registered as `buildAssets` in `game-config.ts`. */
 export function buildAssets(config: PlatformConfig, dataDir: string): void {
   const outDir = resolve('public/assets', config.assetDir, config.platform);
@@ -198,8 +262,9 @@ export function buildAssets(config: PlatformConfig, dataDir: string): void {
 
   const exeName = config.executable ?? 'PHANT.PRG';
   const exePath = resolve(dataDir, findFileCI(dataDir, exeName));
+  let exe: Uint8Array | null = null;
   if (existsSync(exePath)) {
-    const exe = new Uint8Array(readFileSync(exePath));
+    exe = new Uint8Array(readFileSync(exePath));
     const palette = readP2Palette(exe);
 
     const mstr1 = buildMonsterBankAsset(dataDir, outDir, 'MSTR1.PAT', 'mstr1', exe, palette);
@@ -213,6 +278,16 @@ export function buildAssets(config: PlatformConfig, dataDir: string): void {
   } else {
     console.warn(`  ⚠ ${exePath} not found — skipping .PAT sprite bank assets`);
   }
+
+  let startPrg: Uint8Array | null = null;
+  const startPrgPath = resolveP2File(dataDir, 'START.PRG');
+  if (startPrgPath) {
+    startPrg = new Uint8Array(readFileSync(startPrgPath));
+  } else {
+    console.warn('  ⚠ START.PRG not found — skipping COVER1.PIC/COVER2.PIC (no palette source)');
+  }
+
+  entries.push(...buildP2PicAssets(dataDir, outDir, exe, startPrg));
 
   upsertManifest(outDir, entries);
   console.log(`Wrote ${entries.length} asset(s) to ${outDir}`);
