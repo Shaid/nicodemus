@@ -1,0 +1,10 @@
+[
+	{
+		"label": "Shared Formats",
+		"items": [
+			{ "label": "Overview", "slug": "formats" },
+			{ "label": "Bitplanes & Palette", "slug": "formats/bitplane-and-palette" },
+			{ "label": "Dungeon & Scripting Engine", "slug": "formats/dungeon-and-scripting-engine" }
+		]
+	}
+]

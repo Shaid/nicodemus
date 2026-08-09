@@ -1,0 +1,121 @@
+---
+title: Phantasie
+description: A human-readable guide to the internal data formats of Phantasie (1985, SSI) — the Amiga original, "Tholie's Tale."
+---
+
+import Lightbox from '../../../components/Lightbox.astro';
+
+<div style="text-align:center; margin: 1.5rem 0;">
+	<img
+		src="/assets/phantasie/amiga/cover1.png"
+		width="320"
+		height="200"
+		alt="Phantasie Amiga title screen — a stone gate, a sword, and the PHANTASIE logotype"
+		style="image-rendering: pixelated; max-width: 100%; width: 420px; border: 1px solid var(--sl-color-gray-5); border-radius: 0.5rem; cursor: zoom-in;"
+		data-lightbox
+		data-lightbox-label="Phantasie (Amiga) title screen — cover1.pic"
+	/>
+</div>
+
+<Lightbox />
+
+**Phantasie** (1985, Strategic Simulations, Inc. — "Tholie's Tale") is the
+first game of SSI's Phantasie trilogy: a first-person dungeon RPG where a
+party of up to six adventurers explores 10 dungeon levels beneath the Isle of
+Gelnor, hunting the Black Knights of Nikademus. This is the Amiga original —
+the only platform Phantasie I shipped on. It shares one byte-identical
+dungeon/scripting engine with Phantasie II (see [Shared
+Formats](/formats/)); everything specific to this game — its own raw
+graphics containers, executable-embedded data tables, and combat math —
+is documented here.
+
+## How the data is organised
+
+The game ships as a 193,804-byte AmigaOS `HUNK` executable (`game`) that
+carries the monster/race/item name tables, five 16-colour palettes, and the
+`GetStat`/`SetStat` character-record accessor, plus ten paired
+`dngN`/`messN` dungeon-and-message files (`N` = 1-10), six raw uncompressed
+`.pic` full-screen pictures, and four `.pat` sprite banks (`mstr1`/`mstr2`
+for monsters, `party1`/`party2` for playable races). A handful of
+non-dungeon world/town files (`twns.int`, `out1.dat`-`out19.dat`, `maps.int`,
+`scrolls.dtx`, `tamb.dat`) exist alongside these and are, honestly, mostly
+unexplored — see [Status & Open Work](/phantasie/status/).
+
+## What this project did
+
+The goal was to decode every P1-specific container format, name every table
+the game reads from its own executable, and trace combat resolution in both
+directions. The headline results:
+
+- **All 6 full-screen `.pic` pictures** (`cover1`, `cover2`, `decor`,
+  `final`, `logo`, `pelnor`) now render in full, correct colour — each
+  file's real in-game palette assignment (one of 5 slots stored in the
+  executable) resolved byte-exact via `HUNK_RELOC32` operand tracing, not
+  guessed. See [Graphics Formats](/phantasie/graphics/) for the correction
+  story behind this.
+- **80 monster sprites** across `mstr1.pat`/`mstr2.pat` (normal and
+  attacking pose), addressed by two 80-entry big-endian offset/dimension
+  tables in the executable — summing every entry's computed byte size
+  reproduces `mstr1.pat`'s exact 68,016-byte length with **zero**
+  discrepancy.
+- **16 playable races** across `party1.pat`/`party2.pat`, fixed 32×32,
+  512 bytes/sprite — `16 × 512 = 8,192`, `party1.pat`'s exact size, zero
+  remainder.
+- **`GetStat`/`SetStat` fully disassembled**: a linear resolver chain
+  mapping `statIndex` (1-164) to exact character-record byte offsets.
+  12 core stat names plus Score, Armour Rating, Race, Status, and all 8
+  skill names are bound to their real on-screen labels via a
+  51-instruction, 51/51-byte-verified trace of the character-sheet display
+  routine. Two indices, **7 and 8, are structurally confirmed unreachable
+  by any display routine in the binary** — a stronger, more specific
+  finding than "unknown." See
+  [Characters & Combat](/phantasie/characters-and-combat/).
+- **Combat resolution traced in both directions.** A linear congruential
+  RNG (`seed = (seed*3677+3) mod 32768`) feeds a `RollPercent()` helper;
+  hit/miss and damage formulas are fully derived for both a party member
+  attacking a monster and a monster attacking a party member — and the two
+  directions are **not mirror images**: different roll multipliers (`×1`
+  vs. `×6`) and damage divisors (`10` vs. `15`).
+- **Item name table**: 181 entries at `game+0x5EFC`, verified by decoding
+  every real item-index reference across all 10 real `dng*` files — 63
+  distinct indices, **0 out of range**.
+- **Two independent oracles agree.** This session's own disassembly is
+  cross-checked against SSI's own 1986 *Phantasie I and Phantasie II
+  Rulebook* — a genuine primary source found this session and not
+  previously used by this project. Its printed character-sheet layout
+  independently names Strength, Intelligence, Dexterity, Constitution,
+  Charisma, Luck, Age, Hit Points, Magic, Gold in Bank, Exper. Points, and
+  Score, and its Skills section names all 8 skills — matching the
+  disassembly-derived labels exactly.
+
+## How to read this site
+
+1. **[Shared Formats](/formats/)** — the bitplane pixel formula and 12-bit
+   palette encoding every image format reduces to, and the dungeon grid /
+   star-action-message engine Phantasie I and II share byte-for-byte.
+2. **[Graphics Formats](/phantasie/graphics/)** — this game's `.pic`
+   full-screen pictures and `.pat` sprite banks, including the palette
+   correction.
+3. **[Characters & Combat](/phantasie/characters-and-combat/)** — the
+   `GetStat` resolver, confirmed stat names, and both combat-formula
+   directions.
+4. **[Sprite Galleries](/phantasie/sprites/)** — every monster and
+   playable race, browsable.
+5. **[Screens](/phantasie/screens/)** — the 6 full-screen pictures, with
+   the palette-fix story told visually.
+6. **[Status & Open Work](/phantasie/status/)** — everything still open,
+   phrased as questions.
+
+## Source of truth
+
+This page is a curated summary. The exhaustive, byte-level research notes
+live in the main repository, not on this site — when a page here disagrees
+with them, **the raw notes win**:
+
+- `docs/phantasie/graphics-formats.md` — `.pic` and `.pat` formats.
+- `docs/phantasie/data-tables.md` — monster/race/item/palette tables.
+- `docs/phantasie/dungeon-format.md` — dungeon grid and the non-dungeon
+  world files.
+- `docs/phantasie/scripting-engine.md` — `GetStat`/`SetStat`, stat names,
+  and combat resolution.
+- `docs/phantasie/TODO.md` — the single status surface for open work.

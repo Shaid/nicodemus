@@ -1,0 +1,86 @@
+[
+  {
+    "name": "anatomy1",
+    "sprites": 0,
+    "hasPalette": true,
+    "png": "anatomy1.png"
+  },
+  {
+    "name": "anatomy2",
+    "sprites": 0,
+    "hasPalette": true,
+    "png": "anatomy2.png"
+  },
+  {
+    "name": "dlgbttns",
+    "sprites": 0,
+    "hasPalette": true,
+    "png": "dlgbttns.png"
+  },
+  {
+    "name": "dng",
+    "sprites": 0,
+    "hasPalette": true,
+    "png": "dng.png"
+  },
+  {
+    "name": "giant1",
+    "sprites": 8,
+    "hasPalette": true,
+    "png": "giant1.png"
+  },
+  {
+    "name": "giant2",
+    "sprites": 8,
+    "hasPalette": true,
+    "png": "giant2.png"
+  },
+  {
+    "name": "heros",
+    "sprites": 40,
+    "hasPalette": true,
+    "png": "heros.png"
+  },
+  {
+    "name": "purple1",
+    "sprites": 40,
+    "hasPalette": true,
+    "png": "purple1.png"
+  },
+  {
+    "name": "purple2",
+    "sprites": 40,
+    "hasPalette": true,
+    "png": "purple2.png"
+  },
+  {
+    "name": "scroll",
+    "sprites": 0,
+    "hasPalette": true,
+    "png": "scroll.png"
+  },
+  {
+    "name": "title",
+    "sprites": 0,
+    "hasPalette": true,
+    "png": "title.png"
+  },
+  {
+    "name": "yellow1",
+    "sprites": 40,
+    "hasPalette": true,
+    "png": "yellow1.png"
+  },
+  {
+    "name": "yellow2",
+    "sprites": 40,
+    "hasPalette": true,
+    "png": "yellow2.png"
+  },
+  {
+    "name": "phantasy",
+    "sprites": 0,
+    "hasPalette": true,
+    "png": "phantasy.png"
+  }
+]

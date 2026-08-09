@@ -1,0 +1,117 @@
+---
+title: Phantasie II — Nikademus' Revenge
+description: A reverse-engineering field guide to Phantasie II (1986, SSI), the Atari ST-only sequel extracted from two Pasti .stx floppy images this project desectorized from scratch.
+---
+
+import Lightbox from '../../../components/Lightbox.astro';
+
+<img
+	src="/assets/phantasieii/atarist/cover1.png"
+	alt="Phantasie II title screen: a stone archway, a gold knight-helm centrepiece, and the blue PHANTASIE II logotype over a grey checkered floor"
+	width="320"
+	height="200"
+	style="width:100%;max-width:480px;display:block;margin:0 auto 1.5rem;border-radius:0.5rem;image-rendering:pixelated;"
+	data-lightbox
+	data-lightbox-label="Phantasie II — title screen (cover1.pic)"
+/>
+
+**Phantasie II never got an Amiga release.** SSI shipped it Atari ST-only in
+1986 — *"Nikademus' Revenge,"* the direct sequel to 1985's Phantasie, moving
+the story from the Isle of Gelnor to the land of Ferronrah. That platform
+choice is also why this game's data was the hardest to get at of the three:
+there was no existing reader for the two Pasti (`.stx`) floppy-disk images
+this project had, so getting at a single byte of Phantasie II first required
+writing a container-format desectorizer from scratch.
+
+This site documents what that extraction turned up: 80 monster sprites and 16
+playable races rendered from the game's own `.PAT` sprite banks, the
+executable data tables they're drawn from, the dungeon/scripting engine
+Phantasie II shares byte-for-byte with Phantasie I (plus four opcodes only
+Phantasie II uses), and a combat system that turns out to share every
+formula constant with Phantasie I's — except the random-number generator
+underneath it, which is a completely different algorithm.
+
+## Headline results
+
+- **Both `.stx` floppy images fully desectorized**, zero data loss: Disk 1
+  (12 files, 348,477 bytes) and Disk 2 (47 files, 332,507 bytes), verified
+  against an independent BPB self-consistency check and the `PHANT.PRG`
+  executable's byte-exact `0x60 0x1A` GEMDOS magic. See
+  [.stx Extraction](/phantasieii/extraction/).
+- **All 80 monster sprites and 16 race sprites render correctly**, confirmed
+  to use the **same ST word-interleaved bitplane layout** as Phantasie III's
+  `.CMP` container — settling a question file size alone couldn't answer,
+  since Phantasie I's incompatible planar layout was an equally plausible
+  reading of the same byte counts. See [.PAT Sprite Banks](/phantasieii/graphics/).
+- **Every executable data table — monster names, sprite geometry, palette,
+  race names, 181-entry item table — carried over byte-exact** from the
+  reference source's offsets, unlike Phantasie III's Amiga-vs-ST offset
+  drift, because `PHANT.PRG` **is** the same Atari ST binary those offsets
+  were originally recorded against.
+- **All 8 dungeon levels (`DNG1`-`DNG8`) and their message files decode with
+  zero failures**, confirming the shared Phantasie I/II engine on real
+  Phantasie II data and confirming the four Phantasie-II-exclusive opcodes
+  (`0x14`-`0x17`) are actually used in shipped content, not just gated in
+  unused code. See [Characters, Items & Combat](/phantasieii/characters-and-combat/)
+  and the shared [Dungeon & Scripting Engine](/formats/dungeon-and-scripting-engine/) page.
+- **Combat shares P1's exact formula shape and constants — but not its RNG.**
+  Same 58-byte monster stride, same `+0x2E` armor field, same `100`/`67`
+  damage constants — reached via a completely different 7-word
+  additive/rotating generator instead of Phantasie I's linear congruential
+  one. See [Characters, Items & Combat](/phantasieii/characters-and-combat/).
+- **The `OUT*.DAT`/`DNG.SAV`/`GUILD.DAT`/`SACK.DAT` files on Disk 2 are
+  confirmed live save-game state, not pristine shipped content** — three
+  independent lines of byte-level evidence, including a literal leaked
+  GEMDOS directory-entry cache inside `OUT1.DAT`. See
+  [.stx Extraction](/phantasieii/extraction/).
+- **All 6 full-screen `.PIC` pictures now render in correct colour** —
+  this game's first confirmed title screen, town scene, and ending art.
+  No reference-tool source existed for this format at all; every palette
+  was traced from scratch through three separate `Setpalette` call sites
+  across `START.PRG` and `PHANT.PRG`. See [Screens](/phantasieii/screens/).
+
+## How to read this section
+
+1. [.stx Extraction](/phantasieii/extraction/) — how the two floppy images
+   became individual files, and which of those files are pristine vs.
+   save-mutated.
+2. [.PAT Sprite Banks](/phantasieii/graphics/) — the sprite-bank format and
+   how its bitplane layout was pinned down, building on the shared
+   [Bitplanes & Palette](/formats/bitplane-and-palette/) foundation.
+3. [Screens](/phantasieii/screens/) — the 6 full-screen `.PIC` pictures:
+   title, town, and ending art.
+4. [Characters, Items & Combat](/phantasieii/characters-and-combat/) —
+   the monster/race/item tables, the P2-exclusive dungeon opcodes, and the
+   combat RNG finding.
+5. [Sprite Gallery](/phantasieii/sprites/) — every monster and race sprite,
+   browsable.
+6. [Status & Open Work](/phantasieii/status/) — what's still unresolved.
+
+Two things this game shares with Phantasie I are documented once, not
+repeated here: the [Bitplanes & Palette](/formats/bitplane-and-palette/)
+pixel encoding, and the [Dungeon & Scripting Engine](/formats/dungeon-and-scripting-engine/)
+both games' parser is byte-identical against.
+
+## Source of truth
+
+These pages are a curated summary. The exhaustive, byte-level notes live in
+the main repository, and when a page here disagrees with them, **the raw
+notes win**:
+
+- `docs/phantasie/stx-extraction.md` — the `.stx` container format and
+  extraction method.
+- `docs/phantasie/graphics-formats.md` §1, §2, §9, §10 — the shared pixel
+  formula, the Phantasie II `.PAT` layout finding, and the `.PIC`
+  full-screen picture format (layout + per-file palette tracing).
+- `docs/phantasie/data-tables.md` §2 — Phantasie II's executable data tables.
+- `docs/phantasie/dungeon-format.md` §7 and `scripting-engine.md` §5, §7.4 —
+  the dungeon/scripting engine and combat findings specific to Phantasie II.
+- `docs/phantasie/TODO.md` — the single status surface for open work.
+
+Two independent, first-party SSI sources also back this section: SSI's own
+1986 *Phantasie I and Phantasie II Rulebook* (which documents Phantasie II
+explicitly, including an "Updated Rules" section for what changed from
+Phantasie I), cited where used, and direct disassembly of the real
+`PHANT.PRG` executable.
+
+<Lightbox />

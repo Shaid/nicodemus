@@ -6,6 +6,22 @@ it never got an Amiga release), and Phantasie III (Amiga).
 See [docs/phantasie/implementation-plan.md](docs/phantasie/implementation-plan.md)
 for the current state of the reverse-engineering effort and the build-out plan.
 
+## Documentation site
+
+`www/` is an Astro + Starlight field guide covering all three games — a
+curated, human-readable companion to the exhaustive research notes in
+`docs/phantasie/`, with searchable sprite galleries built from the real
+pipeline output. Run it locally:
+
+```bash
+cd www
+npm install
+npm run dev
+```
+
+It deploys itself via `.github/workflows/deploy.yml` (GitHub Pages) whenever
+`main` is pushed. See `www/README.md` for how it's wired.
+
 ## Getting started
 
 ```bash

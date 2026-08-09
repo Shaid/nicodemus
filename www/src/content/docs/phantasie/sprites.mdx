@@ -1,0 +1,85 @@
+---
+title: Sprite Galleries
+description: All 80 monster sprites and all 16 playable-race sprites, in both their normal and attacking poses.
+---
+
+import SpriteGallery from '../../../components/SpriteGallery.astro';
+import Lightbox from '../../../components/Lightbox.astro';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+export const readFrameNames = (manifest) => {
+	const repoAssetRoot = resolve(process.cwd(), '..', 'public', 'assets', 'phantasie', 'amiga');
+	const assetRoot = existsSync(repoAssetRoot)
+		? repoAssetRoot
+		: resolve(process.cwd(), 'public', 'assets', 'phantasie', 'amiga');
+	const data = JSON.parse(readFileSync(resolve(assetRoot, `${manifest}.json`), 'utf8'));
+	return data.frames.map((frame) => frame.name);
+};
+
+export const titleCase = (raw) =>
+	raw.toLowerCase().replace(/(^|[^a-z])([a-z])/g, (_match, sep, ch) => sep + ch.toUpperCase());
+
+export const buildLabels = (names) =>
+	new Map(names.map((name) => [name, { visible: titleCase(name.replace(/^\d+-/, '')) }]));
+
+export const monsterLabels = buildLabels(readFrameNames('mstr1'));
+export const raceLabels = buildLabels(readFrameNames('party1'));
+
+<Lightbox />
+
+Every monster and playable-race sprite extracted from Phantasie I's raw
+`.pat` sprite banks — see [Graphics Formats](/phantasie/graphics/) for the
+container format and addressing tables these were pulled from.
+
+**Where the names came from.** The extraction pipeline already writes each
+frame's index-prefixed monster/race name directly into the manifest (e.g.
+`mstr1.json`'s `"0-SKELETON"`), read straight from the same 58-byte-slot
+monster name table (`game+0x0C88`) and race name table (`game+0x69BE`) — see
+`docs/phantasie/data-tables.md` §§1.1, 1.4 for the full offset evidence.
+This page strips the numeric prefix and title-cases the remainder for
+display — no name here is invented; every one traces back to the
+executable's own string table.
+
+Hover a card to see the raw `index-NAME` frame name and pixel dimensions.
+Click a card (or press Enter/Space) to open it enlarged.
+
+## Monsters
+
+80 entries in each of `mstr1.pat` (normal pose) and `mstr2.pat` (attacking
+pose) — the same 80 creatures, same index, same name, in each file. Summing
+every entry's computed sprite size reproduces `mstr1.pat`'s exact
+68,016-byte length with zero discrepancy (see
+[Graphics Formats](/phantasie/graphics/)).
+
+### Normal pose (`mstr1`)
+
+<SpriteGallery manifest="mstr1" assetPath="phantasie/amiga" label="monster" labels={monsterLabels} />
+
+### Attacking pose (`mstr2`)
+
+<SpriteGallery manifest="mstr2" assetPath="phantasie/amiga" label="monster" labels={monsterLabels} />
+
+## Playable races
+
+16 entries in each of `party1.pat` (normal pose) and `party2.pat` (attacking
+pose), all fixed 32×32 — Human, Dwarf, Elf, Halfling, Gnome, Pixie, Sprite,
+Ogre, Gnoll, Troll, Kobold, Orc, Goblin, Liz.Man, Minotaur, Undead, matching
+the 16-entry canonical race list in `data/extracted/phantasie/races.json`.
+
+### Normal pose (`party1`)
+
+<SpriteGallery manifest="party1" assetPath="phantasie/amiga" label="race" labels={raceLabels} />
+
+### Attacking pose (`party2`)
+
+<SpriteGallery manifest="party2" assetPath="phantasie/amiga" label="race" labels={raceLabels} />
+
+## A known colour defect
+
+`pal3`, the palette these four atlases render under, has one still-uncorrected
+colour index (12 of 16) — see [Graphics Formats](/phantasie/graphics/) §
+"The palette correction." Any sprite using that index currently renders a
+patch of pure red where the correct colour is a pale salmon. This is a
+tracked, open item (`gfx-p1-palette-decode-variant`), not a rendering bug in
+this gallery.

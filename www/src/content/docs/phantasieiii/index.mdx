@@ -1,0 +1,127 @@
+---
+title: Phantasie III — The Wrath of Nikademus
+description: 1987, SSI, Amiga — a new engine variant with its own compressed .CMP/.CSH/.SET graphics format, 80 monsters, 18 races, and a distinct combat RNG and opcode set from Phantasie I/II.
+---
+
+import Lightbox from '../../../components/Lightbox.astro';
+
+<div style="text-align:center; margin: 1.5rem 0;">
+	<img
+		src="/assets/phantasieiii/amiga/title.png"
+		width="320"
+		height="200"
+		alt="Phantasie III Amiga title screen — PHANTASIE III, THE WRATH OF NIKADEMUS, an archer illustration on a decorative border"
+		style="image-rendering: pixelated; max-width: 100%; width: 420px; border: 1px solid var(--sl-color-gray-5); border-radius: 0.5rem; cursor: zoom-in;"
+		data-lightbox
+		data-lightbox-label="Phantasie III (Amiga) title screen — title.cmp"
+	/>
+</div>
+
+<Lightbox />
+
+**Phantasie III: The Wrath of Nikademus** (1987, Strategic Simulations, Inc.,
+Amiga version by Westwood) is the third game of SSI's Phantasie trilogy. It
+reuses the trilogy's overall shape — a party-based first-person dungeon
+crawler with a star/action/message scripting engine driving the world — but
+runs on a **new engine variant, not the byte-identical parser Phantasie I and
+II share** (see [Shared Formats](/formats/) for that shared engine, and
+[Combat & Character Record](/phantasieiii/combat-and-character-record/) for
+everywhere this game's own engine actually differs: its own opcode range,
+its own combat RNG, its own character-record layout). The game ships 11
+dungeon files (`dnga.dat`-`dngk.dat`), a monster table of 80 creatures, a
+skills system of 8 skills × 6 classes × 15 levels, and a roster of 18
+playable races — three more than Phantasie I/II's 16.
+
+## How the data is organised
+
+The Amiga release (`data/phantasieiii/amiga/`) is a 3-hunk AmigaOS `HUNK`
+executable (`PhantasieIII`, 174,928 bytes — much simpler than Phantasie I's
+240-hunk `game`) carrying the race/class/skill-label string tables, the
+item and spell name tables, the skills-progression table, and the combat
+RNG/formula code, alongside `monsinfo.dat` (80 monsters), `inititem.dat`
+(181 records, field semantics still open), `gamesave.dat` (a full save,
+independently useful as a byte-exact runtime oracle), and a `Graphics/`
+directory of `.CMP`/`.CSH` RLE-compressed bitmaps plus one `.SET`
+world-map-and-picture container.
+
+## What this project did
+
+The goal was to decode P3's own compressed graphics format, name its
+executable-embedded tables, and trace its combat resolution end to end —
+without assuming any of it matches Phantasie I/II's engine just because the
+trilogy shares an author. The headline results:
+
+- **Every `Graphics/*.cmp`/`*.csh`/`.set` file decodes to legible, correctly
+  coloured PNG output** — the title screen, sprite grids, dialog buttons,
+  UI icons, and terrain panels are all real, readable art, not noise. A
+  real bug was caught and fixed along the way: `.SET`'s picture region is
+  stored in an odd column-block-major byte order on disk, not the row-major
+  order the renderer expects — `remapSetPictureBytes()` fixes it, and a
+  smoothness-metric regression test now guards against it silently breaking
+  again. See [Graphics Formats](/phantasieiii/graphics/).
+- **80 monsters, 181 items, and 57 spells, all executable-embedded and all
+  cross-checked against a genuine primary source** — the actual SSI 1987
+  *Phantasie III* manual, found this session as a scanned 32-page PDF. The
+  item table matches the manual **117/120**, with one real, non-cosmetic
+  divergence documented rather than silently resolved; the spell table
+  matches **55/55**, resolving a numbering gap via the manual's own body
+  text. See [Data Tables](/phantasieiii/data-tables/).
+- **A real bug found and fixed in the monster table's own field
+  semantics**: `monsinfo.dat`'s "Weapon"/"Armor" fields were assumed to be
+  item-table indices; a full 80-monster correlation pass showed they
+  correlate strongly with the monster's own combat stats instead (Pearson
+  `r` up to 0.96) and not at all with an unrelated stat — they're raw
+  combat-power ratings, renamed `weaponRating`/`armorRating`. See [Data
+  Tables](/phantasieiii/data-tables/).
+- **Combat fully traced in both formula directions**, and it's a genuinely
+  different engine from Phantasie I/II's: a different LCG (`seed =
+  (seed*25173+13849) mod 65536`, the textbook "quick and dirty" constants),
+  a strict `>` hit/miss comparison instead of P1/P2's `>=`, and a
+  single-die damage roll instead of P1/P2's weapon-stat/variance/armor
+  formula. Getting there required recognising that a block of addresses
+  previously read as "class-indexed lookup tables" are actually **runtime
+  BSS variables** in a SAS/C merged data+bss hunk — independently confirmed
+  against a byte-exact 11,812-byte `gamesave.dat`. See [Combat & Character
+  Record](/phantasieiii/combat-and-character-record/).
+- **18 playable races, confirmed byte-exact**, resolving an apparent count
+  mismatch against the reference source: the 18th name, `"Random"`, is a
+  character-creation menu option ("generate me a random race"), not a lore
+  race — 16 (P1/P2) + Elemental + Random = 18.
+
+## How to read this site
+
+1. **[Shared Formats](/formats/)** — the bitplane pixel formula and 12-bit
+   palette encoding this game's `.CMP`/`.CSH`/`.SET` files build on, and how
+   the trilogy's dungeon/scripting engine relates to this game's own
+   variant.
+2. **[Graphics Formats](/phantasieiii/graphics/)** — the RLE compression
+   scheme and `.SET`'s dual map+picture structure, including the
+   column-block remap bug.
+3. **[Data Tables](/phantasieiii/data-tables/)** — `monsinfo.dat`, the
+   skills table (and its level-15 anomaly), the race table, and the
+   item/spell tables' manual cross-checks.
+4. **[Combat & Character Record](/phantasieiii/combat-and-character-record/)**
+   — the RNG, both to-hit/damage formula branches, the merged-BSS finding,
+   and the 9 character-record skill names.
+5. **[Sprite Galleries](/phantasieiii/sprites/)** — every monster/race
+   sprite bank, browsable.
+6. **[Extracted Screens](/phantasieiii/screens/)** — the full-canvas art:
+   title screen, world-map picture, and UI sheets.
+7. **[Status & Open Work](/phantasieiii/status/)** — everything still open,
+   phrased as questions.
+
+## Source of truth
+
+This page is a curated summary. The exhaustive, byte-level research notes
+live in the main repository, not on this site — when a page here disagrees
+with them, **the raw notes win**:
+
+- `docs/phantasie/graphics-formats.md` §4-§6 — `.CMP`/`.CSH`/`.SET`.
+- `docs/phantasie/data-tables.md` §3-§4, §6 — monster/race/item/skills
+  tables.
+- `docs/phantasie/scripting-engine.md` §5, §7.5-§7.5.2 — P3's opcode set,
+  combat resolution, and character-record fields.
+- `docs/phantasie/TODO.md` — the single status surface for open work.
+- `data/phantasieiii/Phantasie III - The Wrath of Nikademus v1.0
+  (1987)(SSI)[compilation Bonus Ed.][1186].pdf` — SSI's own 1987 manual,
+  used this session as a primary-source cross-check oracle.

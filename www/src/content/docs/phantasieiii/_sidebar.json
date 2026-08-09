@@ -1,0 +1,14 @@
+[
+	{
+		"label": "Phantasie III",
+		"items": [
+			{ "label": "Home", "slug": "phantasieiii" },
+			{ "label": "Status & Open Work", "slug": "phantasieiii/status" },
+			{ "label": ".CMP/.CSH/.SET — Compressed Graphics", "slug": "phantasieiii/graphics" },
+			{ "label": "Data Tables", "slug": "phantasieiii/data-tables" },
+			{ "label": "Combat & Character Record", "slug": "phantasieiii/combat-and-character-record" },
+			{ "label": "Sprite Galleries", "slug": "phantasieiii/sprites" },
+			{ "label": "Extracted Screens", "slug": "phantasieiii/screens" }
+		]
+	}
+]

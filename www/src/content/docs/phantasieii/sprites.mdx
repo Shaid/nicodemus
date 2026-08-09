@@ -1,0 +1,46 @@
+---
+title: Sprite Gallery
+description: All 80 monster sprites and 16 race sprites extracted from Phantasie II's .PAT sprite banks, in both their normal and attacking poses.
+---
+
+import SpriteGallery from '../../../components/SpriteGallery.astro';
+import Lightbox from '../../../components/Lightbox.astro';
+
+Every sprite Phantasie II shipped: **80 monsters** (from `MSTR1.PAT`/
+`MSTR2.PAT`) and **16 playable races** (from `PARTY1.PAT`/`PARTY2.PAT`),
+each in its normal and attacking pose. Card titles are each sprite's
+extracted frame name exactly as it comes out of the sprite bank's manifest —
+index-prefixed (`0-SKELETON`, `11-ORC`), the same naming convention this
+project uses for Phantasie I. There's no separate name-lookup file for these
+frames: the confirmed name (from `PHANT.PRG`'s monster/race name tables — see
+[Characters, Items & Combat](/phantasieii/characters-and-combat/)) is baked
+directly into the frame name at extraction time. Click any card to enlarge.
+
+## Monsters — normal pose (`mstr1`)
+
+All 80 monster sprites in their default pose, decoded from `MSTR1.PAT` under
+the confirmed ST word-interleaved layout (see
+[.PAT Sprite Banks](/phantasieii/graphics/)).
+
+<SpriteGallery manifest="mstr1" assetPath="phantasieii/atarist" label="monster" />
+
+## Monsters — attacking pose (`mstr2`)
+
+The same 80 monsters, same index-to-name mapping, in their attacking pose
+from `MSTR2.PAT`.
+
+<SpriteGallery manifest="mstr2" assetPath="phantasieii/atarist" label="monster" />
+
+## Races — normal pose (`party1`)
+
+All 16 playable races, fixed 32×32, decoded from `PARTY1.PAT`.
+
+<SpriteGallery manifest="party1" assetPath="phantasieii/atarist" label="race" />
+
+## Races — attacking pose (`party2`)
+
+The same 16 races in their attacking pose, from `PARTY2.PAT`.
+
+<SpriteGallery manifest="party2" assetPath="phantasieii/atarist" label="race" />
+
+<Lightbox />

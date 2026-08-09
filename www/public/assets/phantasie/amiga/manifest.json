@@ -1,0 +1,62 @@
+[
+  {
+    "name": "cover1",
+    "sprites": 0,
+    "hasPalette": true,
+    "png": "cover1.png"
+  },
+  {
+    "name": "cover2",
+    "sprites": 0,
+    "hasPalette": true,
+    "png": "cover2.png"
+  },
+  {
+    "name": "decor",
+    "sprites": 0,
+    "hasPalette": true,
+    "png": "decor.png"
+  },
+  {
+    "name": "final",
+    "sprites": 0,
+    "hasPalette": true,
+    "png": "final.png"
+  },
+  {
+    "name": "logo",
+    "sprites": 0,
+    "hasPalette": true,
+    "png": "logo.png"
+  },
+  {
+    "name": "pelnor",
+    "sprites": 0,
+    "hasPalette": true,
+    "png": "pelnor.png"
+  },
+  {
+    "name": "mstr1",
+    "sprites": 80,
+    "hasPalette": true,
+    "png": "mstr1.png"
+  },
+  {
+    "name": "mstr2",
+    "sprites": 80,
+    "hasPalette": true,
+    "png": "mstr2.png"
+  },
+  {
+    "name": "party1",
+    "sprites": 16,
+    "hasPalette": true,
+    "png": "party1.png"
+  },
+  {
+    "name": "party2",
+    "sprites": 16,
+    "hasPalette": true,
+    "png": "party2.png"
+  }
+]

@@ -1,0 +1,80 @@
+---
+title: Screens
+description: The 6 full-screen pictures extracted from Phantasie I, all now rendering in correct colour.
+---
+
+import Lightbox from '../../../components/Lightbox.astro';
+
+<Lightbox />
+
+Phantasie I's 6 full-screen `.pic` pictures, served from
+`/assets/phantasie/amiga/`. See [Graphics Formats](/phantasie/graphics/)
+for the raw container format, and its "palette correction" section for the
+full story behind why these now render correctly: each file's real
+in-game palette (one of 5 slots stored in the `game` executable) was
+resolved byte-exact this session via `HUNK_RELOC32` operand tracing rather
+than assumed, and the Amiga-native `component*17` colour decode replaced
+an Atari-ST-derived lookup that had been silently zeroing 5 of 240
+palette-word nibbles project-wide. **These are real decoded pixel data,
+not illustrations** — no manual colour correction was applied to any image
+below.
+
+## Title sequence (`pal4`, `game+0x194DC`)
+
+Both shown by the same title-sequence function (`game+0x1F042`);
+`cover2.pic` blits over `cover1.pic` while title music plays from
+`tamb.dat`.
+
+<div style="text-align:center;">
+	<img src="/assets/phantasie/amiga/cover1.png" width="320" height="200" alt="Phantasie title screen: a stone gate, a sword, and the PHANTASIE logotype" style="image-rendering:pixelated;max-width:100%;width:360px;border:1px solid var(--sl-color-gray-5);border-radius:0.4rem;cursor:zoom-in;" data-lightbox data-lightbox-label="cover1.pic — title screen" />
+</div>
+
+`cover1.pic` — the title screen: stone gate, sword, "PHANTASIE" logotype,
+"COPYRIGHT STRATEGIC SIMULATIONS INC. 1982," "ANDROMEDA SOFTWARE."
+
+<div style="text-align:center;">
+	<img src="/assets/phantasie/amiga/cover2.png" width="320" height="200" alt="Phantasie second title screen" style="image-rendering:pixelated;max-width:100%;width:360px;border:1px solid var(--sl-color-gray-5);border-radius:0.4rem;cursor:zoom-in;" data-lightbox data-lightbox-label="cover2.pic — second title screen" />
+</div>
+
+`cover2.pic` — the second title-sequence frame, already resident when
+blitted (its own `Read` is skipped as an optimisation).
+
+## Town (`pal1`, `game+0x1947C`)
+
+<div style="text-align:center;">
+	<img src="/assets/phantasie/amiga/pelnor.png" width="320" height="200" alt="Pelnor town screen: bank, chapel, castle gate, half-timbered building" style="image-rendering:pixelated;max-width:100%;width:360px;border:1px solid var(--sl-color-gray-5);border-radius:0.4rem;cursor:zoom-in;" data-lightbox data-lightbox-label="pelnor.pic — town screen" />
+</div>
+
+`pelnor.pic` — the in-game town screen (bank, chapel, castle gate, a
+half-timbered building) under an `Info / Town / Options` menu bar, set by
+`SelectTown()` on both entry paths (fresh entry and re-entry).
+
+## Ending sequence (`pal3`, `game+0x194BC`)
+
+The same palette the monster/race sprite banks use — see
+[Sprite Galleries](/phantasie/sprites/).
+
+<div style="text-align:center;">
+	<img src="/assets/phantasie/amiga/decor.png" width="320" height="200" alt="Temple or throne-room interior with columns, statues and torches" style="image-rendering:pixelated;max-width:100%;width:360px;border:1px solid var(--sl-color-gray-5);border-radius:0.4rem;cursor:zoom-in;" data-lightbox data-lightbox-label="decor.pic — ending sequence" />
+</div>
+
+`decor.pic` — a temple/throne-room interior (columns, statues, torches),
+shown alongside the "WELL DONE, MY SMALL FRIENDS..." victory text.
+
+<div style="text-align:center;">
+	<img src="/assets/phantasie/amiga/final.png" width="320" height="200" alt="A wizard figure atop a rocky mountain under a blue sky" style="image-rendering:pixelated;max-width:100%;width:360px;border:1px solid var(--sl-color-gray-5);border-radius:0.4rem;cursor:zoom-in;" data-lightbox data-lightbox-label="final.pic — ending sequence" />
+</div>
+
+`final.pic` — a wizard figure on a mountain under a blue sky.
+
+## Credits panel (`pal1`, inherited)
+
+<div style="text-align:center;">
+	<img src="/assets/phantasie/amiga/logo.png" width="176" height="80" alt="Phantasie Version 1.0 credits panel with the SSI and Andromeda Software logos" style="image-rendering:pixelated;max-width:100%;width:280px;border:1px solid var(--sl-color-gray-5);border-radius:0.4rem;cursor:zoom-in;" data-lightbox data-lightbox-label="logo.pic — credits panel" />
+</div>
+
+`logo.pic` (176×80 — the one file at a size other than 320×200) — "Phantasie
+Version 1.0," the SSI logo, "ANDROMEDA SOFTWARE," "Copyright Strategic
+Simulations Inc. 1987," "K.Massa, Z.Horvath." It never calls `SetPalette`
+of its own, so it renders under whatever the town screen already set
+(`pal1`) — reachable only from the town's Info menu.

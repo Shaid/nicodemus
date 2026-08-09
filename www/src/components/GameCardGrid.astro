@@ -1,0 +1,93 @@
+---
+/**
+ * GameCardGrid — the top-level splash page's "pick a game" grid. Each card
+ * is a full-bleed hero-image link to that game's home page. Images are the
+ * pipeline's own decoded title-screen/sprite-sheet PNGs under
+ * public/assets/<id>/<platform>/ -- this component just lays them out, no
+ * game-specific knowledge.
+ *
+ * Source images have different native aspect ratios (the two title screens
+ * are 320x200, Phantasie II's hero is its 800x640 monster sheet since no
+ * title-screen format has been decoded for it yet), so the image box uses a
+ * fixed aspect-ratio with object-fit: cover rather than showing each at its
+ * native size -- keeps the grid visually uniform.
+ */
+interface Game {
+	id: string;
+	title: string;
+	tagline: string;
+	hero: { src: string; width: number; height: number; alt: string };
+	href: string;
+}
+
+interface Props {
+	games: Game[];
+}
+
+const { games } = Astro.props;
+---
+
+<div class="game-grid">
+	{games.map((game) => (
+		<a class="game-card" href={game.href}>
+			<div class="game-card-image">
+				<img src={game.hero.src} width={game.hero.width} height={game.hero.height} alt={game.hero.alt} loading="lazy" />
+			</div>
+			<div class="game-card-body">
+				<strong>{game.title}</strong>
+				<p>{game.tagline}</p>
+			</div>
+		</a>
+	))}
+</div>
+
+<style>
+	.game-grid {
+		display: grid;
+		gap: 1.25rem;
+		grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+		margin: 1.5rem 0;
+	}
+	.game-card {
+		background: var(--sl-color-gray-6);
+		border: 1px solid var(--sl-color-gray-5);
+		border-radius: 0.6rem;
+		color: var(--sl-color-white, var(--sl-color-gray-1));
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		text-decoration: none;
+		transition: border-color 0.15s ease, transform 0.15s ease;
+	}
+	.game-card:hover,
+	.game-card:focus-visible {
+		border-color: var(--sl-color-accent);
+		transform: translateY(-2px);
+	}
+	.game-card-image {
+		aspect-ratio: 4 / 3;
+		background: #000;
+		overflow: hidden;
+	}
+	.game-card-image img {
+		display: block;
+		height: 100%;
+		image-rendering: pixelated;
+		object-fit: cover;
+		width: 100%;
+	}
+	.game-card-body {
+		padding: 0.85rem 1rem 1.1rem;
+	}
+	.game-card-body strong {
+		display: block;
+		font-size: 1.05rem;
+		margin-bottom: 0.35rem;
+	}
+	.game-card-body p {
+		color: var(--sl-color-gray-2);
+		font-size: 0.85rem;
+		line-height: 1.4;
+		margin: 0;
+	}
+</style>

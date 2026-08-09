@@ -1,0 +1,82 @@
+---
+title: Phantasie — Data Formats
+description: A curated guide to the internal data formats of the Phantasie RPG trilogy (1985-1987, SSI), reverse-engineered from the original shipped Amiga and Atari ST data.
+template: splash
+hero:
+  tagline: A human-readable guide to the internal data formats of the Phantasie RPG trilogy, reverse-engineered from scratch.
+  actions:
+    - text: Start with Phantasie
+      link: /phantasie/
+      icon: right-arrow
+    - text: Shared Formats
+      link: /formats/
+      icon: document
+      variant: minimal
+---
+
+import GameCardGrid from '../../components/GameCardGrid.astro';
+
+**Phantasie** is Strategic Simulations, Inc.'s 1985-1987 first-person dungeon
+RPG trilogy. This site reverse-engineers all three games' graphics, data
+tables, dungeon grids, and combat/scripting logic from the original shipped
+files — Phantasie I and III on the Amiga, Phantasie II on the Atari ST (it
+never got an Amiga release) — and documents the decoders this project ships.
+The exhaustive byte-level notes, disassembly citations, and paths-tried
+evidence trails live in each game's own `docs/phantasie*/` in the main repo;
+this site is a curated, human-readable companion to that research.
+
+<GameCardGrid
+	games={[
+		{
+			id: 'phantasie',
+			title: 'Phantasie',
+			tagline: '1985, SSI — Tholie’s Tale. The original: 6 adventurers, 10 dungeon levels beneath the Isle of Gelnor, and the Black Knights of Nikademus.',
+			hero: { src: '/assets/phantasie/amiga/cover1.png', width: 320, height: 200, alt: 'Phantasie title screen' },
+			href: '/phantasie/',
+		},
+		{
+			id: 'phantasieii',
+			title: 'Phantasie II',
+			tagline: '1986, SSI — Nikademus’ Revenge. Atari ST only, no Amiga release. Extracted from two Pasti (.stx) floppy images this project desectorized from scratch.',
+			hero: { src: '/assets/phantasieii/atarist/mstr1.png', width: 800, height: 640, alt: 'Phantasie II monster sprite bank' },
+			href: '/phantasieii/',
+		},
+		{
+			id: 'phantasieiii',
+			title: 'Phantasie III',
+			tagline: '1987, SSI — The Wrath of Nikademus. A new engine variant with its own compressed graphics format, 18 playable races, and an expanded 56-spell magic system.',
+			hero: { src: '/assets/phantasieiii/amiga/title.png', width: 320, height: 200, alt: 'Phantasie III title screen' },
+			href: '/phantasieiii/',
+		},
+	]}
+/>
+
+## What the three games share
+
+Phantasie I and II are read by **one byte-identical dungeon/scripting
+engine** — the same grid layout, star/action/message trigger format, and
+opcode table (Phantasie II adds four extra opcodes of its own), differing
+only in which item/monster name tables and party-vs-Amiga-vs-ST details get
+plugged in. All three games additionally share one bitplane pixel-encoding
+foundation and the same 12-bit RGB palette scheme, with Phantasie III's own
+`.CMP`/`.CSH` container adding RLE compression on top. Those formats are
+documented once, in **[Shared Formats](/formats/)**, rather than repeated in
+each game's section.
+
+Where the games diverge — Phantasie III's own combat RNG and stat layout,
+Phantasie II's Atari ST executable format, each game's own item/monster/race
+tables — gets its own page in that game's section.
+
+## Source of truth
+
+These pages are a curated summary. The exhaustive, byte-level research notes
+live in the main repository (not part of this site) — and when a page here
+disagrees with them, **the raw notes win**:
+
+- `docs/phantasie/graphics-formats.md`, `data-tables.md`, `dungeon-format.md`,
+  `scripting-engine.md` — the byte-level specs, covering all three games.
+- `docs/phantasie/stx-extraction.md` — the Phantasie II `.stx` disk-image
+  extraction method.
+- `docs/phantasie/implementation-plan.md` — the build-out plan and current
+  status.
+- `docs/phantasie/TODO.md` — the single status surface for open work.

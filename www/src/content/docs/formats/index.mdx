@@ -1,0 +1,21 @@
+---
+title: Shared Formats
+description: The bitplane/palette encoding and dungeon/scripting engine shared across the Phantasie trilogy, documented once instead of three times.
+---
+
+Not every format in the Phantasie trilogy is game-specific. Two layers are
+shared wholesale:
+
+- **[Bitplanes & Palette](/formats/bitplane-and-palette/)** — the pixel
+  formula every image format in all three games ultimately reduces to, and
+  the 12-bit ST-style palette encoding both the Atari ST-native files and
+  the Amiga executables' embedded palettes use.
+- **[Dungeon & Scripting Engine](/formats/dungeon-and-scripting-engine/)** —
+  Phantasie I and II are read by **one byte-identical parser**: same 33×38
+  grid, same cell-ID semantics, same star/action/message trigger format.
+  Phantasie III's own variant is close but not byte-identical, and gets its
+  own page in its section — cross-linked from here.
+
+Each game's own section documents what's specific to it: container formats
+(`.pic`, `.PAT`, `.CMP`/`.CSH`, `.SET`), executable-embedded data tables,
+and combat formulas.

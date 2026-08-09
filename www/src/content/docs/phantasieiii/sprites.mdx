@@ -1,0 +1,104 @@
+---
+title: Sprite Galleries
+description: All 7 Phantasie III sprite banks — 216 monster/race sprite frames extracted from Graphics/*.cmp, browsable with hover-to-reveal attacking poses.
+---
+
+import SpriteGallery from '../../../components/SpriteGallery.astro';
+import Lightbox from '../../../components/Lightbox.astro';
+
+<Lightbox />
+
+Phantasie III packs its monster and race sprites into 7 grids inside the
+fixed 320×200 `.CMP` canvas — 5 banks of 40 frames (32×48 cells, a 10×4
+grid) and 2 "giant" banks of 8 frames (80×72 cells, a 4×2 grid), 216 frames
+total. See [Graphics Formats](/phantasieiii/graphics/) for the full
+bank/cell layout and the `spriteIndex` dispatcher that assigns monsters to
+cells.
+
+**Every bank stores a monster's normal and attacking pose as adjacent
+cells** — confirmed by direct disassembly of the bank/cell dispatcher
+(`0x1B4F0`-`0x1B6E2`, see Graphics Formats). Each gallery below wires that
+confirmed pairing as a hover-swap: hover a card to see the attacking pose.
+
+**Names**: these banks are shared art — Phantasie III's 80 monsters map
+onto only 48 distinct (bank, cell) slots across all 7 banks (25 slots are
+reused by 2-4 different monsters — a real finding, not a gap; see [Data
+Tables](/phantasieiii/data-tables/) for the exact count and worked
+examples). That many-to-one mapping means a single gallery card can't
+carry one honest name, so these galleries show the raw cell names rather
+than an invented or ambiguous label. The monster ↔ cell correlation itself
+*is* documented, with worked examples, on the [Data
+Tables](/phantasieiii/data-tables/) page — it comes from the extraction
+pipeline's own `entities.json`, which isn't yet part of this site's asset
+mirror.
+
+## Heroes / race bank (`heros.cmp`)
+
+40 frames, 32×48. Bank 0 in the confirmed dispatcher — every monster or
+race sprite resolving to bank 0 renders from here. Only one monster maps
+here in the confirmed `monsinfo.dat` data (`Troll Baby`, cell 10); the
+other 39 cells are the working hypothesis for the 18 playable races'
+sprites (race index used directly as the cell index) — **not** a located
+table, see [Status & Open Work](/phantasieiii/status/).
+
+<SpriteGallery
+	manifest="heros"
+	assetPath="phantasieiii/amiga"
+	label="sprite"
+	hoverPairs={{ cell0: 'cell1', cell2: 'cell3', cell4: 'cell5', cell6: 'cell7', cell8: 'cell9', cell10: 'cell11', cell12: 'cell13', cell14: 'cell15', cell16: 'cell17', cell18: 'cell19', cell20: 'cell21', cell22: 'cell23', cell24: 'cell25', cell26: 'cell27', cell28: 'cell29', cell30: 'cell31', cell32: 'cell33', cell34: 'cell35', cell36: 'cell37', cell38: 'cell39' }}
+/>
+
+## Purple banks (`purple1.cmp`, `purple2.cmp`)
+
+40 frames each, 32×48. Banks 1 and 3 in the dispatcher.
+
+<SpriteGallery
+	manifest="purple1"
+	assetPath="phantasieiii/amiga"
+	label="sprite"
+	hoverPairs={{ cell0: 'cell1', cell2: 'cell3', cell4: 'cell5', cell6: 'cell7', cell8: 'cell9', cell10: 'cell11', cell12: 'cell13', cell14: 'cell15', cell16: 'cell17', cell18: 'cell19', cell20: 'cell21', cell22: 'cell23', cell24: 'cell25', cell26: 'cell27', cell28: 'cell29', cell30: 'cell31', cell32: 'cell33', cell34: 'cell35', cell36: 'cell37', cell38: 'cell39' }}
+/>
+
+<SpriteGallery
+	manifest="purple2"
+	assetPath="phantasieiii/amiga"
+	label="sprite"
+	hoverPairs={{ cell0: 'cell1', cell2: 'cell3', cell4: 'cell5', cell6: 'cell7', cell8: 'cell9', cell10: 'cell11', cell12: 'cell13', cell14: 'cell15', cell16: 'cell17', cell18: 'cell19', cell20: 'cell21', cell22: 'cell23', cell24: 'cell25', cell26: 'cell27', cell28: 'cell29', cell30: 'cell31', cell32: 'cell33', cell34: 'cell35', cell36: 'cell37', cell38: 'cell39' }}
+/>
+
+## Yellow banks (`yellow1.cmp`, `yellow2.cmp`)
+
+40 frames each, 32×48. Banks 2 and 4 in the dispatcher.
+
+<SpriteGallery
+	manifest="yellow1"
+	assetPath="phantasieiii/amiga"
+	label="sprite"
+	hoverPairs={{ cell0: 'cell1', cell2: 'cell3', cell4: 'cell5', cell6: 'cell7', cell8: 'cell9', cell10: 'cell11', cell12: 'cell13', cell14: 'cell15', cell16: 'cell17', cell18: 'cell19', cell20: 'cell21', cell22: 'cell23', cell24: 'cell25', cell26: 'cell27', cell28: 'cell29', cell30: 'cell31', cell32: 'cell33', cell34: 'cell35', cell36: 'cell37', cell38: 'cell39' }}
+/>
+
+<SpriteGallery
+	manifest="yellow2"
+	assetPath="phantasieiii/amiga"
+	label="sprite"
+	hoverPairs={{ cell0: 'cell1', cell2: 'cell3', cell4: 'cell5', cell6: 'cell7', cell8: 'cell9', cell10: 'cell11', cell12: 'cell13', cell14: 'cell15', cell16: 'cell17', cell18: 'cell19', cell20: 'cell21', cell22: 'cell23', cell24: 'cell25', cell26: 'cell27', cell28: 'cell29', cell30: 'cell31', cell32: 'cell33', cell34: 'cell35', cell36: 'cell37', cell38: 'cell39' }}
+/>
+
+## Giant banks (`giant1.cmp`, `giant2.cmp`)
+
+8 frames each, 80×72 — dragons, giants, and other large monsters that the
+`spriteIndex > 41` rule renders at double size. Banks 5 and 6.
+
+<SpriteGallery
+	manifest="giant1"
+	assetPath="phantasieiii/amiga"
+	label="sprite"
+	hoverPairs={{ cell0: 'cell1', cell2: 'cell3', cell4: 'cell5', cell6: 'cell7' }}
+/>
+
+<SpriteGallery
+	manifest="giant2"
+	assetPath="phantasieiii/amiga"
+	label="sprite"
+	hoverPairs={{ cell0: 'cell1', cell2: 'cell3', cell4: 'cell5', cell6: 'cell7' }}
+/>
