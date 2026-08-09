@@ -6,7 +6,8 @@ import { sidebar } from './generated/sidebar.mjs';
 
 // https://astro.build/config
 export default defineConfig({
-	site: 'shaid.github.io/nicodemus/',
+	site: 'https://shaid.github.io/',
+	base: '/nicodemus',
 	integrations: [
 		starlight({
 			title: 'Phantasie — Data Formats',
