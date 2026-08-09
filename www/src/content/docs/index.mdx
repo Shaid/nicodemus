@@ -31,22 +31,22 @@ this site is a curated, human-readable companion to that research.
 			id: 'phantasie',
 			title: 'Phantasie',
 			tagline: '1985, SSI — Tholie’s Tale. The original: 6 adventurers, 10 dungeon levels beneath the Isle of Gelnor, and the Black Knights of Nikademus.',
-			hero: { src: '/assets/phantasie/amiga/cover1.png', width: 320, height: 200, alt: 'Phantasie title screen' },
-			href: '/phantasie/',
+			hero: { src: `${import.meta.env.BASE_URL}/assets/phantasie/amiga/cover1.png`, width: 320, height: 200, alt: 'Phantasie title screen' },
+			href: `${import.meta.env.BASE_URL}/phantasie/`,
 		},
 		{
 			id: 'phantasieii',
 			title: 'Phantasie II',
 			tagline: '1986, SSI — Nikademus’ Revenge. Atari ST only, no Amiga release. Extracted from two Pasti (.stx) floppy images this project desectorized from scratch.',
-			hero: { src: '/assets/phantasieii/atarist/mstr1.png', width: 800, height: 640, alt: 'Phantasie II monster sprite bank' },
-			href: '/phantasieii/',
+			hero: { src: `${import.meta.env.BASE_URL}/assets/phantasieii/atarist/cover1.png`, width: 800, height: 640, alt: 'Phantasie II monster sprite bank' },
+			href: `${import.meta.env.BASE_URL}/phantasieii/`,
 		},
 		{
 			id: 'phantasieiii',
 			title: 'Phantasie III',
 			tagline: '1987, SSI — The Wrath of Nikademus. A new engine variant with its own compressed graphics format, 18 playable races, and an expanded 56-spell magic system.',
-			hero: { src: '/assets/phantasieiii/amiga/title.png', width: 320, height: 200, alt: 'Phantasie III title screen' },
-			href: '/phantasieiii/',
+			hero: { src: `${import.meta.env.BASE_URL}/assets/phantasieiii/amiga/title.png`, width: 320, height: 200, alt: 'Phantasie III title screen' },
+			href: `${import.meta.env.BASE_URL}/phantasieiii/`,
 		},
 	]}
 />
@@ -60,7 +60,7 @@ only in which item/monster name tables and party-vs-Amiga-vs-ST details get
 plugged in. All three games additionally share one bitplane pixel-encoding
 foundation and the same 12-bit RGB palette scheme, with Phantasie III's own
 `.CMP`/`.CSH` container adding RLE compression on top. Those formats are
-documented once, in **[Shared Formats](/formats/)**, rather than repeated in
+documented once, in **[Shared Formats](formats/)**, rather than repeated in
 each game's section.
 
 Where the games diverge — Phantasie III's own combat RNG and stat layout,

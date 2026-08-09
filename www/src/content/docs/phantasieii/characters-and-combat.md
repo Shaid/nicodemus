@@ -44,7 +44,7 @@ them out of the confirmed 0-180 range**, all resolving to plausible items
 ## Two shared engines, one game-specific set of opcodes
 
 Phantasie I and II's dungeon files are read by one byte-identical parser —
-full detail on the [Dungeon & Scripting Engine](/formats/dungeon-and-scripting-engine/)
+full detail on the [Dungeon & Scripting Engine](../../formats/dungeon-and-scripting-engine/)
 page. Opcodes `0x00`-`0x13` mean the same thing in both games; Phantasie II
 adds four of its own, confirmed present in real shipped content, not just a
 static gate that happens to never fire:
@@ -166,4 +166,4 @@ engine but are different games," not reconciled against the tables above.
 Only the party-attacks-monster combat direction was traced this session.
 The monster-attacks-player mirror direction — already traced for Phantasie I
 — hasn't been traced for Phantasie II yet. See
-[Status & Open Work](/phantasieii/status/).
+[Status & Open Work](../../phantasieii/status/).

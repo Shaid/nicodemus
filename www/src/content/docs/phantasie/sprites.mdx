@@ -29,7 +29,7 @@ export const raceLabels = buildLabels(readFrameNames('party1'));
 <Lightbox />
 
 Every monster and playable-race sprite extracted from Phantasie I's raw
-`.pat` sprite banks — see [Graphics Formats](/phantasie/graphics/) for the
+`.pat` sprite banks — see [Graphics Formats](../../phantasie/graphics/) for the
 container format and addressing tables these were pulled from.
 
 **Where the names came from.** The extraction pipeline already writes each
@@ -50,7 +50,7 @@ Click a card (or press Enter/Space) to open it enlarged.
 pose) — the same 80 creatures, same index, same name, in each file. Summing
 every entry's computed sprite size reproduces `mstr1.pat`'s exact
 68,016-byte length with zero discrepancy (see
-[Graphics Formats](/phantasie/graphics/)).
+[Graphics Formats](../../phantasie/graphics/)).
 
 ### Normal pose (`mstr1`)
 
@@ -78,7 +78,7 @@ the 16-entry canonical race list in `data/extracted/phantasie/races.json`.
 ## A known colour defect
 
 `pal3`, the palette these four atlases render under, has one still-uncorrected
-colour index (12 of 16) — see [Graphics Formats](/phantasie/graphics/) §
+colour index (12 of 16) — see [Graphics Formats](../../phantasie/graphics/) §
 "The palette correction." Any sprite using that index currently renders a
 patch of pure red where the correct colour is a pale salmon. This is a
 tracked, open item (`gfx-p1-palette-decode-variant`), not a rendering bug in

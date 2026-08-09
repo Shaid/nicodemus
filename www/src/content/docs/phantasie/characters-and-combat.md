@@ -7,7 +7,7 @@ This is the richest material to come out of this session: a full
 disassembly of `GetStat`/`SetStat` — the character-record accessor the
 dungeon-script interpreter uses — plus a complete trace of combat
 resolution in both directions. See [Dungeon & Scripting
-Engine](/formats/dungeon-and-scripting-engine/) for the star/action/message
+Engine](../../formats/dungeon-and-scripting-engine/) for the star/action/message
 format this all sits underneath.
 
 > **Don't read `statIndex` positionally.** Walking the twelve on-screen
@@ -134,7 +134,7 @@ combat dispatcher; `char.+0x0E` at `0x1DA6C`, the inn/rest routine, used as
 `char.+0x0E − char.+0x10`), and neither reader is a character-sheet
 printer. Naming them needs a behavioural oracle (fan documentation, a live
 emulator trace) this project doesn't have — not more disassembly. See
-[Status & Open Work](/phantasie/status/).
+[Status & Open Work](../../phantasie/status/).
 
 ## Combat resolution
 
@@ -226,7 +226,7 @@ analogous accessor.
   `100/67 ≈ 1.4925` was checked against a `×1.5` hypothesis and doesn't
   match exactly.
 
-See [Status & Open Work](/phantasie/status/) for the full list, and
+See [Status & Open Work](../../phantasie/status/) for the full list, and
 `docs/phantasie/scripting-engine.md` §§6.3, 6.3(d), 7 for the complete
 evidence trail.
 

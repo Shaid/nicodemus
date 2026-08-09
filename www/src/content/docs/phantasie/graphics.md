@@ -4,7 +4,7 @@ description: Phantasie I's raw uncompressed .pic full-screen pictures and .pat s
 ---
 
 Phantasie I's Amiga graphics use the platform-native, contiguous-bitplane
-layout throughout — see [Bitplanes & Palette](/formats/bitplane-and-palette/)
+layout throughout — see [Bitplanes & Palette](../../formats/bitplane-and-palette/)
 for the shared pixel-extraction formula every image in the trilogy reduces
 to. This page covers what's specific to this game: file layout, the
 executable-side palette and sprite-address tables, and the palette-decode
@@ -105,12 +105,12 @@ discrepancy, and the 80 computed offsets are perfectly contiguous
 (8,192) is exactly `16 * 512`, zero remainder. Monster index 0
 (`SKELETON`) and index 8 (`ORC`) decode to immediately recognisable
 figures under the confirmed palette; see [Sprite
-Galleries](/phantasie/sprites/) for all 80 monsters and all 16 races.
+Galleries](../../phantasie/sprites/) for all 80 monsters and all 16 races.
 
 ## The palette correction
 
 Both `.pic` and `.pat` ultimately read the same 16-bit `$0RGB` colour word
-(see [Bitplanes & Palette](/formats/bitplane-and-palette/) for the full
+(see [Bitplanes & Palette](../../formats/bitplane-and-palette/) for the full
 encoding), but this word is consumed by **two different lookup
 tables** depending on where it comes from — and this session corrected
 which one applies to Phantasie I's own Amiga executable palettes.
@@ -160,7 +160,7 @@ currently render `pal3`'s index 12 as pure red rather than the correct pale
 salmon. The fix is understood and documented, not applied, because
 flipping it changes committed golden RGB expectations in
 `palette.test.ts`/`sprite-bank.test.ts`. See [Status & Open
-Work](/phantasie/status/) (`gfx-p1-palette-decode-variant`).
+Work](../../phantasie/status/) (`gfx-p1-palette-decode-variant`).
 
 ## The open bits
 
@@ -169,7 +169,7 @@ Work](/phantasie/status/) (`gfx-p1-palette-decode-variant`).
 - The non-dungeon world files (`twns.int`, `out*.dat`, `maps.int`,
   `scrolls.dtx`, `tamb.dat`) carry no image data of their own but are
   otherwise mostly unexplored — see
-  [Status & Open Work](/phantasie/status/).
+  [Status & Open Work](../../phantasie/status/).
 
 See `docs/phantasie/graphics-formats.md` §§1-3, 7-9 for the full evidence
 trail, including the exhaustive `HUNK_RELOC32` correction notes for how the

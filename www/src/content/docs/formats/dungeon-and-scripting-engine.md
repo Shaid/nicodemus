@@ -14,7 +14,7 @@ Phantasie III shares the same overall *shape* — grid + star table + action
 table + trigger-driven messages — but is a distinct, not byte-identical,
 parser with its own header offsets, its own opcode numbering past `0x13`,
 and messages embedded in the dungeon file itself rather than a separate
-file. See [Phantasie III's Data Tables](/phantasieiii/data-tables/) for its
+file. See [Phantasie III's Data Tables](../../phantasieiii/data-tables/) for its
 own version.
 
 ## Dungeon grid and header (Phantasie I/II)
@@ -32,7 +32,7 @@ own version.
 
 Confirmed against all 10 real Phantasie I `dng*` files and all 8 real
 Phantasie II `DNG*` files (extracted from the game's own `.stx` floppy
-images — see [Extraction](/phantasieii/extraction/)): the star table's
+images — see [Extraction](../../phantasieii/extraction/)): the star table's
 declared 175-byte capacity lands exactly at the action table's declared
 start address (`0x04FB + 175 = 0x05AA`), and the action-table terminator is
 found in every one of the 18 real files, landing in the same `0x6CC`-`0x736`

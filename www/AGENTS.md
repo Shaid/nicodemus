@@ -126,6 +126,26 @@ When a game's upstream extraction changes (new sprites, corrected data, etc.):
   agents on other games' sections — it avoids both the port-collision trap
   and concurrent writes to the same `dist/` output.
 
+- **This site deploys to a subpath (`base: '/nicodemus'` in
+  `astro.config.mjs`), and Astro/Starlight do not auto-prefix hand-authored
+  links or images with it.** Starlight's own generated chrome (sidebar,
+  pagination, breadcrumbs, favicon) is base-aware automatically; anything you
+  type by hand is not. **Rule**: in `.astro` components or `.mdx`
+  frontmatter/JS, build paths with `` `${import.meta.env.BASE_URL}assets/...` ``
+  (note `BASE_URL` already ends in `/`); in markdown/MDX prose, use a
+  **relative path** computed from the page's route depth (e.g.
+  `../../assets/phantasie/amiga/cover1.png` from a page two segments deep),
+  never an absolute `/assets/...` or `/phantasie/...`. **Never use markdown
+  `![alt](path)` image syntax for a `public/assets/` image** — Astro's
+  markdown image pipeline intercepts that syntax specifically and either
+  silently skips base-prefixing (absolute path) or fails the build outright
+  with `[ImageNotFound]` (relative path, since it tries to import it as a
+  local `src/`-relative asset). Use a raw `<img src="...">` HTML tag instead
+  — it passes through untouched in both `.md` and `.mdx`. Full writeup with
+  the empirical evidence: `~/.claude/skills/seer-website/references/base-path.md`.
+  Before calling any subpath-deploy change done, build with the real `base`
+  set and grep `dist/**/*.html` for un-prefixed `href="/`/`src="/`.
+
 ## Documentation
 
 Full documentation: https://docs.astro.build

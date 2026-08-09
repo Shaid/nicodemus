@@ -7,7 +7,7 @@ import Lightbox from '../../../components/Lightbox.astro';
 
 <div style="text-align:center; margin: 1.5rem 0;">
 	<img
-		src="/assets/phantasie/amiga/cover1.png"
+		src="../assets/phantasie/amiga/cover1.png"
 		width="320"
 		height="200"
 		alt="Phantasie Amiga title screen — a stone gate, a sword, and the PHANTASIE logotype"
@@ -25,7 +25,7 @@ party of up to six adventurers explores 10 dungeon levels beneath the Isle of
 Gelnor, hunting the Black Knights of Nikademus. This is the Amiga original —
 the only platform Phantasie I shipped on. It shares one byte-identical
 dungeon/scripting engine with Phantasie II (see [Shared
-Formats](/formats/)); everything specific to this game — its own raw
+Formats](../formats/)); everything specific to this game — its own raw
 graphics containers, executable-embedded data tables, and combat math —
 is documented here.
 
@@ -39,7 +39,7 @@ carries the monster/race/item name tables, five 16-colour palettes, and the
 for monsters, `party1`/`party2` for playable races). A handful of
 non-dungeon world/town files (`twns.int`, `out1.dat`-`out19.dat`, `maps.int`,
 `scrolls.dtx`, `tamb.dat`) exist alongside these and are, honestly, mostly
-unexplored — see [Status & Open Work](/phantasie/status/).
+unexplored — see [Status & Open Work](../phantasie/status/).
 
 ## What this project did
 
@@ -51,7 +51,7 @@ directions. The headline results:
   `final`, `logo`, `pelnor`) now render in full, correct colour — each
   file's real in-game palette assignment (one of 5 slots stored in the
   executable) resolved byte-exact via `HUNK_RELOC32` operand tracing, not
-  guessed. See [Graphics Formats](/phantasie/graphics/) for the correction
+  guessed. See [Graphics Formats](../phantasie/graphics/) for the correction
   story behind this.
 - **80 monster sprites** across `mstr1.pat`/`mstr2.pat` (normal and
   attacking pose), addressed by two 80-entry big-endian offset/dimension
@@ -69,7 +69,7 @@ directions. The headline results:
   routine. Two indices, **7 and 8, are structurally confirmed unreachable
   by any display routine in the binary** — a stronger, more specific
   finding than "unknown." See
-  [Characters & Combat](/phantasie/characters-and-combat/).
+  [Characters & Combat](../phantasie/characters-and-combat/).
 - **Combat resolution traced in both directions.** A linear congruential
   RNG (`seed = (seed*3677+3) mod 32768`) feeds a `RollPercent()` helper;
   hit/miss and damage formulas are fully derived for both a party member
@@ -90,20 +90,20 @@ directions. The headline results:
 
 ## How to read this site
 
-1. **[Shared Formats](/formats/)** — the bitplane pixel formula and 12-bit
+1. **[Shared Formats](../formats/)** — the bitplane pixel formula and 12-bit
    palette encoding every image format reduces to, and the dungeon grid /
    star-action-message engine Phantasie I and II share byte-for-byte.
-2. **[Graphics Formats](/phantasie/graphics/)** — this game's `.pic`
+2. **[Graphics Formats](../phantasie/graphics/)** — this game's `.pic`
    full-screen pictures and `.pat` sprite banks, including the palette
    correction.
-3. **[Characters & Combat](/phantasie/characters-and-combat/)** — the
+3. **[Characters & Combat](../phantasie/characters-and-combat/)** — the
    `GetStat` resolver, confirmed stat names, and both combat-formula
    directions.
-4. **[Sprite Galleries](/phantasie/sprites/)** — every monster and
+4. **[Sprite Galleries](../phantasie/sprites/)** — every monster and
    playable race, browsable.
-5. **[Screens](/phantasie/screens/)** — the 6 full-screen pictures, with
+5. **[Screens](../phantasie/screens/)** — the 6 full-screen pictures, with
    the palette-fix story told visually.
-6. **[Status & Open Work](/phantasie/status/)** — everything still open,
+6. **[Status & Open Work](../phantasie/status/)** — everything still open,
    phrased as questions.
 
 ## Source of truth

@@ -5,7 +5,7 @@ description: P3's own LCG, its two to-hit formula branches, the SAS/C merged-BSS
 
 Phantasie III's combat and character-record code is traced independently
 from Phantasie I/II's — see [the shared dungeon/scripting engine
-page](/formats/dungeon-and-scripting-engine/) for what the trilogy shares,
+page](../../formats/dungeon-and-scripting-engine/) for what the trilogy shares,
 and P3's own action opcode set just below for where this game's engine
 diverges even at the scripting layer. `PhantasieIII` is
 a 3-hunk AmigaOS `HUNK` executable whose code references nearby data via
@@ -165,7 +165,7 @@ unaccounted for:
 | `0x0000`-`0x1996` | 6,550 | `0x5174` | Guild roster, 25 × 262-byte character records |
 | `0x1996`-`0x2146` | 1,968 | `0x3D0A` | Active party, 7 × 262-byte records + 134 B of adjacent globals |
 | `0x2146`-`0x216A` | 36 | `0x2CD4` | 18 words of game state |
-| `0x216A`-`0x2E24` | 3,258 | `0x44BA` | Item table — `3,258 = 181 × 18`, the same shape confirmed structurally for `inititem.dat` (see [Data Tables](/phantasieiii/data-tables/)) |
+| `0x216A`-`0x2E24` | 3,258 | `0x44BA` | Item table — `3,258 = 181 × 18`, the same shape confirmed structurally for `inititem.dat` (see [Data Tables](../../phantasieiii/data-tables/)) |
 
 `6,550 + 1,968 + 36 + 3,258 = 11,812` — the exact size of
 `data/phantasieiii/amiga/gamesave.dat`.
@@ -201,7 +201,7 @@ names:
 Both sources agree with each other and with the manual's own skill list
 (`Attack, Parry, Swim, Listen, Spot Trap, Disarm Trap, Find Item, Pick
 Lock, Fire Bow` — cosmetic wording differences only), and with [the skills
-table's](/phantasieiii/data-tables/) independently-derived 8-skill order —
+table's](../../phantasieiii/data-tables/) independently-derived 8-skill order —
 a third, structurally unrelated confirmation.
 
 **Binding these names to `+0x30`-`+0x53` — a strong hypothesis, not fully
@@ -242,7 +242,7 @@ match at any offset, scale, or transform, because neither chart is a
 constant-slope progression (both have irregular per-level deltas) while
 this table contains only constant-slope runs. **That specific hypothesis is
 closed as tested-and-refuted**, not merely untried — the table's real role
-remains open (see [Status & Open Work](/phantasieiii/status/)).
+remains open (see [Status & Open Work](../../phantasieiii/status/)).
 
 ### Body-location hypothesis — tested against P1, refuted
 
@@ -266,4 +266,4 @@ candidate field for.
 - `+0x08`'s semantics (averaged, ×30'd in the to-hit formula) — read
   confirmed, meaning (level?) unconfirmed.
 
-Full detail and paths tried: [Status & Open Work](/phantasieiii/status/).
+Full detail and paths tried: [Status & Open Work](../../phantasieiii/status/).

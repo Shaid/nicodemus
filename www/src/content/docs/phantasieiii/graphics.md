@@ -4,10 +4,10 @@ description: Phantasie III's RLE-compressed bitmap format and its combined world
 ---
 
 Phantasie III replaces Phantasie I's raw, uncompressed `.pic`/`.pat` files
-(see the [P1 graphics page](/phantasie/graphics/)) with a compressed
+(see the [P1 graphics page](../../phantasie/graphics/)) with a compressed
 container format of its own: `.CMP`/`.CSH` for pictures and sprite banks,
 and `.SET` for a combined overworld map + terrain picture. Both build on the
-same [bitplane pixel formula and 12-bit ST palette encoding](/formats/bitplane-and-palette/)
+same [bitplane pixel formula and 12-bit ST palette encoding](../../formats/bitplane-and-palette/)
 every image format in the trilogy shares — what's specific to this game is
 the compression and container layer sitting on top of it.
 
@@ -62,7 +62,7 @@ files decompresses to exactly 32,000 bytes with zero deviation from
 The decompressed 32,000-byte buffer is written in one of two column-advance
 patterns, selected by the header's type byte — both submodes write into the
 *same* buffer layout, read back by the standard
-[Interleaved (interleave=2)](/formats/bitplane-and-palette/) pixel formula
+[Interleaved (interleave=2)](../../formats/bitplane-and-palette/) pixel formula
 regardless of which submode produced it:
 
 - **Type 2 (vertical)** — advance `line` after each byte; on wrapping past
@@ -86,7 +86,7 @@ this scheme:
   NIKADEMUS / BY WINSTON DOUGLAS WOOD / AMIGA VERSION BY WESTWOOD / © 1987
   SSI", fully legible on a decorative border, plus an archer illustration.
 - `heros.cmp` → a 10×4 grid of humanoid sprites at 32×48 spacing (40 cells
-  total, see [Sprite Galleries](/phantasieiii/sprites/)) — matches its
+  total, see [Sprite Galleries](../../phantasieiii/sprites/)) — matches its
   assigned "hero/soldier bank" role (bank index 0).
 - `giant1.cmp` → two purple serpent/dragon sprites and two blue ogre/giant
   sprites, tiled at 80×72 spacing.
@@ -200,7 +200,7 @@ y = (index2 / cellsPerRow) * cellHeight     # integer division
 
 **Which monster uses which bank/cell** is resolved by a per-monster
 `spriteIndex` field in `monsinfo.dat` (see [Data
-Tables](/phantasieiii/data-tables/)) through a piecewise mapping:
+Tables](../../phantasieiii/data-tables/)) through a piecewise mapping:
 `spriteIndex` 0-14 → bank 2 cell `spriteIndex`; 15-26 → bank 1 cell
 `spriteIndex-15`; 27 → bank 0 cell 10; 28-35 → bank 3 cell `spriteIndex-28`;
 36-41 → bank 4 cell `spriteIndex-36`; 42-43 → bank 5 cell `spriteIndex-42`
@@ -231,7 +231,7 @@ implementing the `spriteIndex==27 → bank 0 cell 10` special case exactly.
 
 The per-race `bankSpriteIndex` table this same formula needs for the 18
 playable races was searched for and **not found** — see [Status & Open
-Work](/phantasieiii/status/) for the three approaches tried. Race sprites
+Work](../../phantasieiii/status/) for the three approaches tried. Race sprites
 currently render using race index directly as the bank-0 cell index, an
 **unverified working hypothesis**, not a located table.
 
@@ -245,8 +245,8 @@ currently render using race index directly as the bank-0 cell index, an
   tried.
 
 Full detail and the paths already tried: [Status & Open
-Work](/phantasieiii/status/).
+Work](../../phantasieiii/status/).
 
-See also [Data Tables](/phantasieiii/data-tables/) for `monsinfo.dat`'s
-`spriteIndex` field, and [Sprite Galleries](/phantasieiii/sprites/) and
-[Extracted Screens](/phantasieiii/screens/) for the rendered output.
+See also [Data Tables](../../phantasieiii/data-tables/) for `monsinfo.dat`'s
+`spriteIndex` field, and [Sprite Galleries](../../phantasieiii/sprites/) and
+[Extracted Screens](../../phantasieiii/screens/) for the rendered output.

@@ -22,7 +22,7 @@ themselves.
 ## The layout question
 
 This project's pixel-extraction pipeline supports two layout modes (full
-formula on the shared [Bitplanes & Palette](/formats/bitplane-and-palette/)
+formula on the shared [Bitplanes & Palette](../../formats/bitplane-and-palette/)
 page):
 
 - **Planar** — Phantasie I's Amiga-native convention: bitplane 0's bytes
@@ -78,7 +78,7 @@ larger monsters at 48/64/80. `PARTY1.PAT`'s size (8,192) is exactly
 ## Palette
 
 The 16-word palette at `0x23A9E` decodes under the raw ST 3-bit-per-channel
-lookup (§2 of the shared [Bitplanes & Palette](/formats/bitplane-and-palette/)
+lookup (§2 of the shared [Bitplanes & Palette](../../formats/bitplane-and-palette/)
 page — **not** the Amiga `AmigaToST` even-nibble variant, since `PHANT.PRG`
 is itself the Atari ST binary storing genuine 3-bit nibbles) to a plausible,
 distinct 16-colour palette: black, brown, red, orange, gold, yellow, green,
@@ -101,7 +101,7 @@ offset-table entry at `0x23D90` reads `0`. Decoding `MSTR1.PAT` bytes
 `0`-`543` (`32/8 * 34 * 4 = 544` bytes) under the `Interleaved` formula with
 this palette produces a clean, recognisable white skeleton figure — matching
 the name table's entry 0, `SKELETON` (see
-[Characters, Items & Combat](/phantasieii/characters-and-combat/)).
+[Characters, Items & Combat](../../phantasieii/characters-and-combat/)).
 
 ## Full-screen pictures
 
@@ -110,7 +110,7 @@ The six `.PIC` files (`COVER1.PIC`, `COVER2.PIC`, `CROWD.PIC`, `DECOR.PIC`,
 word-Interleaved layout as this page's `.PAT` sprite banks, but a
 per-file palette rather than one shared table, resolved by disassembling
 `START.PRG`/`PHANT.PRG` from scratch (no reference-tool source exists for
-this one). See [Screens](/phantasieii/screens/) for the renders and
+this one). See [Screens](../../phantasieii/screens/) for the renders and
 `docs/phantasie/graphics-formats.md` §10 for the full trace.
 
 ## Runtime parser

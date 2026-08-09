@@ -11,9 +11,9 @@ where a first-party source exists, against the actual SSI-published 1987
 Nikademus v1.0 (1987)(SSI)[compilation Bonus Ed.][1186].pdf`).
 
 Looking for P3's own dungeon-scripting opcode numbering past `0x13`
-(referenced from [Shared Formats](/formats/dungeon-and-scripting-engine/))?
+(referenced from [Shared Formats](../../formats/dungeon-and-scripting-engine/))?
 That's scripting-engine territory, not a data table — it's documented on
-[Combat & Character Record](/phantasieiii/combat-and-character-record/)
+[Combat & Character Record](../../phantasieiii/combat-and-character-record/)
 alongside the rest of this game's own engine variant.
 
 ## `monsinfo.dat` — the monster table
@@ -94,7 +94,7 @@ scaling not determined.
 
 Decoding all 80 monsters' `sprite.bankFile`/`sprite.cellIndex` pairs (fed
 by the `spriteIndex` field through [the bank/cell
-formula](/phantasieiii/graphics/)) shows the 7 sprite banks hold only **48
+formula](../../phantasieiii/graphics/)) shows the 7 sprite banks hold only **48
 distinct (bank, cell) pairs for 80 monsters** — 23 monsters get a cell to
 themselves, but **25 cells are shared by 2 or more monsters, covering 57 of
 the 80 records**. This is real art reuse, not a decoding bug: e.g.
@@ -128,7 +128,7 @@ Wizard**. Skill order and names match the SSI 1987 manual exactly
 Lock, Fire Bow` — this 8-table set covers the first 8 verbatim; the 9th,
 Fire Bow, is absent from this progression table but present on the
 character sheet, see [Combat & Character
-Record](/phantasieiii/combat-and-character-record/)). **Confidence:
+Record](../../phantasieiii/combat-and-character-record/)). **Confidence:
 confirmed, byte-exact.**
 
 Fighter's Attack progression (`0x28386`) reads a textbook level-1-to-15
@@ -184,7 +184,7 @@ from level 14's `235`.
 > This looks more like a genuine 1987 data-entry inconsistency than an
 > intentional mechanic, but that remains an inference: no developer source
 > or errata exists to confirm intent either way. See [Status & Open
-> Work](/phantasieiii/status/).
+> Work](../../phantasieiii/status/).
 
 ## The race table
 
@@ -205,7 +205,7 @@ Random = 18`.
 
 Located via the same string-pointer-table technique used for the skill
 labels ([Combat & Character
-Record](/phantasieiii/combat-and-character-record/)): one `HUNK_RELOC32`
+Record](../../phantasieiii/combat-and-character-record/)): one `HUNK_RELOC32`
 entry storing the hunk-relative string-block offset `0x514A`, found by
 scanning every relocation entry for that exact stored value. Reading 30
 consecutive pointers around it shows one long shared "string by ID" table
@@ -215,7 +215,7 @@ structure. **Confidence: confirmed, byte-exact**, implemented as
 `readP3RaceNames()`.
 
 **Open**: the parallel race → sprite-bank-cell table is not located — see
-[Status & Open Work](/phantasieiii/status/) for the three search approaches
+[Status & Open Work](../../phantasieiii/status/) for the three search approaches
 tried and why each came back empty.
 
 ## The item table (executable-embedded, 181 entries)
@@ -302,7 +302,7 @@ strongly favours an 18-byte stride (181 records, `181 × 18 = 3,258`,
 landing exactly at the file's padding boundary), and — independently — the
 `PhantasieIII` save writer/loader transfers a hardcoded `0xCBA` = `3,258`
 byte block between the file and a runtime buffer at hunk 1 `+0x44BA`
-([Combat & Character Record](/phantasieiii/combat-and-character-record/)),
+([Combat & Character Record](../../phantasieiii/combat-and-character-record/)),
 confirming exactly this stride and count from the code side.
 
 **Field semantics remain unresolved.** This session's full 181-row
@@ -322,7 +322,7 @@ correlation pass found:
   race order — no column stands out in a way that tracks race "power".
   Checked and inconclusive, not a finding.
 
-See [Status & Open Work](/phantasieiii/status/) for the next genuinely
+See [Status & Open Work](../../phantasieiii/status/) for the next genuinely
 different approach (tracing the `gamesave.dat` load/save code around hunk 1
 `+0x44BA` for an actual field consumer).
 
@@ -334,4 +334,4 @@ different approach (tracing the `gamesave.dat` load/save code around hunk 1
 - The level-15 skills anomaly's specific values — mechanism confirmed,
   intent unresolvable from code alone.
 
-Full detail: [Status & Open Work](/phantasieiii/status/).
+Full detail: [Status & Open Work](../../phantasieiii/status/).

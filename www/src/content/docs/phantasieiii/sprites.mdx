@@ -11,7 +11,7 @@ import Lightbox from '../../../components/Lightbox.astro';
 Phantasie III packs its monster and race sprites into 7 grids inside the
 fixed 320×200 `.CMP` canvas — 5 banks of 40 frames (32×48 cells, a 10×4
 grid) and 2 "giant" banks of 8 frames (80×72 cells, a 4×2 grid), 216 frames
-total. See [Graphics Formats](/phantasieiii/graphics/) for the full
+total. See [Graphics Formats](../../phantasieiii/graphics/) for the full
 bank/cell layout and the `spriteIndex` dispatcher that assigns monsters to
 cells.
 
@@ -23,12 +23,12 @@ confirmed pairing as a hover-swap: hover a card to see the attacking pose.
 **Names**: these banks are shared art — Phantasie III's 80 monsters map
 onto only 48 distinct (bank, cell) slots across all 7 banks (25 slots are
 reused by 2-4 different monsters — a real finding, not a gap; see [Data
-Tables](/phantasieiii/data-tables/) for the exact count and worked
+Tables](../../phantasieiii/data-tables/) for the exact count and worked
 examples). That many-to-one mapping means a single gallery card can't
 carry one honest name, so these galleries show the raw cell names rather
 than an invented or ambiguous label. The monster ↔ cell correlation itself
 *is* documented, with worked examples, on the [Data
-Tables](/phantasieiii/data-tables/) page — it comes from the extraction
+Tables](../../phantasieiii/data-tables/) page — it comes from the extraction
 pipeline's own `entities.json`, which isn't yet part of this site's asset
 mirror.
 
@@ -39,7 +39,7 @@ race sprite resolving to bank 0 renders from here. Only one monster maps
 here in the confirmed `monsinfo.dat` data (`Troll Baby`, cell 10); the
 other 39 cells are the working hypothesis for the 18 playable races'
 sprites (race index used directly as the cell index) — **not** a located
-table, see [Status & Open Work](/phantasieiii/status/).
+table, see [Status & Open Work](../../phantasieiii/status/).
 
 <SpriteGallery
 	manifest="heros"

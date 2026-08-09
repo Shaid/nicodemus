@@ -6,7 +6,7 @@ description: A reverse-engineering field guide to Phantasie II (1986, SSI), the 
 import Lightbox from '../../../components/Lightbox.astro';
 
 <img
-	src="/assets/phantasieii/atarist/cover1.png"
+	src="../assets/phantasieii/atarist/cover1.png"
 	alt="Phantasie II title screen: a stone archway, a gold knight-helm centrepiece, and the blue PHANTASIE II logotype over a grey checkered floor"
 	width="320"
 	height="200"
@@ -37,12 +37,12 @@ underneath it, which is a completely different algorithm.
   (12 files, 348,477 bytes) and Disk 2 (47 files, 332,507 bytes), verified
   against an independent BPB self-consistency check and the `PHANT.PRG`
   executable's byte-exact `0x60 0x1A` GEMDOS magic. See
-  [.stx Extraction](/phantasieii/extraction/).
+  [.stx Extraction](../phantasieii/extraction/).
 - **All 80 monster sprites and 16 race sprites render correctly**, confirmed
   to use the **same ST word-interleaved bitplane layout** as Phantasie III's
   `.CMP` container — settling a question file size alone couldn't answer,
   since Phantasie I's incompatible planar layout was an equally plausible
-  reading of the same byte counts. See [.PAT Sprite Banks](/phantasieii/graphics/).
+  reading of the same byte counts. See [.PAT Sprite Banks](../phantasieii/graphics/).
 - **Every executable data table — monster names, sprite geometry, palette,
   race names, 181-entry item table — carried over byte-exact** from the
   reference source's offsets, unlike Phantasie III's Amiga-vs-ST offset
@@ -52,44 +52,44 @@ underneath it, which is a completely different algorithm.
   zero failures**, confirming the shared Phantasie I/II engine on real
   Phantasie II data and confirming the four Phantasie-II-exclusive opcodes
   (`0x14`-`0x17`) are actually used in shipped content, not just gated in
-  unused code. See [Characters, Items & Combat](/phantasieii/characters-and-combat/)
-  and the shared [Dungeon & Scripting Engine](/formats/dungeon-and-scripting-engine/) page.
+  unused code. See [Characters, Items & Combat](../phantasieii/characters-and-combat/)
+  and the shared [Dungeon & Scripting Engine](../formats/dungeon-and-scripting-engine/) page.
 - **Combat shares P1's exact formula shape and constants — but not its RNG.**
   Same 58-byte monster stride, same `+0x2E` armor field, same `100`/`67`
   damage constants — reached via a completely different 7-word
   additive/rotating generator instead of Phantasie I's linear congruential
-  one. See [Characters, Items & Combat](/phantasieii/characters-and-combat/).
+  one. See [Characters, Items & Combat](../phantasieii/characters-and-combat/).
 - **The `OUT*.DAT`/`DNG.SAV`/`GUILD.DAT`/`SACK.DAT` files on Disk 2 are
   confirmed live save-game state, not pristine shipped content** — three
   independent lines of byte-level evidence, including a literal leaked
   GEMDOS directory-entry cache inside `OUT1.DAT`. See
-  [.stx Extraction](/phantasieii/extraction/).
+  [.stx Extraction](../phantasieii/extraction/).
 - **All 6 full-screen `.PIC` pictures now render in correct colour** —
   this game's first confirmed title screen, town scene, and ending art.
   No reference-tool source existed for this format at all; every palette
   was traced from scratch through three separate `Setpalette` call sites
-  across `START.PRG` and `PHANT.PRG`. See [Screens](/phantasieii/screens/).
+  across `START.PRG` and `PHANT.PRG`. See [Screens](../phantasieii/screens/).
 
 ## How to read this section
 
-1. [.stx Extraction](/phantasieii/extraction/) — how the two floppy images
+1. [.stx Extraction](../phantasieii/extraction/) — how the two floppy images
    became individual files, and which of those files are pristine vs.
    save-mutated.
-2. [.PAT Sprite Banks](/phantasieii/graphics/) — the sprite-bank format and
+2. [.PAT Sprite Banks](../phantasieii/graphics/) — the sprite-bank format and
    how its bitplane layout was pinned down, building on the shared
-   [Bitplanes & Palette](/formats/bitplane-and-palette/) foundation.
-3. [Screens](/phantasieii/screens/) — the 6 full-screen `.PIC` pictures:
+   [Bitplanes & Palette](../formats/bitplane-and-palette/) foundation.
+3. [Screens](../phantasieii/screens/) — the 6 full-screen `.PIC` pictures:
    title, town, and ending art.
-4. [Characters, Items & Combat](/phantasieii/characters-and-combat/) —
+4. [Characters, Items & Combat](../phantasieii/characters-and-combat/) —
    the monster/race/item tables, the P2-exclusive dungeon opcodes, and the
    combat RNG finding.
-5. [Sprite Gallery](/phantasieii/sprites/) — every monster and race sprite,
+5. [Sprite Gallery](../phantasieii/sprites/) — every monster and race sprite,
    browsable.
-6. [Status & Open Work](/phantasieii/status/) — what's still unresolved.
+6. [Status & Open Work](../phantasieii/status/) — what's still unresolved.
 
 Two things this game shares with Phantasie I are documented once, not
-repeated here: the [Bitplanes & Palette](/formats/bitplane-and-palette/)
-pixel encoding, and the [Dungeon & Scripting Engine](/formats/dungeon-and-scripting-engine/)
+repeated here: the [Bitplanes & Palette](../formats/bitplane-and-palette/)
+pixel encoding, and the [Dungeon & Scripting Engine](../formats/dungeon-and-scripting-engine/)
 both games' parser is byte-identical against.
 
 ## Source of truth

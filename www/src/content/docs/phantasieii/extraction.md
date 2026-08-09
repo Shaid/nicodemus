@@ -189,11 +189,11 @@ useful context, not a decode:
 | Dungeon file size | 1,922-1,984 B (variable) | 2,048 B (uniform) | P2 is fixed-size and larger |
 
 The `PARTY*.PAT` size match turned out to be a coincidence, not a layout
-signal — see [.PAT Sprite Banks](/phantasieii/graphics/) for why.
+signal — see [.PAT Sprite Banks](../../phantasieii/graphics/) for why.
 
 ## The open bits
 
 `MAPS.INT`/`TWNS.INT`'s full record structure and the `.RSC` GEM resource
 files remain unexplored. The six `.PIC` full-screen pictures are now
-decoded — see [Screens](/phantasieii/screens/) — and [Status & Open
-Work](/phantasieii/status/) for everything still open.
+decoded — see [Screens](../../phantasieii/screens/) — and [Status & Open
+Work](../../phantasieii/status/) for everything still open.
