@@ -58,9 +58,17 @@ recognisable as the named creature (see `graphics-formats.md` §7).
 
 ### 1.3 Palette table
 
+> **Correction (2026-08-09, re-codebreaker):** this section originally
+> described `0x194BC` as *the* P1 palette. It is one slot of a **5-entry
+> array of 16-colour palettes** at `0x1945C`, and the game selects among
+> them per screen. The array, the selection code, and the per-screen
+> mapping are now all code-confirmed — see §1.3a below. The `0x194BC`
+> byte-level decode in the table that follows is unchanged and still
+> correct; only its "this is the palette" framing was wrong.
+
 | Offset | Size | Field | Notes |
 |--------|------|-------|-------|
-| `0x194BC` | 2 × 16 | 16-colour palette | Same 16-bit ST-style RGB444 word format as the P3 container palettes (`graphics-formats.md` §2), decoded via the `AmigaToST` even-nibble lookup |
+| `0x194BC` | 2 × 16 | 16-colour palette (slot 3 of 5) | Native Amiga 12-bit `$0RGB` word, one word per colour index; loaded verbatim into `ColorMap->ColorTable` and handed to `graphics.library/LoadRGB4` (see §1.3a) |
 
 **Confidence: confirmed.** Decodes to a fully plausible, distinct
 16-colour palette:
@@ -84,12 +92,101 @@ recognisable as the named creature (see `graphics-formats.md` §7).
 | 14 | `0x0E2A` | 14,2,10 | 255,36,182 (magenta) |
 | 15 | `0x0EEE` | 14,14,14 | 255,255,255 (white) |
 
-One outlier: index 12 has odd nibbles (11, 11) for green/blue, which the
-`AmigaToST` lookup (populated only at even indices) maps to 0 — this entry
-is likely a red-family shade the even-nibble lookup doesn't represent
-precisely; flagged here rather than silently smoothed over. All other 15
-entries use exclusively even nibbles, consistent with the ST→Amiga
-palette-doubling convention described in `graphics-formats.md` §2.
+> **Correction (2026-08-09, re-codebreaker):** the "index 12 has odd
+> nibbles, which the `AmigaToST` even-nibble lookup maps to 0" note was
+> treating an Amiga-native palette as if it were an Atari ST one.
+> `data/phantasie/amiga/game` is an AmigaOS HUNK executable and these
+> words are consumed directly by `graphics.library/LoadRGB4` (call site
+> byte-confirmed, §1.3a), which reads all three 4-bit components at full
+> resolution — **every** nibble value 0-15 is legal, and there is no
+> even-nibble constraint to satisfy. `0x0EBB` is simply R=14, G=11, B=11
+> (a pale salmon), not an anomaly. Correct decode for P1 Amiga is
+> `component * 17` (or `component << 4 | component`) on the raw nibble;
+> the ST `AmigaToST` doubling table belongs to the **P3/P2 ST-sourced**
+> containers (`graphics-formats.md` §2) and must not be applied here.
+> Scope of the bug: exactly 5 of the 240 nibbles across the five
+> palettes are odd — `pal2[3]` `0x0EB0`, `pal2[4]` `0x008B`, `pal3[12]`
+> `0x0EBB` (two odd nibbles), `pal4[2]` `0x0EB0`; all five are the value
+> `11`. An even-nibble lookup silently zeroes those components. The
+> remaining 235 are even, which is why the error stayed invisible.
+
+### 1.3a Palette array and per-screen palette selection
+
+**Confidence: confirmed** (byte-exact `HUNK_RELOC32` operand resolution
+for every call site listed, plus pixel-level render verification).
+
+The executable holds **five** consecutive 32-byte palettes in DATA
+hunk 69, and a single shared setter selects among them per screen:
+
+| Slot | File offset | hunk 69 rel | Contents (words) | Role |
+|------|-------------|-------------|------------------|------|
+| `pal0` | `0x1945C` | `+0x34` | all `0x000` | **Not a palette** — the all-black "blank the screen" table used to hide loading (see `SetBlackPalette` below) |
+| `pal1` | `0x1947C` | `+0x54` | `000 E00 E24 800 EE0 264 0E0 A20 0EE 0AE 04E 666 444 AAA 888 EEE` | Town screen (`Pelnor.pic`), character sheet / party status, `scrolls.dtx` reader, `logo.pic` overlay |
+| `pal2` | `0x1949C` | `+0x74` | `000 E00 280 EB0 08B E0E 22E 08A 666 A40 460 E80 4E2 888 26A EEE` | Dungeon / outdoor exploration screen (hunk 56, the `DNG.SAV`/`OUT%-d.DAT` module) |
+| `pal3` | `0x194BC` | `+0x94` | see §1.3 table | `decor.pic`, `final.pic`, and the monster/race sprite banks (`MSTR*.PAT`, `PARTY*.PAT`) |
+| `pal4` | `0x194DC` | `+0xB4` | `000 820 EB0 AAA C22 620 048 068 A20 0EE 0AE 04E 48A 666 888 EEE` | Title sequence (`cover1.pic`, `cover2.pic`); also the town-services screen, with a runtime patch (below) |
+
+`hunk69+0xD4` and `+0xE0` look like two more 32-byte blocks but are
+**not** palettes — they are mouse-pointer sprite image data, passed to
+`intuition.library/SetPointer` at `game+0x1F0EE` and `game+0x1FE2C`
+(both operands `HUNK_RELOC32`-resolved). Do not extend the palette array
+past `pal4`.
+
+**The setter.** `SetPalette(UWORD pal[16])` at file offset `0x1F1CA`
+(hunk 77 `+0x466`):
+
+```
+for (i = 0; i < 16; i++)
+    colorMap->ColorTable[i] = pal[i];     /* BSS var hunk79+0x52C */
+LoadRGB4(viewPort, colorMap->ColorTable, 16);   /* hunk79+0x520 */
+*(UWORD *)(hunk78+0x14) = 1;              /* "palette is live" flag */
+```
+
+`LoadRGB4` is reached by `jsr` at `game+0x1F218`, whose absolute-long
+operand at `game+0x1F21A` resolves via `HUNK_RELOC32` to hunk 236
+`+0x54` — and hunk 236's `HUNK_SYMBOL` block names `+0x54` exactly
+`_LoadRGB4`. `colorMap` comes from `GetColorMap(16)` at `game+0x1EE66`
+(hunk 236 `+0x260` = `_GetColorMap`); `viewPort` from
+`ViewPortAddress(window)` at `game+0x1EE52` (hunk 237 `+0x108` =
+`_ViewPortAddress`).
+
+**Every call site of `SetPalette`, exhaustively** (7 cross-hunk
+`HUNK_RELOC32` call sites + 3 intra-hunk `bsr` — the `bsr`s are invisible
+to a relocation scan and were missed by earlier passes):
+
+| Call site (file offset) | Reached by | Argument | Screen |
+|---|---|---|---|
+| `0x7652` | reloc, hunk 20 `+0x18E` | `pal1` `0x1947C` | `scrolls.dtx` scroll-text reader |
+| `0x98C8` | reloc, hunk 26 `+0xC54` | `pal4` `0x194DC` | Town-services entry (see runtime patch) |
+| `0xA142` | reloc, hunk 29 `+0x36` | `pal1` `0x1947C` | `SelectTown(idx)` — town/party display |
+| `0xBFF8` | reloc, hunk 32 `+0x5B0` | `pal3` `0x194BC` | `decor.pic` / `final.pic` ending sequence |
+| `0x15574` | reloc, hunk 53 `+0x344` | `pal3` `0x194BC` | Monster/race sprite loader (`*.PAT`) |
+| `0x16FC0` | reloc, hunk 56 `+0x558` | `pal2` `0x1949C` | Dungeon exploration |
+| `0x17946` | reloc, hunk 56 `+0xEDE` | `pal2` `0x1949C` | Dungeon exploration |
+| `0x1F0AA` | **`bsr`**, hunk 77 `+0x346` | `pal4` `0x194DC` | Title sequence (`cover1.pic`/`cover2.pic`) |
+| `0x1F22A` | **`bsr`**, hunk 77 `+0x4C6` | `pal0` `0x1945C` | `SetBlackPalette()` wrapper at `0x1F224` — 7 external callers (hunks 20, 32, 41, 56) use it to blank the screen before a load |
+| `0x1F280` | **`bsr`**, hunk 77 `+0x51C` | BSS `hunk79+0x4F0` | `RestorePalette()` — replays the 16 words saved by `SavePalette()` at `0x1F236`, which reads them back with `GetRGB4` |
+
+**Runtime palette mutation (one instance, exhaustively searched).** A
+whole-binary scan of every `HUNK_RELOC32` operand pointing into
+`hunk69+0x30..0xE0` finds exactly one *write*: `move.w #$0E00,
+(hunk69+0xB8)` at `game+0x98B8`, i.e. `pal4[2] = 0x0E00` (pure red,
+replacing the stored `0x0EB0` orange), executed immediately before that
+routine's own `SetPalette(pal4)`. This runs on town entry, so any pal4
+render of a *post-title* screen must apply the patch; the title sequence
+sets pal4 before any town code runs and therefore uses the pristine
+stored table. No other palette slot is ever written at runtime.
+
+**Second colour path (`SetRGB4`).** All eight `_SetRGB4` call sites in
+the binary are inside hunk 77 (`+0x232`, `+0x2CE`, `+0xE92`, `+0xEB6`,
+`+0xEDA`, `+0xFCE`, `+0xFF2`, `+0x1016`). The exported one is
+`SetOneColour(index, rgb)` at `0x1EFEC` (hunk 77 `+0x288`, 4 callers:
+hunk 26 `+0xE68`/`+0xECE`, hunk 32 `+0x756`/`+0x90E`); hunk 26 `+0xEA4`
+uses it to **fade in** `pal1` one index at a time with a 7-frame
+`WaitTOF` delay per colour. A separate colour-cycling routine at
+`0x1EEDC` (hunk 77 `+0x178`, sole caller hunk 80 `+0x1AE`) rotates three
+words held in hunk 78 `+0x6..+0xC`. Neither introduces palette data of
+its own — the source words are still the stored slots above.
 
 ### 1.4 Race table
 
@@ -108,6 +205,43 @@ OGRE, GNOLL, TROLL, KOBOLD, ORC, GOBLIN, LIZ.MAN, MINOTAUR, UNDEAD` — all
 entries (each subsequent string starts exactly where the previous one's
 NUL terminator ends, with no garbage in between). `party1.pat`'s size
 (8,192 bytes) is exactly `16 * 512`, with zero remainder.
+
+### 1.5 Item name table
+
+| Offset | Size | Field | Notes |
+|--------|------|-------|-------|
+| `0x5EFC` | variable | Item name strings | 181 sequential NUL-terminated ASCII strings, back-to-back (same "no fixed stride" convention as the race table, §1.4) — index 0 is `"NOTHING"` (the empty-item-slot sentinel), indices 1-180 are real items |
+
+Located by grepping the raw executable for known RPG-item substrings
+(`SHIELD`, `SWORD`, `DAGGER`, ...) and then reading sequential
+NUL-terminated strings backward/forward from the first hit until a
+non-printable byte was reached. The table runs from `0x5EFC`
+(`"NOTHING"`) to `0x6539` (byte immediately after the NUL terminating
+entry 180, `"DIAMOND E"`), immediately followed by a run of big-endian
+`u16` numeric data (unexplored — likely a price/value table, not pursued
+in this pass) and then, at `0x697E`, the six class-name strings
+(`THIEF, MONK, RANGER, FIGHTER, PRIEST, WIZARD`) immediately preceding
+the already-confirmed race-name table at `0x69BE` (§1.4) — i.e. the item
+table is followed by *exactly* the same class-name-then-race-name
+sequence found in P2 (§2.6 below), an independent structural
+cross-check that this is the right table family, not a coincidental
+string run.
+
+**Confidence: confirmed, byte-exact, cross-validated against real
+dungeon-script data.** All 181 entries decode as legible, distinct,
+in-genre item names (armor/shields at low indices, weapons, then
+potions/scrolls/rings/gems at increasing indices — e.g. index 51 =
+`"SM AXE"`, matching the confirmed example action record in
+`scripting-engine.md` §2, which gives item 51 via opcode `0x06`).
+Independently verified by decoding every real action-table record with
+opcode `0x06` ("+Item") across all 10 real `data/phantasie/amiga/dng1`-
+`dng10` files (the confirmed packed/variable-stride scan, base `0x05AA`,
+terminated by `0x0D 0x0D` — `scripting-engine.md` §2): **63 distinct item
+indices referenced, 0 out of the 0-180 range**, every one resolving to a
+plausible, thematically-appropriate loot item (e.g. `RING MAIL`,
+`LNG SWORD`, `SCROLL 1`-`SCROLL 20`, `DIAMOND A`-`DIAMOND C`, `GOLD KEY`).
+See `scripting-engine.md` §6 for the full cross-check methodology and
+result table.
 
 ## 2. Phantasie II (Atari ST) — monster and race tables
 
@@ -195,6 +329,31 @@ its file size matches P1's byte-for-byte (`stx-extraction.md` §7) — the
 render evidence shows this reasoning doesn't hold; both file families use
 the same Interleaved layout on P2 regardless of size coincidence.
 
+### 2.6 Item name table — confirmed
+
+| Offset | Size | Field | Notes |
+|--------|------|-------|-------|
+| `0x1E9CC` | variable | Item name strings | 181 sequential NUL-terminated ASCII strings — same layout as P1 §1.5, index 0 is `"NOTHING"` |
+
+Found at the exact same relative structural position as P1: item names
+run from `0x1E9CC` (`"NOTHING"`) to `0x1EFEB` (end of entry 180,
+`"GOD RING"`), immediately followed by the class-name table
+(`THIEF, MONK, RANGER, FIGHTER, PRIEST, WIZARD` at `0x1EFF4`) and then the
+already-confirmed race-name table at `0x1F01C` (§2.4). P2's item roster
+differs from P1's past the shared early-game armor/weapon list (P2 has
+distinct scroll-lettering `SCROLL A`-`SCROLL N` instead of P1's
+`SCROLL 1`-`SCROLL 20`, and a different late-game gem/treasure list) —
+expected, since P1 and P2 are different games sharing an engine, per the
+same rationale already noted for the monster/race tables (§2.1/§2.4).
+
+**Confidence: confirmed, byte-exact, cross-validated against real
+dungeon-script data.** Independently verified against every real
+opcode-`0x06` ("+Item") action record across all 8 real
+`data/phantasieii/atarist/extracted/{disk1,disk2}/DNG1`-`DNG8` files:
+**44 distinct item indices referenced, 0 out of the 0-180 range**, all
+resolving to plausible items (`MD SHIELD`, `SWORD +2`, `HEAL POT7`,
+`SCROLL H`, `DIAMOND`, etc.). See `scripting-engine.md` §6.
+
 ## 3. Phantasie III (Amiga) — monster table (`monsinfo.dat`)
 
 File: `data/phantasieiii/amiga/monsinfo.dat`, 3,072 bytes.
@@ -212,14 +371,14 @@ the CMP/CSH/SET files (`3072 = 128 * 24` exactly).
 | `0x00` | up to 14 | Name | Space-padded ASCII (`0x20`) up to a single trailing NUL terminator, not zero-padded throughout — e.g. `"Skeleton"` is followed by 5 space bytes then one `0x00` (confirmed during implementation; decoders should `.trimEnd()`, not stop at the first NUL) |
 | `0x0E` (14) | 1 | `nb` | Encounter group size (number of this monster that appear together) |
 | `0x0F` (15) | 1 | Attack | Raw byte value; reference tool multiplies by 10 for display (`attack = byte * 10`) |
-| `0x10` (16) | 1 | Weapon | Weapon-type index (into an item/weapon table — table location not identified in this pass) |
-| `0x11` (17) | 1 | Armor | Armor-type index |
+| `0x10` (16) | 1 | Weapon rating | **Not an item-table index** (confirmed this pass, see below) — a raw combat-power stat, despite the reference source's field name |
+| `0x11` (17) | 1 | Armor rating | Same reframing as Weapon rating — a raw combat-power stat, not an item index |
 | `0x12` (18) | 1 | Defense | |
 | `0x13` (19) | 1 | Threat/morale | |
 | `0x14` (20) | 1 | Spell probability | |
-| `0x15` (21) | 1 | Spell 1 | Spell index |
-| `0x16` (22) | 1 | Spell 2 | Spell index |
-| `0x17` (23) | 1 | Spell 3 | Spell index |
+| `0x15` (21) | 1 | Spell 1 | Index into the P3 spell name table (§3.1 below) — **confirmed** |
+| `0x16` (22) | 1 | Spell 2 | Index into the P3 spell name table — **confirmed** |
+| `0x17` (23) | 1 | Spell 3 | Index into the P3 spell name table — **confirmed** |
 | `0x18` (24) | 1 | MP | |
 | `0x19` (25) | 1 | HP | |
 | `0x1A` (26) | 1 | Alignment | |
@@ -241,48 +400,294 @@ padding — all read from source and independently structurally validated).
 `Wild Cat`, `Giant Bee`, ..., `Lord Wood` — all legible, distinct,
 in-genre monster names (note: mixed-case here vs. P1's all-caps names,
 consistent with P3 being a later, separately-authored data set).
-**Not independently verified:** exact semantic scaling of `attack`,
-`experience`, and the weapon/armor/spell/item index meanings (no
-cross-referenced weapon/item/spell name tables were located in this pass
-to confirm what index N actually names).
+
+**Monster-name-table index space independently cross-checked against
+real dungeon scripts**, the same way as P1/P2 (§1.5/§2.6): scanning every
+real opcode-`0x05`/`0x11` ("encounter") action record across all 11 real
+`data/phantasieiii/amiga/D/dng{a..k}.dat` files (fixed 256-slot action
+table, base `0x0393`, no terminator — `scripting-engine.md` §2) finds 8
+distinct monster indices referenced, **0 out of the 0-79 range**, all
+resolving to plausible encounters (`Viper`, `Wizard`, `Guagle Beast`,
+`Nikademus` — the final boss, referenced twice at indices 77/78, `Lord
+Wood`).
+
+**Item name table found** (`data-tables.md` was previously missing this —
+see §1.5/§2.6 for the P1/P2 equivalent): the same 181-entry sequential
+NUL-terminated item-name string table exists in `PhantasieIII` itself, at
+file offset `0x466C` — entry 0 is the single character `"0"` (P3's own
+"empty item" sentinel, differing from P1/P2's `"NOTHING"` string but
+serving the same role), entries 1-180 are real items (mixed-case, e.g.
+`"Wooden Shield"`, `"Small Axe"`, `"Wand of Nikademus"` at the final
+index 180). Table ends at `0x4E74`, immediately followed by a spell-name
+table using the same convention (own placeholder `"0"` at its own index
+0). **Cross-checked against real dungeon scripts** the same way as
+above: all real opcode-`0x06` records across the 11 P3 dungeon files
+resolve to 71 distinct in-range item indices, 0 out of range (e.g.
+`"Wand of Nikademus"` — the unique endgame item — at index 180).
+
+**Cross-checked against the real SSI 1987 rule book** (see
+`implementation-plan.md`'s primary-source addendum), which catalogues
+items 1-120 by number across four categories (Shields 1-20, Armor 21-40,
+Bows 41-60, Melee Weapons 61-100, Healing Potions 101-110, Magic Potions
+111-120). This pass re-read the manual's own catalogue pages directly
+(PDF pages 21-22, the rule book's own printed pages 17-18, via `Read`'s
+`pages` parameter on the source PDF) rather than trusting an
+earlier transcription verbatim — the earlier transcription's own
+`"Halbred"` spelling turned out to be an eyeballed-OCR slip (the manual
+itself prints `"Halberd"`, matching the game data exactly; corrected here
+before diffing). Decoding `readP3ItemNames()`'s output at indices 1-120
+against the manual's real page text: **117/120 exact matches, 3
+deviations**, two cosmetic and one genuinely substantive:
+
+- `40`: `"God Armour"` (game) vs. `"God Armor"` (manual) — a
+  British/American spelling choice, same item, not a data error.
+- `81`/`82`: **the game's own table reads `"Dagger +1"`/`"Dagger +2"`,
+  but the manual's printed catalogue lists these exact item numbers as
+  `"Knife +1"`/`"Knife +2"`** — a real, non-cosmetic discrepancy between
+  the published 1987 manual and the shipped Amiga binary's actual data
+  (both sources independently re-verified: the manual's page image was
+  re-read directly for this check, and the game bytes were re-extracted
+  fresh, not reused from an earlier pass). The base items at `61`
+  (`"Knife"`) and `62` (`"Dagger"`) are unaffected and match both
+  sources exactly, and every other `+1`/`+2` pair in the 81-100 range
+  (`Club +1/+2` at 83/84, `Flail +1/+2` at 85/86, etc.) matches the
+  manual exactly — so this is an isolated two-entry divergence, not a
+  systematic offset or ordering error. Likely a late development-time
+  rename (manual typeset before the final data pass) or a manual erratum;
+  not resolvable further from data alone. **The game's own in-binary
+  name (`"Dagger +1"`/`"Dagger +2"`) is authoritative for this project's
+  extractors and assets** — the manual is being used here as a
+  cross-check oracle, not as a data source to override real bytes.
+
+Every other shield/armor/bow/melee-weapon name and `+N` enchantment suffix
+lines up index-for-index (117/120), and the manual's generic "Healing
+potion N restores an increasing amount" / "Magic potion N restores `3×N`
+magic points" description for 101-120 matches the table's own `"Healing
+Potion 1"`-`"Healing Potion 10"` / `"Magic Potion 1"`-`"Magic Potion 10"`
+naming exactly. This is the single strongest confirmation this table has
+received — a first-party 1987 published source, not a third-party
+reimplementation — and **upgrades the whole 1-120 range from "confirmed
+via dungeon-script cross-check" to "confirmed against SSI's own manual,
+with one isolated documented divergence at 81/82."** Indices 121-180
+(scrolls/gems/valuables) are not individually catalogued in the manual
+(described only as narrative plot items), consistent with the table's own
+less-systematic naming there (`"Scroll I"`-`"Scroll XVI"`, then a long
+list of gem/trinket names ending in `"Wand of Nikademus"` at 180) — no
+manual cross-check possible for that range, unchanged from before.
+
+This item table also **partially resolves** the `Item 1`/`Item 2` fields
+(`0x1F`/`0x20`) above: decoding all 80 monster records' `Item 1`/`Item 2`
+byte values against it gives 0 out-of-range values (39/36 distinct values
+respectively, spanning the full catalogue from armor through gems/potions
+— e.g. Skeleton's `Item 1`/`Item 2` resolve to `"Staff"`/`"Short Sword"`,
+plausible monster drops), a clean match.
+
+**`Weapon`/`Armor` fields (`0x10`/`0x11`) — resolved this pass, but *not*
+as item indices.** The previous pass's read (values skew toward the
+shield/armor-name region of the item catalogue for weak monsters, e.g.
+Skeleton's field-`0x10` value `7` resolving to `"Small Shield +3"`, not a
+weapon) is now explained: **these fields aren't item-table indices at
+all.** Computing Pearson correlation across all 80 monster records between
+this field pair and the two already-confirmed combat stats (`attackRaw` at
+`0x0F`, `hp` at `0x19`):
+
+| Pair | r |
+|------|---|
+| `attackRaw` vs. field `0x10` | 0.82 |
+| `attackRaw` vs. field `0x11` | 0.96 |
+| `hp` vs. field `0x10` | 0.81 |
+| `hp` vs. field `0x11` | 0.77 |
+| field `0x10` vs. field `0x11` | 0.80 |
+| `defense` (`0x12`) vs. field `0x11` | -0.05 |
+
+All four cross-stat correlations are strongly positive (0.77-0.96) — the
+opposite of what an item-catalogue index would show (item-table position
+has no reason to track monster power). Field `0x10`'s raw values also grow
+essentially monotonically with monster tier across the 80-entry table
+(`2` at index 31 `Wolf` up to `90` at index 77 `Nikademus`, the final
+boss), the same shape as the already-confirmed `attackRaw`/`hp` fields, not
+the shape of an arbitrary catalogue lookup. (The near-zero correlation
+against `defense` at `0x12` shows this isn't just "everything correlates
+with everything" — it's specifically the stat-like fields that track each
+other.) **Renamed to `weaponRating`/`armorRating`** in
+`src/assets/formats/monster-data.ts` to reflect this; exact display
+scaling (raw value, or scaled like `attack = byte*10`) not determined.
+
+**Spell fields (`0x15`-`0x17`) — confirmed** against the P3 spell name
+table, located immediately after the item table at file offset `0x4E74`
+(ends `0x513E`): 58 sequential NUL-terminated strings, index 0 the `"0"`
+placeholder (no spell), indices 1-57 real spells (`Healing I`...`Divine
+Aid`). Decoding all 80 monsters' three spell fields against this table: 0
+out-of-range across all 240 field reads, and the result is thematically
+airtight — every monster with `spellProbability == 0` also has all three
+spell fields `== 0` (no spell), while every spellcasting monster resolves
+to real, appropriately-scaled spells, e.g. `Ranger`→`(Healing I, Flame
+Arrow I, Confusion I)`, `Wizard`→`(Fireflash III, Weakness IV, Healing
+IV)`, `Small Devil`→`(Mindblast II, Mindblast II, Healing I)` scaling up to
+`Dragon`/`Dragon King`→`Mindblast IV`/`Flamebolt I`, and the two
+`Nikademus` (final boss) records and `Lord Wood` all resolving to the
+top-tier `Healing IV`/`Weakness IV`/`Binding IV` kit. Implemented as
+`readP3SpellNames()` in `src/assets/formats/exe-data.ts`.
+
+**Confirmed byte-exact against the real SSI 1987 rule book's own "Spell
+Table"** (PDF page 19, the rule book's own printed page 15, re-read directly this pass rather
+than trusting an earlier paraphrase — see `implementation-plan.md`'s
+primary-source addendum). The manual's printed table lists spell numbers
+`1`-`52` then, after a visible gap, `54`-`56` — **55 explicit numbered
+entries, `53` conspicuously absent from the printed table itself**.
+Decoding `readP3SpellNames()`'s indices 1-56 against it gives **55/55
+exact name matches in identical order** (`1 Healing I` ... `40 Flamebolt
+IV`, `41 Charm`, `42 Sleep`, `43 Teleportation`, `44 Resurrection`, `45
+Ninja II`, `46 Fear`, `47 Dissolve`, `48 "Summon Element."` — the table's
+own truncated form of the manual's `Summon Elemental` — `49 "Dispell
+Undead"` (manual: `Dispel Undead`, single-`l` spelling difference only),
+`50 Ninja I`, `51 Awaken`, `52 "Monster Evaluate"` (manual: `Monster
+Evaluation`), `54 Transportation`, `55 Accuracy`, `56 "Party
+Accuracy"`) — zero mismatches, and every magic-point cost in the manual's
+`MAGIC PTS.` column matches the corresponding monster/spell-progression
+data already decoded elsewhere in this project.
+
+This **resolves the numbering ambiguity flagged during manual
+transcription** (uncertainty over whether `Transportation`/`Accuracy`
+were numbered 53/54 or 54/55) with two independent confirmations, not
+just the table gap itself: the manual's own body text (Appendix III,
+"Mapping" section, page 24) reads *"Scandor is divided into a 5×5 area...
+Already mapped so spell 53 (Vision) is unnecessary"* — explicitly naming
+spell `53` as `Vision` and explaining why it has no player-facing effect,
+which matches the game's own internal name for that slot, **`"UNUSED
+SPELL (vision)"`** (index 53 in `readP3SpellNames()`'s output), almost
+verbatim. Second, the manual's spell-description pages (page 16) read
+*"Divine Spells (#57+): these spells may only be acquired during the
+course of the game for special purposes"* — explicitly establishing that
+numbered spells continue past the 56-entry table into a `#57+` "Divine"
+category, matching the table's own index `57` = `"Divine Aid"` exactly.
+`scripting-engine.md` §5's documented opcode `0x19` special case
+(`statIndex 0x75` = 117 → "does any party member know the spell Divine
+Aid") independently corroborates this same entry from the code side.
+**Confidence: confirmed** — the manual match (both the numbered table and
+two separate body-text passages), and the independent opcode
+cross-reference, all now support the full 57-entry table (up from the
+prior pass's dungeon-script-only cross-check).
 
 ### 3.2 Monster→sprite-bank mapping
 
 See `graphics-formats.md` §6 — the `spriteIndex` field above feeds a
-piecewise bank-index/cell-index formula, with two hardcoded single-value
-patches for "elemental" (`spriteIndex==48`) and "wild dog"
-(`spriteIndex==65`).
+piecewise bank-index/cell-index formula. **Independently re-derived and
+byte-verified against `PhantasieIII` disassembly this session**
+(`game+0x1B4F0`-`0x1B6E2`): the thresholds/bank assignments for
+`spriteIndex` 0-47 match the source-transcribed table exactly. The two
+previously-documented single-value patches for `spriteIndex==48`
+("elemental") and `spriteIndex==65` ("wild dog") did **not** verify — the
+real function has no per-value special case; any `spriteIndex >= 48` is
+clamped to 48 and falls back to the same formula applied to a fixed
+constant (14), i.e. bank 2 cell 14, not the previously-documented
+bank0/cell11 or bank2/cell0. Two real monsters in `monsinfo.dat` hit this
+path: `Mud Elemental` (`spriteIndex 48`) and `Wolf` (`spriteIndex 65` —
+not "Wild Dog", which itself has `spriteIndex 0`; the old patch's
+"wild dog" label was a misidentification carried from the reference
+source).
 
 ## 4. Phantasie III (Amiga) — race table
 
-**Offsets not resolved for the Amiga binary.** The reference source's
-`RacesManagerP3.cs` reads race names and bank-sprite-index values from a
-file it opens as `"Disks/P3 - ST/PHANT_3.PRG"` — i.e. the **Atari ST**
-executable, not the Amiga one — at offsets `0x57D8` (a 6-byte-stride,
-18-entry word table of name-string offsets), `0x21A2E` (base address the
-name offsets are relative to), and `0x6C52` (a 4-byte-stride, 18-entry
-word table giving `bankSpriteIndex*2`).
+### 4.1 Race name table — confirmed, byte-exact
 
-These offsets were tested directly against this project's
-`data/phantasieiii/amiga/PhantasieIII` (174,928 bytes, a genuine
-uncompressed — confirmed via 68k-code entropy/opcode-density check, not
-just filename — AmigaOS HUNK executable) both as raw file offsets and
-adjusted by the CODE hunk's file-relative data start (`+40`, derived from
-parsing the HUNK header: `HUNK_HEADER` (32 bytes) + `HUNK_CODE` tag+size
-prefix (8 bytes) = 40). **Both attempts produced garbage** (non-printable
-byte sequences where race names should be) — confirming these specific
-offsets are ST-binary-specific and do not carry over to the Amiga
-executable, most likely because the two platforms' compiled binaries have
-genuinely different data layouts (different compiler/linker, different
-code size), not because of a simple segment-relative-vs-file-relative
-mismatch (which the `+40` adjustment attempt ruled out).
+**Offsets found this pass**, independently of the reference source (which
+only has offsets for the Atari ST build — see §4.3). Located by grepping
+`data/phantasieiii/amiga/PhantasieIII` directly for mixed-case race-name
+substrings (P3's item/monster names are mixed-case, unlike P1/P2's
+all-caps convention — see §3.1) — `"Dwarven"`, `"Elven"`, `"Gnome"`, etc.
+all hit in a single tight cluster at file offset `0x5172`-`0x51ea`:
 
-Race count is known from source (`RacesManagerP3.Count = 18`, one more
-than P1/P2's 16 — matching the `RaceType` enum's `Elemental` addition, per
-`Race.cs`'s comment table cross-referencing P1/P2/P3 race-index
-orderings), but the byte offsets to read the 18 names/sprite-indices from
-the **Amiga** `PhantasieIII` executable were not found in this pass — see
-Open Questions.
+```
+Human\0 Dwarven\0 Elven\0 Gnome\0 Halfling\0 Random\0 Gnoll\0 Goblin\0
+Kobold\0 Lizard Man\0 Minotaur\0 Ogre\0 Orc\0 Pixie\0 Sprite\0 Troll\0
+Elemental\0 Undead\0
+```
+
+18 sequential NUL-terminated strings, exactly matching the reference
+source's `RacesManagerP3.Count = 18` (§4.3) — the 18th name being
+**`"Random"`** (a "generate me a random race" character-creation menu
+option, not a real playable race with its own sprite), which resolves the
+apparent "one more than P1/P2's 16 for one new race (Elemental)" arithmetic
+mismatch flagged in the previous pass: 16 (P1/P2) + `Elemental` (17) +
+`Random` (18) = 18.
+
+This string block is **not** read directly by raw offset (unlike every P1
+table and the P3 skills table, §1/§5) — it's addressed through a pointer
+table, found via the `HUNK_RELOC32` cross-reference technique used
+repeatedly elsewhere this session (`scripting-engine.md` §7.1a): computing
+the string block's hunk-0-relative offset (`0x5172 - 0x28 = 0x514A`, where
+`0x28` is `PhantasieIII`'s `HUNK_HEADER`(32B)+`HUNK_CODE` tag/size
+prefix(8B) — this file has only 3 hunks total: `CODE` (data at file
+`0x28`, 137,352B), `DATA` (data at file `0x278C8`, 10,108B), `BSS` (4B) —
+a much simpler layout than P1's 240-hunk `game`) and scanning every
+`HUNK_RELOC32` entry across the whole binary for one whose **stored
+pre-relocation longword** equals that hunk-relative offset. Exactly one
+hit: file offset `0x28e84` (inside the `DATA` hunk), storing `0x514A`.
+
+Reading 30 consecutive big-endian `u32` entries starting at `0x28e84 -
+6*4` through `0x28e84 + 24*4` and resolving each as `0x28 + storedValue`
+shows this is one long **shared string-pointer table** — spells (ending
+just before), then continent names, alignment (`Light`/`Darkness`), then
+the 18 race names at table-relative indices 0-17 (file offset
+`0x28e84`-`0x28ecc`), immediately followed by the 6 class names
+(`Fighter`...`Wizard`), abbreviations, social-class, and status-name
+strings — i.e. a single generic "string N" lookup table used throughout
+the UI, not a race-specific structure. Every one of the 18 resolved
+pointers decodes to the exact race name expected, in the exact order
+listed above, with **zero garbage** across all 18 entries — matching the
+raw string-scan result byte-for-byte.
+
+**Confidence: confirmed, byte-exact.** Implemented as `readP3RaceNames()`
+in `src/assets/formats/exe-data.ts`, tested in
+`src/assets/formats/__tests__/exe-data.test.ts`.
+
+### 4.2 Race → sprite-bank-cell mapping — not located (open)
+
+The reference source's ST-binary `bankSpriteIndex*2` table (§4.3) was
+searched for in the Amiga binary and **not found**. Two distinct
+approaches were tried and both came back empty:
+
+| Approach | Result | Why it didn't find it |
+|----------|--------|------------------------|
+| Numeric structural scan: every offset in the 174,928-byte file tested as the start of an 18-entry array of small, mostly-distinct integers (tried as `u32`/stride-4, `u16`/stride-4, `u16`/stride-2, and `u8`/stride-1, with value ceilings from 40 up to 100) | 0 convincing candidates (one `u8`/stride-1 hit at `0x287d8`, but that's the already-documented 202-byte ramp table at hunk 1 `+0x0F10`, `scripting-engine.md` §7.5.1 — a coincidental `[0,1,2,...,17]` run inside a much longer table, not an 18-entry standalone array) | A pure numeric lookup table carries no string/pointer signature a byte-pattern or reloc scan can anchor on; the search space (any 18-entry run in 175KB) is large and the true table (if byte- or word-sized) is indistinguishable from incidental data without knowing its value distribution in advance |
+| `HUNK_RELOC32` xref scan for code referencing the race-name pointer table's own base (`0x28e84`, hunk-1-relative `0x15BC`) | 9 call sites found (file offsets `0x12a40`, `0x12b44`, `0x12d26`, `0x12d8e`, `0x12dbe`, `0x12f2c`, `0x13132`, `0x13c34`, `0x2073e`) | All 9 are call sites into a generic "read string by ID" routine used for UI text throughout the game (`Fighter`/status names/town names all route through the same pointer table, §4.1) — not race-specific, so this doesn't isolate a caller that would also touch a parallel sprite-index table |
+| PC-relative xref scan (brute-force `p + s16(word_at(p)) == target` over the whole CODE hunk, the technique that this session's `graphics-formats.md` §3/§6 passes used successfully elsewhere on this exact binary) for callers of the 7 bank-filename strings' block (`heros.cmp`/`purple1.cmp`/.../`giant2.cmp`, file `0x444e`-`0x44db`) | 27 hits, scattered across the whole binary (`0x24c` through `0x93f8`) | No concentrated cluster resolving to one character-creation/race-select function — this is a shared filename block referenced generically (comparison/display), same shape of dead end as the numeric scan above, not a genuinely different result |
+
+Race sprites (`heros.cmp`, bank 0, 32×48, never giant — `graphics-formats.md`
+§6) are rendering correctly today using **race index directly as the
+`spriteIndex`** fed into the confirmed bank/cell grid formula (i.e.
+`bankSpriteIndex = raceIndex`, an identity mapping) — this is an
+**unverified working hypothesis**, not a located table. It's structurally
+plausible (bank 0 has 40 cells, 18 races × 2 poses = 36 fits with room to
+spare) but not independently confirmed against the Amiga binary the way
+the monster `spriteIndex` piecewise table now is (`graphics-formats.md`
+§6, confirmed this session via direct disassembly of the *monster*
+dispatcher at `0x1B4F0`-`0x1B6E2` — that function is generic per-bank
+grid math, not race-specific, and doesn't read a race struct field, so it
+doesn't resolve this gap either). Not escalated to `re-codebreaker` this
+pass — three approaches now tried (numeric scan, race-name-table xref,
+bank-filename-block xref) are all variants of "search for an anchorless
+or generically-shared reference," not a full instruction-level
+disassembly trace of the actual character-creation/race-select screen's
+own code, which would be the next genuinely different approach. See
+`TODO.md`'s `data-p3-race-sprite-index` row.
+
+### 4.3 Reference source's ST-only offsets (superseded for the name table)
+
+The reference source's `RacesManagerP3.cs` reads race names and
+bank-sprite-index values from a file it opens as
+`"Disks/P3 - ST/PHANT_3.PRG"` — i.e. the **Atari ST** executable, not the
+Amiga one — at offsets `0x57D8` (a 6-byte-stride, 18-entry word table of
+name-string offsets), `0x21A2E` (base address the name offsets are
+relative to), and `0x6C52` (a 4-byte-stride, 18-entry word table giving
+`bankSpriteIndex*2`). These offsets were tested directly against
+`PhantasieIII` both as raw file offsets and adjusted by `+40`
+(`HUNK_HEADER`+`HUNK_CODE` prefix) in an earlier pass; **both attempts
+produced garbage**, confirming the ST offsets don't carry over to the
+Amiga binary's genuinely different data layout. §4.1 above supersedes this
+for the name table via an independent, from-scratch derivation; §4.2's
+sprite-index table remains unresolved.
 
 ## 5. Phantasie III (Amiga) — skills table
 
@@ -316,6 +721,23 @@ this differs from the reference tool's internal `ClassEnum` declaration
 order (`THIEF, MONK, RANGER, FIGHTER, PRIEST, WIZARD`), which is just an
 arbitrary enum-member order, not the on-disk field order.
 
+**Skill order matches the SSI 1987 rule book exactly** (see
+`implementation-plan.md`'s primary-source addendum) — the manual's own
+skills list is "Attack, Parry, Swim, Listen, Spot Trap, Disarm Trap, Find
+Item, Pick Lock, Fire Bow" (9 skills, of which this 8-table set covers the
+first 8 verbatim in the same order — Attack/Parry/Swim/Listen/Spot
+trap/Disarm/Spot item/Pick lock, `"Spot trap"`/`"Spot item"` being this
+project's own working labels for the table offsets in §5.1's list above).
+This table's order was independently re-derived purely from the reference
+source's stated `Amiga/PhantasieIII` provenance and its own comment block
+(no manual involved at the time), so the manual match is a genuine,
+independent cross-check, not circular — and it's now further corroborated
+by the real on-screen character-sheet label strings found this pass
+(`scripting-engine.md` §7.5.1), which give the *exact* in-game wording
+("Find Trap", "Find Item", "Swimming") for these same 8 skills plus the
+9th (Fire Bow, absent from this class/level progression table but present
+on the character sheet and in the character record's skill-pair block).
+
 **Confidence: confirmed, byte-exact.**
 
 ### 5.2 Verification
@@ -329,11 +751,111 @@ exactly at the byte max 255); Thief: `70, 75, 80, ..., 140`. The Parry
 table at `0x283E0` shows the same clean pattern for most classes. A small
 number of classes' **15th** (last) level value breaks the otherwise-clean
 monotonic trend (e.g. Ranger's Attack level 15 reads `25`, a drop from
-level 14's `235`; three classes' Parry level-15 values also drop) — this
-is called out rather than smoothed over; it may indicate the 15-level
-table is genuinely only reliable for 14 levels with the 15th byte
-overlapping a different field, or a real in-game "capped" representation.
-Not further investigated in this pass.
+level 14's `235`).
+
+> **Follow-up pass — mechanism confirmed by disassembly; root cause of the
+> specific byte values narrowed to a real data-content quirk (§8's
+> `data-p3-skills-anomaly`).**
+>
+> **One specific case retracted outright.** The originally-reported "three
+> classes' Parry level-15 values also drop" included Wizard's Parry
+> level-15 read of `42` (`0x28439`, the very last byte of the 90-byte
+> Parry table). That address is **not Parry data at all** — it is
+> byte-identical to, and in fact *is*, the first byte of the **Swim**
+> table (`0x28439` is also §5.1's documented Swim base address, and every
+> class's Swim level-1 value reads `42`). The inter-table gap confirms
+> this structurally: every other adjacent skill-table pair in §5.1 is
+> exactly `0x5A` (90) bytes apart, but Parry→Swim is only `0x59` (89)
+> bytes apart — the two tables physically share one byte in the binary.
+> Mechanically the game's own indexing code (below) does still read this
+> shared byte as "Wizard, Parry, level 15" (it has no way to know the
+> byte does double duty), so a level-15 Wizard genuinely is shown a Parry
+> skill of 42 in-game — but this is not an independent anomalous data
+> point, just a byte-sharing coincidence at a table boundary. Retracted
+> from the anomaly count; the real remaining Parry anomalies are Ranger
+> (`85`→`60`) and Monk (`110`→`40`), not three classes.
+>
+> **Indexing mechanism confirmed correct — this is a plain static-table
+> read, not a runtime formula with a level-15 special case.** A
+> `HUNK_RELOC32` cross-reference from `PhantasieIII`'s CODE hunk (hunk 0,
+> file `0x28`-`0x21890`) into the DATA hunk (hunk 1, file
+> `0x278c8`-`0x2a044`) locates every code site that loads one of the 8
+> skill-table base addresses: filtering hunk 0's reloc32 group targeting
+> hunk 1 (4,676 entries) for target offsets inside the skills-table
+> region (hunk1-relative `0xABE`-`0xD8D`) finds exactly 16 hits — the 8
+> table base addresses, each referenced from 2 call sites (file
+> `0xe6fa`-`0xe890` and file `0x135ce` onward). Disassembling the first
+> call site (function prologue at file `0xe67a`, `LINK.W A5,#-0x34`):
+>
+> ```
+> 0xe67e: move.w  $3174.l, -$c(a5)     ; classIndex = *$3174
+> 0xe686: move.w  $3154.l, -$e(a5)     ; level = *$3154
+> 0xe68e: cmpi.w  #$f, -$e(a5)         ; compare level to 15 (0x0F)
+> 0xe694: ble.b   $e69c                ; branch if level <= 15
+> 0xe696: move.w  #$f, -$e(a5)         ; else clamp level to 15 (max)
+> 0xe69c: ...
+> 0xe6ea: move.w  -$c(a5), d0          ; d0 = classIndex
+> 0xe6ee: muls.w  #$f, d0              ; d0 = classIndex * 15
+> 0xe6f2: add.w   -$e(a5), d0          ; d0 += level
+> 0xe6f6: subq.w  #$1, d0              ; d0 -= 1  -> classIndex*15 + level-1
+> 0xe6f8: lea.l   $abe.l, a0           ; a0 = Attack table base (hunk1+0xABE)
+> 0xe6fe: move.b  (a0, d0.w), d1       ; d1 = table[index]  (byte read)
+> ```
+>
+> repeated identically (different `-N(a5)` slots and table base) for all 8
+> skills back to back through file `0xe890`. This resolves the question
+> as originally posed:
+>
+> - **Not (a), no special runtime branch at level 15.** There is exactly
+>   one branch touching the level value at all — the `CMPI.W #$F` / `BLE`
+>   clamp — and it fires for level values *above* 15, not for level 15
+>   itself. The per-skill lookup that follows is unconditional and
+>   identical in shape for every one of the 8 tables.
+> - **Not (c), not an indexing/misalignment artifact.** The formula
+>   `class*15 + level - 1` is confirmed directly from real code (not
+>   inferred from data shape), and for `level=15` it always lands on
+>   exactly the last byte of each 15-byte class block — the byte this
+>   project has been calling "level 15" *is* the byte the game's own code
+>   reads for a level-15 character's skill value. There is no alternate
+>   field boundary the code is actually using. The byte-sharing case above
+>   is the only place where a documented "level 15" read turns out to
+>   double as something else, and that is a binary-layout coincidence
+>   between two adjacent tables, not a misindexed read.
+> - **Level 15 is a real, legitimately-reached game state, not an
+>   overflow/edge case.** The `CMPI.W #$F` / clamp-to-15 is the character
+>   level cap for this lookup — i.e. the game's own code treats 15 as the
+>   top of the valid level range and deliberately clamps anything higher
+>   down to it, so every level-15+ character genuinely reads this exact
+>   byte in normal play, not just as a hypothetical edge case.
+> - **(b) is what remains, and is not resolvable by disassembly alone.**
+>   The code applies the same unconditional formula regardless of the
+>   byte's value, so it cannot distinguish "intentional level-15 design
+>   value" from "typo in the original 1987 data entry" — both produce
+>   identical, valid, in-range byte reads and identical execution. The
+>   surviving anomalies (after retracting the Parry/Swim boundary case
+>   above) skew heavily toward one class: **Ranger** shows a break at
+>   level 15 in 6 of 8 skills (Attack `235→25`, Parry `85→60`, Listen
+>   `44→144`, Spot trap `5→65`, Disarm `14→47`, Pick lock `6→13`), with
+>   Wizard (Attack `100→125`) and Monk (Parry `110→40`) each showing one.
+>   The direction is inconsistent even within Ranger's own row (combat
+>   skills Attack/Parry *drop* at level 15, utility skills Listen/Spot
+>   trap/Disarm/Pick lock *jump* sharply higher) — there is no single
+>   consistent rule ("always caps lower", "always spikes at the cap")
+>   that would support a deliberate, uniform "prestige tier" design
+>   reading. This asymmetry, concentrated so heavily in one class, reads
+>   more plausibly as a genuine data-entry inconsistency in SSI's
+>   original 1987 table than as an intentional mechanic, but that
+>   remains an inference, not a byte-level proof — no developer source or
+>   errata exists to confirm intent either way.
+>
+> **Confidence: confirmed** for the read mechanism (direct static array
+> read, `class*15 + level-1` indexing, level clamped to a max of 15, no
+> special-case branch) and for the Parry/Swim boundary retraction.
+> **Open, and left open** for whether the surviving Ranger/Wizard/Monk
+> level-15 byte values themselves are an intentional design choice or a
+> data-entry error — this is inherent ambiguity in static data with no
+> further available oracle (no source, no errata, no third-party
+> transcription to cross-check against), not a gap in the investigation.
 
 ## 6. Phantasie III (Amiga) — item table (`inititem.dat`)
 
@@ -381,9 +903,17 @@ repeated "cost"/"value" field (200 gold?) reused across multiple related
 item slots, but this is speculative pattern-matching, not a confirmed
 field decode.
 
-**Confidence: hypothesis.** Record boundary (18-byte stride, 181 records,
-0-3257 data region + 70-byte trailing pad to 3328) is well-supported by
-the exact byte-accounting above. Individual field meanings within a
+**Confidence: record boundary now confirmed; field semantics still
+hypothesis.** The 18-byte / 181-record reading was upgraded from
+stride-analysis inference to code-level confirmation by a later pass: the
+`PhantasieIII` save writer/loader transfer a `0xCBA` = **3,258 = 181 × 18**
+byte block between the file and hunk 1 `+0x44BA` as a hardcoded length
+(`scripting-engine.md` §7.5.1) — an independent, byte-exact corroboration
+of exactly this stride and count, and also confirmation that the table is
+a live, mutable game structure carried in saves (so a full catalogue, not
+a static starting-loadout list). Record boundary (18-byte stride, 181
+records, 0-3257 data region + 70-byte trailing pad to 3328) is
+well-supported by the exact byte-accounting above. Individual field meanings within a
 record are **not** determined — no field names, no confirmed types beyond
 "looks like small integers with an occasional 16-bit value", and no
 cross-reference to any name table was found to confirm this is even an
@@ -394,7 +924,105 @@ rather than a full item catalogue; 181 "items" would be unusually large
 for a starting-kit table, which weakly favours "item catalogue" over
 "starting loadout", but this was not resolved).
 
-## 7. Phantasie III (Amiga) — save file and system configuration
+> **Correction (2026-08-09, `re-codebreaker`):** the "starting loadout"
+> reading is now **refuted**. The same 3,258-byte block is read from and
+> written back to `gamesave.dat` on every load/save (hunk 1 `+0x44BA`,
+> `scripting-engine.md` §7.5.1) — a starting-equipment table would be
+> static and would never be persisted per save. It is an item catalogue
+> whose per-record state changes during play. This also fixes the record
+> count and stride at exactly 181 × 18 rather than leaving them inferred.
+
+> **Update (this pass):** the 181-entry item *name* table this file was
+> missing was subsequently located — not in `inititem.dat` itself, but in
+> the `PhantasieIII` executable at `0x466C` (see §3.1 above). The record
+> count matches **exactly** (181 = 181), and record 0's all-zero content
+> matches the name table's own index-0 empty-item placeholder
+> (`"0"`) — a real structural coincidence in favour of `inititem.dat`
+> being this same item catalogue's per-item stat records, in the same
+> index order. However, spot-checking specific named indices
+> (`2`/`"Wooden Shield"`, `65`/`"Small Axe"`, `72`/`"Sword"`,
+> `103`/`"Healing Potion 3"`, `155`/`"a Burnt Gem"`, `180`/`"Wand of
+> Nikademus"`) against their `inititem.dat` records found **all six
+> entirely zero** except index `90`/`"Sword +4"` (one nonzero byte, value
+> `0x0B` at record-relative offset 9) — including the unique endgame
+> `"Wand of Nikademus"` artifact, which would be expected to carry
+> distinctive non-zero stats if this file encoded meaningful per-item
+> properties. This is too small and too skewed a sample (6 of 181, all
+> but one zero) to either confirm or refute the row-correspondence
+> hypothesis at the individual-field level — recorded as a **weak
+> positive on record count/index-0 alignment, inconclusive on content**,
+> not resolved this pass. A full 181-row correlation pass (checking
+> whether *every* nonzero `inititem.dat` row lines up with a "special"
+> item — rings, gems, unique artifacts — rather than a plain weapon/armor
+> piece) would be the natural next step.
+
+### 6.3 Full-corpus correlation pass (this pass) — still open, but the hypothesis space is narrower
+
+The "natural next step" flagged above was run: every one of the 181 rows
+was decoded against the now-fully-confirmed item name table (§3.1) and
+inspected as a whole, not just the earlier 6-item spot sample.
+
+**The earlier "16-bit `0x00C8` pair" reading is retracted as an artifact.**
+Re-examining row 17 and row 27 byte-by-byte: `0x00C8` (200) appears as a
+**plain single byte** (`0xC8`) at several distinct byte offsets in the
+same row, not as a genuine 16-bit field — the earlier "pairs" were an
+illusion created by the table's sparsity (most bytes are `0x00`, so a
+`0xC8` byte's neighbour being `0x00` is the *expected* case, not a
+correlated field). Column-by-column, **every one of the 18 byte offsets**
+can independently hold the value `200` (only 3 of the 18 — offsets 4, 12,
+16 — never exceed 15), which is inconsistent with "fixed-width 16-bit
+field at fixed columns" and consistent with "18 independent one-byte
+fields, one of which happens to often take the value 200."
+
+**New finding: the nonzero value set is heavily discretized.** Across all
+87 nonzero rows (159 nonzero byte reads total), the values `1` (61×), `5`
+(39×), `200` (26×), and `99` (6×) alone account for 132 of 159 reads
+(83%) — with only a scattering of other small values (`2`-`15`, `77`)
+making up the rest. This is not the shape a continuous stat magnitude
+(e.g. "AC bonus: 1-15") would produce; it looks like a small **enum/tier
+code** (four dominant discrete values), not a smoothly-varying numeric
+stat.
+
+**New finding: nonzero rows cluster in the item table's middle range,
+excluding both ends.** The first nonzero row is index 10 (`"Medium Shield
++2"`); the last is index 148 (`"a Statue"`). **Every item from index 149
+to 180 is entirely zero** — including all of the late-game unique
+treasures and the endgame artifact `"Wand of Nikademus"` (index 180,
+already spot-checked as zero in the prior pass, now confirmed as part of
+a uniform 32-row all-zero tail, not an isolated case). The cheapest
+starter gear (indices 1-9: `Glove`, `Wooden Shield`, `Wooden Shield +1`,
+`Small Shield` through `Small Shield +1`, `Medium Shield`, `Medium Shield
++1`) is **also** entirely zero. This rules against a simple
+"value/rarity" reading (which would predict the rarest, most unique items
+carry the *most* data, not none) — whatever distinguishes a nonzero row
+from a zero row, it isn't simply "is this a real/valuable item."
+
+**Race-count coincidence checked and not supported.** 18 columns
+numerically matches the newly-confirmed P3 race count (§4.1) exactly,
+raising the hypothesis "column = per-race restriction/bonus." Tested by
+tabulating nonzero-count and `200`-count per column against the race
+order (§4.1): counts range 4-13 nonzero entries per column with no
+column standing out as systematically higher/lower in a way that tracks
+race "power" (e.g. weak races `Halfling`/`Pixie`/`Sprite` don't show a
+distinctly different pattern from strong races `Ogre`/`Minotaur`) — a
+flat, unremarkable distribution across all 18 columns. This doesn't rule
+the theory out (a restriction table wouldn't necessarily correlate with
+race "power" in an obvious way), but it provides no positive support
+either; recorded as checked-and-inconclusive, not as a finding.
+
+**Confidence: record boundary/count still confirmed (§6.2); field
+semantics still open.** This pass materially improves the structural
+characterization (discretized-value-set finding, corrected the false
+16-bit-pair reading, and the nonzero-range boundary finding) without
+reaching a confident semantic label. Not escalated to `re-codebreaker`
+this pass — the paths tried so far (stride/column statistics, value
+histograms, race-count correlation) are variations on "structural
+inference from the bytes alone," not a genuinely different method; the
+next genuinely different approach would be tracing the `gamesave.dat`
+load/save code around hunk 1 `+0x44BA` (`scripting-engine.md` §7.5.1) to
+find what reads individual fields out of this block during actual
+gameplay (e.g. a shop/vendor routine), which was not attempted this pass.
+See `TODO.md`'s `data-p3-inititem-fields` row.
 
 Noted briefly per task scope (not deep-dived):
 
@@ -413,31 +1041,86 @@ Noted briefly per task scope (not deep-dived):
 
 ## 8. Open questions
 
-- **P3 race table offsets for the Amiga `PhantasieIII` executable** — the
-  reference source only has offsets for the Atari ST build
-  (`PHANT_3.PRG`); both a raw-offset and a hunk-data-start-adjusted
-  (`+40`) attempt against the real Amiga executable failed. Would need a
-  fresh disassembly/string-scan of `PhantasieIII` to locate the 18 race
-  names and their bank-sprite-index table independently (marked
-  optional/stretch in the originating task — not pursued further here).
-- **P3 `inititem.dat` field semantics** — record stride/count is
-  well-supported structurally (§6.1) but individual field meanings are
-  unconfirmed; no reference source exists at all for this file.
-- **P3 monster table's weapon/armor/spell/item index meanings** (§3.1) —
-  the index values themselves decode cleanly, but no corresponding
-  name/lookup table for weapons, armor, spells, or items was located in
-  this pass to translate an index into a display name.
-- **P3 skills table's anomalous 15th-level values** (§5.2) — a handful of
-  classes' final skill-level byte breaks the otherwise-clean monotonic
-  progression; not investigated further.
+- ~~**P3 race table offsets for the Amiga `PhantasieIII` executable**~~ —
+  **race name table resolved this pass** (§4.1): 18 names found via
+  mixed-case string grep + a `HUNK_RELOC32` cross-reference to locate the
+  pointer table addressing them (`0x28e84`), confirmed byte-exact and
+  implemented as `readP3RaceNames()`. **Still open**: the bank-sprite-index
+  table (§4.2) — two structural search approaches (anchorless numeric
+  stride scan; reloc xref from the name-pointer table's own base) both
+  came back empty; race sprites currently render using an unverified
+  "sprite index = race index" identity-mapping assumption. See `TODO.md`'s
+  `data-p3-race-sprite-index` row.
+- **P3 `inititem.dat` field semantics** — record stride/count remains
+  confirmed (§6.2: exact `181×18=3,258`-byte match with the
+  `gamesave.dat` load/save transfer length). This pass ran the full
+  181-row correlation against the item name table (§6.3): retracted an
+  earlier false "16-bit value pair" reading, found the nonzero value set
+  is heavily discretized (`{1,5,99,200}` = 83% of all nonzero reads), and
+  found nonzero rows cluster in the item table's middle range (indices
+  10-148) while both the cheapest starter gear (1-9) and every unique/
+  late-game item (149-180, including `Wand of Nikademus`) are entirely
+  zero. Individual field/column semantics remain **open** — no confident
+  label reached; a race-count-coincidence hypothesis (18 columns = 18
+  races) was tested and found unsupported (flat, unremarkable per-column
+  distribution).
+- ~~**P3 monster table's weapon/armor/spell/item index meanings**~~ —
+  **resolved this pass.** `Item 1`/`Item 2` (`0x1F`/`0x20`) resolve
+  cleanly against the confirmed 181-entry item table (0 out-of-range
+  across all 80 monsters). `Weapon`/`Armor` (`0x10`/`0x11`) are **not**
+  item indices — renamed to `weaponRating`/`armorRating`; strong
+  correlation with `attackRaw`/`hp` (r=0.77-0.96 across all four
+  cross-stat pairs) and near-zero correlation with `defense` (r=-0.05)
+  shows these are raw combat-power stats, not catalogue lookups (§3.1).
+  Spell fields (`0x15`-`0x17`) **confirmed** against the newly-decoded
+  58-entry P3 spell name table (`0x4E74`-`0x513E`): 0 out-of-range across
+  all 240 field reads, every spellcasting monster resolving to a
+  thematically-plausible, tier-appropriate spell kit (§3.1).
+- ~~**P3 skills table's anomalous 15th-level values**~~ — **mechanism
+  resolved this pass** (§5.2 follow-up): disassembly-confirmed the read is
+  a plain static array lookup (`class*15 + level - 1`, level clamped to a
+  max of 15 with no special branch at 15 itself), so level 15 is a real,
+  legitimately-reached game state, not a decode/indexing bug. One
+  specific case (Parry/Wizard `→42`) was retracted — it's a table-boundary
+  byte shared with the Swim table, not independent Parry data. **Still
+  open**: whether the remaining anomalies (concentrated in Ranger, 6/8
+  skills) are an intentional per-class design choice or a data-entry
+  error in SSI's original table — not resolvable from code alone, since
+  the game reads the byte unconditionally regardless of value.
 - ~~**Phantasie II (Atari ST) monster/race tables**~~ — **resolved.** All
   five §2 offsets confirmed byte-exact against the real `PHANT.PRG`
   (`data/phantasieii/atarist/extracted/disk1/PHANT.PRG`), and the sprite
   bitplane layout confirmed via pixel-level render (`graphics-formats.md`
   §9). See §2.1-§2.5 above.
-- **P1 `game`/`run` HUNK structure vs. the offsets used** — every P1
-  offset in §1 works as a **raw, unadjusted file offset**, which is
-  genuinely puzzling: `game`'s `HUNK_HEADER` parses cleanly as a real
+- ~~**P1 `game`/`run` HUNK structure vs. the offsets used**~~ —
+  **resolved (2026-08-09, re-codebreaker).** There is no coincidence to
+  explain: the §1 offsets were never hunk-0-relative, and nothing in the
+  pipeline ever needed them to be. They are plain **file** offsets that
+  each land inside whichever hunk really holds that data, and the
+  pipeline reads the file on disk (never a relocated load image), so
+  reading at a file offset is simply correct. A full hunk walk resolves
+  every documented P1 offset cleanly, several of them landing exactly on
+  a hunk boundary — a strong sign the mapping is real structure rather
+  than numeric luck:
+
+  | §1 table | File offset | Resolves to |
+  |---|---|---|
+  | Monster/item name strings | `0x5EFC` | DATA hunk 12 `+0x0` (hunk start) |
+  | Race name strings | `0x69BE` | DATA hunk 12 `+0xAC2` |
+  | Palette array | `0x194BC` | DATA hunk 69 `+0x94` |
+  | `GetStat` | `0x116EA` | CODE hunk 41 `+0x1E62` |
+  | LCG PRNG | `0x2C874` | CODE hunk 182 `+0x0` (hunk start) |
+
+  The one caveat worth keeping: a file offset is only meaningful for
+  reading **stored** bytes. Any question about *addresses* — call
+  targets, pointer values, `pea`/`jsr` operands — must go through the
+  hunk's own `HUNK_RELOC32` table, because those operands hold
+  pre-relocation hunk-relative values, not file offsets (see §1.3a and
+  `game-re-tooling/amiga.md`).
+
+  The original wording of this item, preserved for the record: every P1
+  offset in §1 works as a **raw, unadjusted file offset**, which seemed
+  genuinely puzzling because `game`'s `HUNK_HEADER` parses cleanly as a real
   240-hunk table (`table_size=240`, `first_hunk=0`, `last_hunk=239`, hunk
   size table sums to 167,788 bytes against a 193,804-byte file — the
   remainder being per-hunk tag/size/reloc/end overhead), the hunk-size
@@ -445,14 +1128,7 @@ Noted briefly per task scope (not deep-dived):
   block is only 460 bytes (file offset `988`-`1448`) — far too small to
   contain any of the tables in §1 (the smallest offset used, `0x0C88` =
   3,208, is already past hunk 0 entirely, let alone the largest,
-  `0x194BC` = 103,612). So the raw-file-offset reads that worked are
-  landing in whichever of the 240 hunks actually contains that data, by
-  what appears to be numeric coincidence between file-relative and
-  post-relocation-memory-relative addressing rather than a general rule —
-  confirmed to work for the 5 specific tables in §1 (byte-exact structural
-  and legible-text evidence), **not** established as a rule that would
-  safely generalise to an arbitrary new offset in this file. A real hunk
-  walk (resolving which of the 240 hunks each address falls in, and that
-  hunk's file-vs-load-address delta) was not performed — flagged rather
-  than chased further, since every offset actually needed for this pass
-  already checked out.
+  `0x194BC` = 103,612). The hunk walk above is what that item was asking
+  for, and it shows the reads land in whichever of the 240 hunks actually
+  contains the data — as they must, since they are file offsets into the
+  file. Closed.

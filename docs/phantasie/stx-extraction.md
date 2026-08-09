@@ -309,6 +309,70 @@ file layout the way it seems to for P1.
 > `DNG.SAV`/`DNGX.SAV` (they are inherently save-only data types); and
 > treat `OUT*.DAT`'s status as still open (best available P2 outpost data,
 > but not proven pristine).** Closes `p2-save-vs-template` in `TODO.md`.
+>
+> **Follow-up pass — `OUT*.DAT` now conclusively resolved as save-mutated
+> too (`p2-out-dat-save-status`), by direct byte-level evidence matching
+> the same "smoking gun" standard already used for `DNG.SAV`/`DNGX.SAV`
+> above.**
+>
+> Disk 2 carries 17 `OUT*.DAT` files, numbered `1, 2, 3, 5, 6, 7, 8, 11,
+> 12, 17, 18, 22, 26, 27, 28, 30, 31` — a **sparse subset spanning 1-31
+> with 14 numbers missing** inside that range. This is already a
+> structural tell before any byte-level analysis: P1's `out*.dat` set is
+> `1`-`19` with only a single gap (`17` absent, 18 of 19 files present) —
+> a near-complete, contiguous distributed set. P2's set has nearly as many
+> gaps as files present, consistent with "only outposts a specific
+> playthrough actually visited get written," not a shipped template
+> covering the whole map.
+>
+> Byte-level evidence is decisive. Diffing a fixed byte range
+> (file `0x2f8`-`0x420`, past each file's own location-specific POI text)
+> across all 17 files found it **byte-for-byte identical across 10 of
+> them** (`OUT6`/`7`/`8`/`11`/`12`/`22`/`26`/`27`/`28`/`30`/`31`) —
+> containing the same unrelated boilerplate text (`"ENDING SEQUENCE"`,
+> `"...GE BUBBLING POOL"`, `"THERE IS A SMALL CATHEDRAL HERE"`, `"...AD TO
+> HEAR THAT."`) regardless of what that file's own outpost actually is.
+> Ten *unrelated* locations sharing byte-identical, thematically
+> unrelated leftover text at the same offset is the signature of a
+> **reused, uncleared in-memory buffer** written verbatim by a save
+> routine across multiple files in one sitting — a professionally
+> mastered template file would not bake unrelated "ending sequence"
+> filler into ten different outpost records. Two further files
+> (`OUT17.DAT`, `OUT18.DAT`) show the *same* region filled with a
+> different, internally-consistent residue (`0x0D` repeated) instead —
+> consistent with a second, distinct leftover-buffer state from a
+> different point in the same session.
+>
+> **`OUT1.DAT` is conclusive on its own**, independent of the
+> cross-file pattern above. Its version of this same trailing region
+> (file `0x3f4` onward) contains, in order: the tail of the shared
+> `"ENDING SEQUENCE"` residue, then six **32-byte, directory-entry-shaped
+> records** — an 11-byte `8.3`-style filename/extension field followed by
+> ~21 bytes of small binary values (consistent with a classic
+> GEMDOS/FAT directory entry's attribute/date/time/cluster/size fields) —
+> for `DNG4`, `DNG5`, `DNG6`, `DNG7`, `DNG8`, and `OUT18   DAX` (a real
+> filename *with* an unfamiliar `.DAX` extension). `DNG4`-`DNG8` and
+> `OUT18` are literal, real filenames from this exact disk's own dungeon/
+> outpost set. There is no reading of a pristine, shipped template file
+> under which it would legitimately embed a readable list of *other*
+> game files' names in a location-description text field — this is
+> unambiguously a **recently-accessed-file cache or open-file table from
+> the running game**, serialized into `OUT1.DAT`'s save write. (Raw bytes,
+> `data/phantasieii/atarist/extracted/disk2/OUT1.DAT+0x400`: `44 4e 47 34
+> 20 20 20 20 20 20 20 00 00 00 00 00 00 00 00 00 00 00 70 10 52 0b 7d 01
+> cd 06 00 00` = `"DNG4       "` + 21 trailer bytes, repeating at a
+> uniform 32-byte stride through `+0x4c0`.)
+>
+> **Resolved verdict: `OUT*.DAT` is confirmed save-mutated, not pristine
+> content** — the sparse/gapped numbering, the ten-file shared-garbage
+> block, and `OUT1.DAT`'s embedded real filenames are three independent
+> lines of evidence, the last one every bit as conclusive as the
+> `DNG.SAV` five-cell finding above. **There is no known pristine P2
+> counterpart for `OUT*.DAT`** (unlike `TWNS.INT`) — P1's `out*.dat` set
+> (`data/phantasie/amiga/`) is the best available reference for the
+> *format*, but not for P2's actual world content, since the outposts
+> visited/unvisited differ per playthrough. Closes `p2-out-dat-save-status`
+> in `TODO.md`.
 
 ## 7. Cross-reference against existing P1 hypotheses (facts only, no decode)
 
@@ -370,13 +434,15 @@ above — no further evidence gathered):
   §6's follow-up pass did confirm `TWNS.INT`'s town-name list content
   (byte-exact match with `TWNS.DAT`'s list) but not its full record
   structure.
-- `COVER1.PIC`/`COVER2.PIC`/`CROWD.PIC`/`DECOR.PIC`/`FINAL2.PIC`/`PELNOR.PIC`
-  — full-screen picture files, likely P2's equivalent of P1's `.pic` format
-  (`graphics-formats.md` §3), unexplored.
+- ~~`COVER1.PIC`/`COVER2.PIC`/`CROWD.PIC`/`DECOR.PIC`/`FINAL2.PIC`/`PELNOR.PIC`~~
+  — **resolved (2026-08-09)**: confirmed as the ST word-Interleaved-by-2
+  layout (like `.PAT`, not P1's contiguous-`Planar` `.pic`), each with a
+  disassembly-traced palette source. See `graphics-formats.md` §10.
 - `PHANT.RSC`/`OUT.RSC`/`BACKUP.RSC` — GEM resource files (dialog/menu
   definitions in the standard Atari ST `.RSC` format), not previously seen
   in this project; likely low-value for gameplay decoding but potentially
   useful for UI text strings.
-- `OUT*.DAT`'s save-vs-template status specifically (unlike `DNG.SAV`/
-  `GUILD.DAT`/`SACK.DAT`/`TWNS.DAT`, no conclusive evidence either way was
-  found — see §6's last bullet).
+- ~~`OUT*.DAT`'s save-vs-template status~~ — **resolved**, confirmed
+  save-mutated (see §6's follow-up-pass bullet: sparse/gapped numbering,
+  a ten-file shared-garbage block, and `OUT1.DAT`'s embedded real
+  filenames from a runtime file cache).

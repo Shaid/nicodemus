@@ -19,13 +19,29 @@ where to look — no code from that tool exists in this repo, and none should
 be added later. Decoders written from this plan must be original
 implementations.
 
+**Primary source addendum (2026-08-09):** `data/phantasieiii/` now also
+holds the actual SSI-published *Phantasie III: The Wrath of Nikademus*
+rule book/manual (`Phantasie III - The Wrath of Nikademus v1.0
+(1987)(SSI)[compilation Bonus Ed.][1186].pdf`, 32 scanned pages, no text
+layer — view with `Read`'s `pages` parameter). This is a first-party,
+contemporary (1987) primary source and is now the **strongest available
+oracle** for this project — stronger than the third-party fan-tool source
+used everywhere else, since it documents SSI's own intended game content
+(skill names, item catalogue, spell list, stat-progression charts) rather
+than a modern reimplementer's inference. Every specific number/name
+transcribed from it into the docs below was independently re-verified
+against the manual's own page images before being marked confirmed, per
+this project's usual byte-verification discipline — the manual is a
+oracle to check extracted data *against*, not a substitute for extracting
+the data from `data/` in the first place.
+
 ## 1. Where things stand
 
 | Game | Platform | Data present | Graphics | Data tables | Dungeon/scripting | Pipeline |
 |------|----------|---------------|----------|--------------|---------------------|----------|
 | Phantasie (I) | Amiga | ✅ `data/phantasie/amiga/` | ✅ confirmed **and implemented** (`.pic`, `.pat` + executable tables) | ✅ confirmed **and implemented** (monster/race/palette in `game`) | ✅ confirmed (shared P1/P2 engine); not yet implemented (Phase 3) | ✅ `supported: true`, real `exportGameData`/`buildAssets` |
-| Phantasie II | Atari ST | ✅ extracted to `data/phantasieii/atarist/extracted/` (see `stx-extraction.md`) | ✅ confirmed **and implemented** (ST word-interleaved layout for both `MSTR*.PAT` and `PARTY*.PAT`; `.PIC` full-screen pictures not attempted — format never confirmed) | ✅ confirmed **and implemented** byte-exact against real `PHANT.PRG` (same compiled binary the reference offsets were recorded against — no adjustment needed) | ✅ confirmed against all 8 real `DNG*`/`MESS*` pairs, including the P2-exclusive `0x14`-`0x17` opcodes actually appearing in shipped data; not yet implemented (Phase 3) | ✅ `supported: true`, real `exportGameData`/`buildAssets` |
-| Phantasie III | Amiga | ✅ `data/phantasieiii/amiga/` | ✅ confirmed **and implemented** (`.cmp`/`.csh`/`.set`, including a real bug caught and fixed in `.set`'s byte-remap during implementation) | ✅ confirmed **and implemented** (`monsinfo.dat`, skills); ⚠️ race table & `inititem.dat` still unresolved | ✅ confirmed (own engine variant); not yet implemented (Phase 3) | ✅ `supported: true`, real `exportGameData`/`buildAssets` |
+| Phantasie II | Atari ST | ✅ extracted to `data/phantasieii/atarist/extracted/` (see `stx-extraction.md`) | ✅ confirmed **and implemented** (ST word-interleaved layout for `MSTR*.PAT`/`PARTY*.PAT` **and** all six `.PIC` full-screen pictures, each with a disassembly-traced palette source) | ✅ confirmed **and implemented** byte-exact against real `PHANT.PRG` (same compiled binary the reference offsets were recorded against — no adjustment needed) | ✅ confirmed against all 8 real `DNG*`/`MESS*` pairs, including the P2-exclusive `0x14`-`0x17` opcodes actually appearing in shipped data; not yet implemented (Phase 3) | ✅ `supported: true`, real `exportGameData`/`buildAssets` |
+| Phantasie III | Amiga | ✅ `data/phantasieiii/amiga/` | ✅ confirmed **and implemented** (`.cmp`/`.csh`/`.set`, including a real bug caught and fixed in `.set`'s byte-remap during implementation) | ✅ confirmed **and implemented** (`monsinfo.dat`, skills, race names, item/spell name tables); ⚠️ race sprite-index table & `inititem.dat` field semantics still unresolved | ✅ confirmed (own engine variant); not yet implemented (Phase 3) | ✅ `supported: true`, real `exportGameData`/`buildAssets` |
 
 **All three games now have real, tested, end-to-end graphics + data-table
 pipelines** (Phases 0-2, 4, and 7 all done) — `npx tsx
@@ -153,6 +169,17 @@ to a single trailing NUL — handled with `.trimEnd()`, worth fixing in the
 doc. Race table and `inititem.dat` remain unresolved (§5 below) and were
 correctly treated as non-blocking per the original plan.
 
+**Status update (2026-08-09):** the P3 race *name* table is now resolved
+(`readP3RaceNames()` in `exe-data.ts`, `data-tables.md` §4.1) and
+`monsinfo.dat`'s `Weapon`/`Armor`/spell fields are now understood
+(`weaponRating`/`armorRating` — raw combat stats, not item indices; spell
+fields confirmed against a newly-decoded P3 spell name table —
+`data-tables.md` §3.1). Two items remain genuinely open and non-blocking:
+the race→sprite-bank-cell index table (`data-tables.md` §4.2 —
+`heros.cmp` currently renders via an unverified race-index-as-cell-index
+assumption) and `inititem.dat`'s field semantics (`data-tables.md` §6.3).
+Neither blocks a playable slice.
+
 **Goal (original):** `monsinfo.dat` → `entities.json` (monster records, sprite-bank
 references resolved to actual bank/cell coordinates from Phase 1).
 
@@ -181,6 +208,110 @@ against all 8 real `DNG*`/`MESS*` pairs (not just P1), including confirmation
 that the P2-exclusive opcodes `0x14`-`0x17` genuinely appear in shipped
 data. `opcodes.ts`/`star-action.ts` can now be built once against all three
 games' confirmed opcode tables, rather than needing a P2 revisit later.
+
+**Status update (2026-08-09):** the item-name and monster-name tables
+opcodes `0x05`/`0x06`/`0x11`/`0x18`/`0x19` depend on (previously only
+hand-transcribed from the reference source, per `scripting-engine.md`
+§6's old text) are now **located and byte-verified against all three
+games' executables and every real dungeon file in the project** — zero
+out-of-range index references across 178 (item) + 34 (monster) real
+script cross-checks. `opcodes.ts` can resolve these opcodes to real item/
+monster names, not just raw indices, from day one. The character-`stat`
+index space (`0x12`/`0x13`/P3's `0x18`/`0x19`) also got a real disassembly
+trace this pass (P1's `GetStat`/`SetStat`, `scripting-engine.md` §6.3):
+the index-range hypothesis is now code-confirmed, not just
+source-transcribed, and **two real P1 opcode-`0x12`/`0x13` behavior bugs
+in the previously-documented fan-tool interpretation were corrected** —
+both are genuinely conditional, party-wide operations in the real game,
+not the "display-only, no mutation" behavior previously documented. What
+remains open (not a Phase 3 blocker, since the opcodes work correctly
+either way — only the individual field *names* are missing): which
+specific stat index is Strength vs. HP vs. Level, etc. See `TODO.md`'s
+`scripting-p1-stat-field-semantics` row. **Combat-resolution** (attack
+roll/damage formula) — genuinely unexplored before this pass — also got
+a first trace this session (`scripting-engine.md` §7): P1's hit/miss
+compare and its two damage-application functions (player vs. monster,
+confirmed structurally distinct) are located and byte-verified, but the
+actual RNG source and the precise to-hit/damage formula remain open (see
+`TODO.md`'s `scripting-p1-combat-rng-formula` row) — real combat can't be
+implemented byte-exact yet, but the shape (roll → compare vs. an armor-
+derived threshold → branch → HP write, with a confirmed `Die()` path) is
+now known well enough to stub a plausible combat loop against.
+
+**Status update (2026-08-09, combat follow-up):** P1's combat RNG and
+formulas are now fully mechanically confirmed, not just shaped —
+`scripting-engine.md` §7.1a-§7.2a: a located, byte-verified linear
+congruential generator (`seed=(seed*3677+3) mod 32768`, file offset
+`0x2C874`) feeds a `0..100` percentage-roll wrapper, and both the to-hit
+compare and the damage-magnitude calculation have their full operation
+sequence and every operand's source field/record confirmed (only
+individual field *semantics* — which byte is "armor," which is "weapon
+power" — remain open, the same class of gap as the stat-index table).
+**P2 and P3 also got their first combat traces this pass** (§7.4/§7.5):
+P2's hit/miss+damage block is located and confirmed structurally
+near-identical to P1's own formula (same monster stride, same armor
+field, same damage constants) with only the specific RNG call site
+inside that block still to pin down; P3's RNG is fully confirmed (a
+different concrete LCG, `seed=(seed*25173+13849) mod 65536`) and its
+hit/miss dispatcher is located, though P3's own to-hit formula is
+visibly richer (multiple stat tables plus difficulty-conditional
+adjustments) and wasn't fully enumerated. Net effect: combat is no
+longer a "shape known, formula unknown" risk for any of the three
+games — it's "P1 byte-exact-close, P2/P3 located with a strong template
+to finish from" — a real reduction in Phase 3's remaining risk, though
+none of the three is yet a drop-in byte-exact implementation. See
+`TODO.md`'s `scripting-p1-combat-field-semantics`/
+`scripting-p2-combat-rng-site`/`scripting-p3-combat-formula` rows.
+
+**Status update (2026-08-09, field-semantics follow-up):** P1's combat
+model is now essentially implementation-ready. The mirror
+"monster-attacks-player" hit/miss+damage branch (previously "not located"
+— see the paragraph above) has been found in the same dispatcher function
+and is fully formula-confirmed alongside the already-known
+party-attacks-monster direction (`scripting-engine.md` §7.3); `RollPercent`
+and `roundedHalf()` are reused unchanged between both directions.
+`roundedHalf()` itself turned out to be a **Newton's-method integer
+square root**, not "roughly half the roll" as previously guessed — a
+correctness-relevant fix, not just documentation polish, since it changes
+the actual value range fed into the damage formula (`0..10` rather than
+`0..50`). The `GetStat`/`SetStat` resolver (already code-located) was
+fully disassembled end-to-end this pass, giving an exact
+`statIndex → character-record-byte-offset` table across the whole
+`1`-`164` domain; five combat-formula fields that were previously bare,
+unplaced byte offsets are now bound to specific `statIndex` values. What's
+still missing — English names for those indices — was shown to be a real
+gap, not an unexplored one: the display-routine cross-reference this needs
+was exhaustively searched for (two independent techniques, both negative;
+see `scripting-engine.md` §6.3(c)) and isn't a quick follow-up anymore.
+None of this blocks Phase 3 implementation — the opcodes and combat
+formulas work correctly by field *offset* regardless of what the fields
+are named — but it does mean "add the names" is now scoped as a genuine
+escalation-worthy problem rather than routine polish, should a future pass
+want them for UI/debug-display purposes. See `TODO.md`'s
+`scripting-p1-stat-names`/`scripting-p1-combat-field-semantics` rows.
+
+**Status update (2026-08-09, P2/P3 combat follow-up):** the two remaining
+"combat located but formula unknown" gaps from the paragraph above are now
+closed. **P2's RNG call site is confirmed** (`JSR $FD40` inside the combat
+block) and turned out to be a table-sum-and-rotate additive generator
+rather than an LCG — but every other part of P2's to-hit and damage
+formula is byte-identical in shape, field offsets, and constants to P1's,
+so the implementation risk here was always low and is now zero. **P3's
+full to-hit formula (both a "spellcaster" and an "other classes" branch),
+its damage-magnitude formula (a single class-indexed die roll — simpler
+than P1/P2's, a real engine-design difference, not a partial trace), and
+its damage-application function are all now confirmed**, via a corrected
+`HUNK_RELOC32`-based call-target-resolution technique
+(`targetFileOffset = rawOperand + 0x28`) that overturns the prior pass's
+"reloc lookup finds nothing for P3" claim — a reusable technique for any
+future P3 disassembly trace. **All three games' combat systems are now
+implementation-ready by formula shape and operand source**; the one
+remaining open item (P3's class-indexed lookup table *contents* — see
+`scripting-p3-lookup-tables` in `TODO.md`) blocks knowing the actual
+numeric balance of P3 combat, not the engine's control flow, and doesn't
+block writing the interpreter itself (the tables can be treated as opaque
+data loaded from their raw addresses once the DATA-hunk size-mismatch is
+root-caused). See `scripting-engine.md` §7.4/§7.5.
 
 1. `dungeon.ts` (P1/P2 shared) and `dungeon-p3.ts` — grid + header parsing,
    built and tested against the byte-exact confirmed offsets in
@@ -276,15 +407,26 @@ layout; it doesn't). `sprite-bank.ts` gained P2-specific
 functions alongside the existing P1 ones. Disk 1 is the canonical data
 source (`dataDirs: ['phantasieii/atarist/extracted/disk1']` in
 `tools/shared/game-config.ts`), with a fallback to disk 2 only for
-`MSTR2.PAT` (confirmed not save-tainted). `.PIC` full-screen pictures are
-explicitly **not** built — P2's `.PIC` format was never independently
-confirmed (unlike P1's `.pic`), and decoding it would be new format
-discovery outside this phase's mechanical-port scope.
+`MSTR2.PAT` (confirmed not save-tainted).
+
+**Status update (2026-08-09):** `.PIC` full-screen pictures are now also
+confirmed and built. All six shipped files (`COVER1.PIC`, `COVER2.PIC`,
+`PELNOR.PIC`, `DECOR.PIC`, `FINAL2.PIC`, `CROWD.PIC`) decode via the same
+ST word-Interleaved layout `.PAT` uses, each with a disassembly-traced
+palette source (`graphics-formats.md` §10 — new format discovery this
+pass, since no reference-tool support exists for P2 `.PIC` at all).
+`decodeP2Pic()`/`P2_PIC_PALETTE_SOURCE_BY_FILE` in
+`src/assets/formats/pic.ts`, `readP2CoverPalette()`/`readP2TownPalette()`
+in `src/assets/formats/exe-data.ts`, wired into
+`tools/phantasieii/build-assets.ts`. Phantasie II now has a confirmed
+title screen and town/ending art, closing the "no P2 full-screen art
+anywhere in this project" gap the website previously stated.
 
 `phantasieii/atarist` is now `supported: true`. Verified directly (not
 just reported): `npx tsx tools/extract-game-data.ts --game phantasieii
 --platform atarist` produces real output (80 monster entities, 16 races,
-confirmed palette, 4 sprite-bank PNGs), and monster index 0/8 decode to
+confirmed palette, 4 sprite-bank PNGs, and — as of the 2026-08-09 update
+above — 6 full-screen picture PNGs), and monster index 0/8 decode to
 `SKELETON`/`ORC` exactly as P1's roster does. Visually spot-checked several
 `mstr1.png`/`party1.png` sprites — legible, correctly-coloured art
 (a full monster menagerie: spiders, dragons, skeletons; a 16-race roster
