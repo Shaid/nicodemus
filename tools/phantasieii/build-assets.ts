@@ -39,18 +39,25 @@ import {
   P2_PIC_PALETTE_SOURCE_BY_FILE,
   type P2PicPaletteSource,
 } from '../../src/assets/formats/pic.ts';
+import { buildWorldMap } from './build-map.ts';
 // getGameConfig is dynamically imported inside main() (CLI-only) to avoid a
 // static circular import — game-config.ts imports buildAssets from this
 // file to register the pipeline step.
 
-interface ManifestEntry {
+export interface ManifestEntry {
   name: string;
   sprites: number;
   hasPalette: boolean;
   png: string;
+  /**
+   * Which viewer to open the entry in. Absent (the default) means the
+   * ordinary sprite-atlas / picture view; `'map'` is the world-map view,
+   * which reads `<name>.json` + `<name>-pois.json` instead of a PNG.
+   */
+  type?: 'atlas' | 'map';
 }
 
-function upsertManifest(outDir: string, entries: ManifestEntry[]): void {
+export function upsertManifest(outDir: string, entries: ManifestEntry[]): void {
   const manifestPath = resolve(outDir, 'manifest.json');
   let existing: ManifestEntry[] = [];
   if (existsSync(manifestPath)) {
@@ -74,7 +81,7 @@ function upsertManifest(outDir: string, entries: ManifestEntry[]): void {
  * the `OUT*.DAT`/`TWNS.DAT`/`GUILD.DAT`/`SACK.DAT`/`*.SAV` family is
  * save-tainted, none of which this pipeline touches.
  */
-function resolveP2File(dataDir: string, filename: string): string | null {
+export function resolveP2File(dataDir: string, filename: string): string | null {
   const direct = resolve(dataDir, findFileCI(dataDir, filename));
   if (existsSync(direct)) return direct;
 
@@ -288,6 +295,8 @@ export function buildAssets(config: PlatformConfig, dataDir: string): void {
   }
 
   entries.push(...buildP2PicAssets(dataDir, outDir, exe, startPrg));
+
+  entries.push(...buildWorldMap(dataDir, outDir));
 
   upsertManifest(outDir, entries);
   console.log(`Wrote ${entries.length} asset(s) to ${outDir}`);
