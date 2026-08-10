@@ -105,13 +105,19 @@ describe('readP1RaceNames — data-tables.md §1.4', () => {
 });
 
 describe('readP1Palette — data-tables.md §1.3', () => {
-  it('decodes the confirmed 16-colour palette, matching decodePalette16 directly', () => {
+  it('decodes the confirmed 16-colour palette using the native Amiga OCS decode, matching decodePalette16 directly', () => {
     const game = new Uint8Array(readFileSync(GAME_PATH));
     const palette = readP1Palette(game);
     expect(palette).toHaveLength(16);
     expect(palette[0]).toEqual({ r: 0, g: 0, b: 0 });
-    expect(palette[2]).toEqual({ r: 255, g: 0, b: 0 });
-    expect(palette[15]).toEqual({ r: 255, g: 255, b: 255 });
+    // Native Amiga component*17: nibble 14 -> 238, not the ST amigaToSt
+    // table's 255 (data-tables.md §1.3's 2026-08-10 correction).
+    expect(palette[2]).toEqual({ r: 238, g: 0, b: 0 });
+    expect(palette[15]).toEqual({ r: 238, g: 238, b: 238 });
+    // Index 12 (word 0x0EBB) was the documented odd-nibble anomaly under the
+    // old ST decode (odd nibbles fell through to 0). Under the correct
+    // native decode there is no anomaly at all -- every nibble is legal.
+    expect(palette[12]).toEqual({ r: 238, g: 187, b: 187 });
   });
 });
 

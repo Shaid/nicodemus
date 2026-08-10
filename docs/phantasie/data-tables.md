@@ -110,6 +110,21 @@ recognisable as the named creature (see `graphics-formats.md` §7).
 > `11`. An even-nibble lookup silently zeroes those components. The
 > remaining 235 are even, which is why the error stayed invisible.
 
+> **Fix applied (2026-08-10):** `readP1Palette()` (`exe-data.ts`) now uses
+> the `'amiga'` decode variant, matching `readP1PaletteSlot()`. This
+> changes its output values — e.g. nibble `14` now decodes to `238`
+> (`component * 17`), not `255` (the old ST doubling table's value) — so
+> the RGB888 column above, computed under the old decode, is no longer
+> what the reader actually produces; the raw palette words and nibble
+> values in the table are unaffected and still correct. Golden test
+> values in `exe-data.test.ts` were updated to the real decoded output
+> (verified against the actual file, not hand-computed); `decor.pic`/
+> `final.pic`/the monster-race sprite banks were rebuilt and visually
+> re-confirmed legible under the corrected palette. `palette.test.ts`'s
+> own `amigaToSt`-variant tests are unchanged and still correct — they
+> test that decode mode in isolation (still valid for its real use case,
+> P2/P3's ST-sourced containers), not its former misapplication to P1.
+
 ### 1.3a Palette array and per-screen palette selection
 
 **Confidence: confirmed** (byte-exact `HUNK_RELOC32` operand resolution

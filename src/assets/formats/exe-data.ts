@@ -212,9 +212,17 @@ export function readP1RaceNames(gameExe: Uint8Array): string[] {
   return names;
 }
 
-/** The confirmed 16-colour P1 monster/race palette (data-tables.md §1.3). */
+/**
+ * The confirmed 16-colour P1 monster/race palette (data-tables.md §1.3;
+ * this is `pal3`, `P1_PALETTE_SLOT_OFFSETS[3]` below). Uses the native Amiga
+ * OCS decode (`component * 17`) -- see `readP1PaletteSlot`'s doc comment for
+ * why, and data-tables.md §1.3's 2026-08-10 correction block for the fix
+ * history (this reader previously used the ST `amigaToSt` even-nibble
+ * lookup, which silently zeroed the odd-valued nibbles a native Amiga
+ * palette is free to use).
+ */
 export function readP1Palette(gameExe: Uint8Array): RGB[] {
-  return decodePalette16(gameExe, P1_PALETTE_OFFSET, 'amigaToSt');
+  return decodePalette16(gameExe, P1_PALETTE_OFFSET, 'amiga');
 }
 
 /**
