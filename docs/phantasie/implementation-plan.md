@@ -48,11 +48,33 @@ pipelines** (Phases 0-2, 4, and 7 all done) — `npx tsx
 tools/extract-game-data.ts --game all --platform all` produces actual
 PNGs/JSON for every game in `public/assets/`, not placeholders. The asset
 viewer (`npm run viewer`) is multi-game-aware and can browse all three.
-Phase 3 (the dungeon/scripting engine, shared across all three games) is
-now the single unimplemented piece standing between "assets render" and
-"any game is actually playable" — every format it needs was confirmed
-during Phantasie II's verification pass, so it carries no format-discovery
-risk, just implementation work.
+
+**Status update (2026-08-10) — Phase 3 alone does not reach a playable
+slice; Phase 5 is a prerequisite, not additive content.** Earlier revisions
+of this plan called Phase 3 "the single unimplemented piece standing
+between assets render and any game is actually playable" and described
+Phase 5 (world/town data) as "purely additive... do not block a first
+playable slice." Both claims assumed dungeon-crawling was the game's entry
+point. It isn't: the actual Phantasie game flow is character creation → a
+starting **town** → the **world map** (where the party can explore and
+fight overworld monster encounters well before ever finding a dungeon
+entrance) → dungeons. A player cannot reach a dungeon at all without town
+and world-map support first. Phase 5's formats (`maps.int` — the overworld
+grid itself — and `out*.dat`'s local-screen grids) were, unlike Phase 3,
+also genuinely RE-incomplete when this note was written.
+
+> **Update (2026-08-10, later the same day): the Phantasie I world-map
+> formats are now solved and code-confirmed.** `maps.int` is 18 × 520-byte
+> section grids; a section is 20 × 26 tiles; sections tile 4-wide with a
+> one-cell overlap into a 77 × 126 world; `out*.dat`'s POI records, text
+> block and map display list are all decoded, with a decoder module at
+> `src/assets/formats/outdoor.ts` and 14 passing real-byte tests. See
+> `dungeon-format.md` §8.2/§8.3. Phase 5's *format-discovery* risk for
+> Phantasie I is therefore largely retired — what remains is terrain-class
+> naming, the outdoor icon bank, and the fact that none of this has been
+> looked at for Phantasie II or III (§8 is Phantasie I only). Phase 5 stays
+> a prerequisite for a playable slice; it is no longer the project's
+> highest-risk unknown. Open items: `docs/phantasie/TODO.md`.
 
 ## 2. Format decoder module layout
 
@@ -196,11 +218,20 @@ references resolved to actual bank/cell coordinates from Phase 1).
 `entities.json` (monsters, name, stats, resolved sprite) replacing the
 current empty-array placeholder.
 
-### Phase 3 — Dungeon + scripting engine (shared P1/P2/P3 core) — NEXT
+### Phase 3 — Dungeon + scripting engine (shared P1/P2/P3 core)
 
 **Goal:** dungeon grid + star/action/message interpreter, decoupled from
 rendering — this is game *logic*, not just data, so it's the first piece
 that touches `@seer/engine-2d`'s `Game.ts` template rather than staying pipeline-only.
+
+**Sequencing note (2026-08-10):** this phase covers what happens *inside* a
+dungeon. It does not by itself get a player *into* one — that requires
+character creation, the starting town, and world-map traversal, which is
+Phase 5 (below), not yet started and less RE-complete than this phase. See
+§1's status update. Implementation-wise Phase 3 has no blockers and can
+proceed independently; treat it and Phase 5 as parallel tracks (one
+implementation-heavy, one RE-heavy) rather than assuming this phase's
+completion unlocks a playable game on its own.
 
 **Status update:** this phase's risk profile improved since it was
 written — Phantasie II's dungeon/message format is now byte-verified
@@ -360,27 +391,43 @@ Both sprite banks render correctly-colored (not greyscale) via
 
 **Goal (original):** `.pic`/`.pat` decode, monster/race tables from `game`.
 
-### Phase 5 — Phantasie I world/town data (lower priority)
+### Phase 5 — Town + world-map data (prerequisite for a playable slice)
 
-**Goal:** `twns.int`, `out*.dat`, `maps.int`, `scrolls.dtx` — the overworld
-layer outside dungeons. Every one of these is only partially decoded
-(`dungeon-format.md` §8) — this phase is exploratory RE work as much as
-implementation. Sequence:
+**Goal:** `twns.int`, `out*.dat`, `maps.int` — the town/world-map layer a
+player passes through *before* ever reaching a dungeon (character creation
+→ starting town → world map, with overworld monster encounters possible
+along the way → dungeon entrance). `scrolls.dtx` (lore text) is unrelated to
+this traversal loop and stays lowest priority within the phase. As of
+2026-08-10 the two map formats are solved (`dungeon-format.md` §8.2/§8.3,
+Phantasie I only — P2/P3 haven't been investigated at all yet); what is
+left in this phase is mostly implementation plus the terrain/icon rendering
+questions in `TODO.md`. Per §1's status update, the phase remains a
+**prerequisite for a playable slice**, not optional content layered on top
+of one. Sequence:
 
-1. `twns.int` first (best-understood: confirmed 292-byte record stride, 12
-   town names located) — get the remaining record fields via structural
-   analysis against known Phantasie I mechanics (shop inventories, prices),
-   cross-referencing `data-tables.md`'s item table once/if that's resolved.
-2. `out*.dat` next (confirmed POI text block, unconfirmed leading grid) —
-   the grid region is likely a small local-area tile map; compare its
-   byte-value alphabet against `dungeon-format.md`'s cell-ID table for
-   overlap before assuming a wholly separate encoding.
-3. `maps.int` and `scrolls.dtx` last — lowest confidence, `scrolls.dtx`'s
-   400-line-to-N-scrolls split is unresolved, `maps.int`'s dimensions
-   entirely unknown.
+1. ~~`maps.int` first~~ — **done (2026-08-10).** It is 18 concatenated
+   520-byte section grids, byte-identical to the leading 520 bytes of the
+   18 `out*.dat` files. `dungeon-format.md` §8.3.
+2. ~~`out*.dat` next~~ — **done (2026-08-10).** Grid 20 × 26 at offset 0,
+   15 × 5-byte POI records at 520, 10 × 40-byte text lines at 595, map
+   display list at 1000. Decoder: `src/assets/formats/outdoor.ts`.
+   `dungeon-format.md` §8.2. What is left here is *rendering*: the display
+   list plots 128-byte icons from a bank at `game+0x196BC` that is not yet
+   decoded (`world-p1-outdoor-icons` in `TODO.md`).
+3. `twns.int` — confirmed 292-byte record stride and 12 town names already.
+   The **map-coordinate question is closed**: towns are positioned by the
+   `out*.dat` POI record (section file + column + row + town index), not by
+   any field in `twns.int` — see `dungeon-format.md` §8.2.2. What remains
+   is the rest of the 292-byte record, whose first 32 bytes are
+   byte-identical across all 11 populated records, i.e. a shared shop/price
+   template; recover it via structural analysis against known Phantasie I
+   mechanics, cross-referencing `data-tables.md`'s item table.
+4. `scrolls.dtx` last — confirmed line encoding, only the
+   400-line-to-N-scrolls split is open, and it's flavor text with no effect
+   on the traversal/combat loop.
 
-Do not block Phases 1-4 or a first playable slice on this phase — it's
-purely additive overworld content.
+This phase and Phase 3 have no dependency on each other and can proceed in
+parallel — but neither one alone reaches a playable game; both are needed.
 
 ### Phase 6 — Runtime engine
 
@@ -392,6 +439,19 @@ culling, `InputManager` wired to grid movement instead of free pan/zoom,
 message/choice UI. This is genre-specific game code with no format-doc
 counterpart; scope it once Phases 1-4 make clear what data is actually
 available to render.
+
+**Stretch goal, noted 2026-08-10 — the dungeon view itself.** The original
+games' dungeon renderers are visually plain (flat top-down tiles). Once a
+functionally-correct top-down renderer exists (this phase's "Done when" bar
+per Phase 3), consider a **first-person dungeon view** as a follow-up
+visual upgrade — walls/doors/monsters rendered as a forward-facing
+corridor view rather than a top-down grid, in the spirit of the genre's
+first-person dungeon crawlers even though Phantasie's own original
+renderer wasn't one. Purely additive/cosmetic, not a blocker for any
+phase — get the top-down version functionally correct first (grid
+movement, star/action triggers, combat all working byte-correctly against
+real dungeon data), then treat first-person as a rendering-layer swap on
+top of the same already-decoded grid/cell data, not a new RE problem.
 
 ### Phase 7 — Phantasie II graphics + data — DONE
 
@@ -465,12 +525,19 @@ actual production build, not just checking the config.
 Phases 0, 1, 2, 4, and 7 are done — every game/platform pair now has a real
 graphics + data-table pipeline, and the viewer can browse all three. Next up:
 
-1. **Phase 3** (dungeon + scripting engine) — now the only unimplemented
-   piece, and the highest-leverage one: it's what every game needs to
-   become playable, and it's buildable against all three games' confirmed
-   formats in one pass, no P2 revisit needed.
-2. Phase 5 (P1 world/town data) and Phase 6 (runtime engine) remain
-   lower-priority/blocked-on-Phase-3 respectively, as originally scoped.
+1. ~~**Phase 5's `maps.int`/`out*.dat` investigation**~~ — **done
+   (2026-08-10).** Both formats are decoded and code-confirmed against the
+   Amiga `game` executable; see `dungeon-format.md` §8.2/§8.3 and
+   `src/assets/formats/outdoor.ts`. The follow-on RE item, now the one that
+   blocks actually *drawing* the world map, is the outdoor icon bitmap bank
+   at `game+0x196BC` (`world-p1-outdoor-icons` in `TODO.md`).
+2. **Phase 3** (dungeon + scripting engine) — implementation-heavy, not
+   RE-heavy: buildable against all three games' already-confirmed formats in
+   one pass, no format-discovery risk left, no P2 revisit needed. Can
+   proceed in parallel with item 1 — they don't block each other, but Phase
+   3 alone does not reach a playable slice (see §1).
+3. Phase 6 (runtime engine) remains blocked on Phase 3 (and, for the
+   town/world-map traversal loop specifically, on Phase 5) as scoped.
 
 ## 5. Open risks carried forward
 

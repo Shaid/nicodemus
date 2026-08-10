@@ -327,54 +327,453 @@ record (shop inventory, prices, coordinates, or whatever else a Phantasie
 town record holds) and for the header region before `0x0A44` and the two
 non-empty trailing "slots."
 
-### 8.2 `out1.dat`..`out19.dat` (2500 bytes each) — partial structure, POI text block confirmed
+### 8.2 `out1.dat`..`out19.dat` (2500 bytes each) — layout confirmed
 
-Every `out*.dat` file opens with what looks like a small terrain/tile grid
-using single-byte tile codes (observed values include `0x64`/`'d'`,
-`0x65`/`'e'`, `0x42`/`'B'`, `0x3C`/`'<'`, `0x00`, `0x0A`, `0x14`, `0x1A` —
-these happen to fall in the printable-ASCII range for the more common tile
-types, which is why `strings` finds runs of letters like `"eeeedeee"` in
-these files; they are not literal text). This region's exact dimensions
-were not determined.
+> **Correction (2026-08-10):** an earlier version of this section described
+> the file as "a terrain grid of unknown dimensions followed by a POI text
+> block starting at `0x0255` (597)". Both the grid dimensions and the text
+> offset are now settled, and the text offset was off by two: the 40-byte
+> line array begins at **`0x0253` (595)**, not `0x0255`. `0x0255` was the
+> first *letter* of `out1.dat`'s first line, which is centred and therefore
+> has two leading spaces. Between the grid and the text sits a previously
+> unnoticed **15 × 5-byte point-of-interest record table**.
 
-Starting at file offset `0x0255` (597) in `out1.dat`, this project found a
-short sequence of **null-terminated, ~39-40-byte fixed-width lines** of
-plain, human-readable location-description text, e.g.:
+Every `out*.dat` file is a fixed 2,500-byte record laid out as follows. The
+loader reads all 2,500 bytes in **one** `Read()` into a single
+`AllocMem(2500, 0)` buffer (`game+0x16F0A`) and every consumer indexes that
+buffer directly, so file offsets and buffer offsets are the same thing:
+
+| Offset | Size | Region | Reader | Confidence |
+|--------|------|--------|--------|-----------|
+| `0x0000` | 520 | Terrain grid, **20 wide × 26 tall**, one byte per tile | `GetTile` `game+0x16C7C` | **confirmed** |
+| `0x0208` | 75 | Point-of-interest table — **15 records × 5 bytes** | `game+0x18340` | **confirmed** |
+| `0x0253` | 400 | Text block — **10 slots × 40 bytes**, centred, space-padded, NUL-terminated | `game+0x18084` | **confirmed** |
+| `0x03E3` | 5 | Pad / unexplained | — | **open** |
+| `0x03E8` | ≤1452 | **Map display list** — the icon-plot program that actually draws the section | `game+0x17124` | **confirmed** |
+| after terminator | rest | Authoring residue | never read | **confirmed as residue** |
+
+Loading and saving (`game+0x16F3C` / `game+0x16FCA`) both build the
+filename with `sprintf` from the format string `"OUT%-d.DAT"` at
+`game+0x17E99` (load) / `game+0x17EA4` (save) and call a shared
+open/read-or-write/close helper at `game+0x74C4` with a length immediate of
+`#2500` (`0x9C4`). **The game writes `out*.dat` back on every section
+exit** — `ChangeSection` (`game+0x184BA`) calls `SaveOutFile` before
+leaving. These files are therefore live save state, not read-only assets.
+
+`0x0000 + 520 + 75 + 400 = 995 = 0x03E3`. Scanning forward from 595 for the
+first byte outside `{ASCII, 0x00, 0x0D, 0x1A}` stops at **exactly 995 in 12
+of the 18 files**; of the six others, `out1.dat` stops one byte early (a
+stray `0x0C` in its last, unused line slot), `out4`/`out18`/`out19` run to
+1001 only because the display list that follows happens to open with
+printable bytes, and `out12`/`out16` stop early at 758 on a stray byte
+inside an unused slot. The text array therefore ends where the arithmetic
+says it does, with no slack.
+
+#### 8.2.1 Terrain grid — dimensions confirmed, code-cited
+
+The engine's own accessor settles it. `GetTile(col, row)` at
+`game+0x16C7C`:
 
 ```
-"TO THE WEST IS A BUILDING CALLED"
-"'THE RED PONY INN'"
-"YOU ARE ON A PATH,"
-"TO THE EAST LIES A SMALL TOWN"
-"YOU ARE NEAR A SMALL DOOR SET"
-"INTO THE HILLSIDE"
-"THERE IS A SMALL TEMPLE HERE"
+0x16C80  moveq   #26,d0
+0x16C82  sub.w   14(a6),d0     ; 26 - row
+0x16C86  subq.w  #1,d0         ; 25 - row
+0x16C88  muls.w  #20,d0        ; * 20            <-- row stride
+0x16C8C  add.w   10(a6),d0     ; + col
+0x16C92  movea.l $210.l,a0     ; section buffer base
 ```
 
-This strongly suggests `out*.dat` files describe a small outdoor
-"screen"/location — an area grid plus a handful of nearby points-of-interest
-described in short text lines, conceptually similar to a dungeon level's
-message table but with a simpler, fixed-width/null-terminated line encoding
-rather than P1/P2's length-prefixed line table (§ scripting doc) or P3's
-pointer-table scheme.
+so `byteOffset = (25 - row) * 20 + col`. A second, constant-folded
+implementation at `game+0x18594` (`500 - 20*row + col`) and the tile
+write-back at `game+0x1814E` use the identical formula. The party-movement
+bounds checks are `cmpi.w #25` on the row variable (`game+0x17F14`) and
+`cmpi.w #19` on the column (`game+0x17F1E`), and the full-grid scanner at
+`game+0x1702C`/`0x1703E` loops row `< 26` outer, column `< 20` inner.
 
-**Confidence: confirmed** for the text block's existence, offset, and
-line-encoding (null-terminated, ~40-byte lines). **Open** for the preceding
-grid region's exact dimensions/tile-code meaning, and for whether the text
-block's start offset (`0x0255`) is fixed across all 19 `out*.dat` files or
-varies with grid content.
+> **Orientation:** the grid is stored **bottom-up**. The engine's row
+> coordinate `R` counts northward from the section's southern edge, so
+> **file row 0 is the section's northern edge** (`R = 25`). Everything in
+> this document is quoted in *file* rows unless stated otherwise; a render
+> that puts file row 0 at the top is north-up.
 
-### 8.3 `maps.int` (9360 bytes) — open
+Independently of the code, width 20 was established three ways from the
+data alone, and the third is byte-exact:
 
-Contains the same single-byte tile-code pattern seen in `out*.dat`'s
-leading region, but **no** embedded readable text anywhere in the file (201
-printable-ASCII runs found, all short runs of the same handful of tile-code
-letters, no natural-language fragments). This is consistent with `maps.int`
-being a larger, textless terrain grid — plausibly the overworld/wilderness
-map that the individual `out*.dat` "screens" are excerpted from or overlaid
-onto — but the file's dimensions could not be determined (9360 has no clean
-square-grid factorization, and no row-boundary markers were found).
-**Confidence: open/unresolved.**
+1. **Autocorrelation.** Over `out1.dat`'s 520-byte grid, lag 20 is the
+   strongest non-trivial self-similarity by a wide margin (80.0% of byte
+   pairs equal at lag 20, versus 69.8% at lag 40, 61.9% at 19, 57.7% at
+   21). Every occurrence of the 3-byte pattern `65 64 65` in the grid is
+   spaced **exactly 20 bytes** apart, 24 times in a row with zero
+   deviation — a vertical shoreline feature one cell wide.
+2. **Coherent render.** Printed at width 20 × 26 rows, all 18 grids render
+   as legible maps (continuous coastlines, one-cell-wide rivers/roads,
+   mountain clusters). The transpose (26 × 20) and every other divisor of
+   520 do not.
+3. **The POI table resolves against it — decisively.** Reading each 5-byte
+   POI record's first two bytes as `(col, row)` and indexing the grid at
+   `row*20 + col` makes 101 of the 113 non-empty records land in range, and the
+   tile values they land on have a **mean corpus frequency of 0.0023**.
+   The three competing readings — `(row, col)` row-major, column-major, and
+   row-major width 26 — all land on tiles of mean frequency **0.072**,
+   i.e. exactly chance. The correct reading is a **31× enrichment toward
+   rare tile values**; the wrong ones point at bulk terrain.
+
+#### 8.2.2 Point-of-interest table (`0x0208`, 15 × 5 bytes)
+
+| Offset in record | Size | Field | Notes |
+|------------------|------|-------|-------|
+| `+0` | 1 | `col` | Grid column, 0-19 |
+| `+1` | 1 | `row` | Grid row **in file order**, 0-25 (the lookup at `game+0x183A0` computes `25 - engineRow` before comparing, so the stored byte needs no flip) |
+| `+2` | 1 | Message / feature index | **confirmed** for text features, see below |
+| `+3` | 1 | Secondary parameter | Non-zero **only** on tile-class-5 records |
+| `+4` | 1 | Unused | Zero in every non-residue record |
+
+The engine's lookup (`game+0x18340`) walks the table from buffer `+0x208`
+(520) in steps of 5, comparing `record[0]` against the current column
+global and `record[1]` against `25 - currentRow`, and gives up at buffer
+`+0x26C` (620) with `"EVENT NOT FOUND!|TRY TO FIX THE POSITION[OK]"`. Note
+620 is 20 slots past the start, not 15 — the scan limit over-runs into the
+text block by 5 slots. No shipped file exercises that, but it is a latent
+over-read in the original engine, not in this decode.
+
+Unused slots are all-zero (or hold residue bytes). Record counts per file
+range from 0 (`out6.dat`) to 13 (`out18.dat`).
+
+**The table is an exact 1:1 index of the grid's event cells.** Exactly
+three of the engine's dispatch paths consult the POI table: the variant
+6/7/8 arms at `game+0x18048`, the town prompt on tile `40` at
+`game+0x18214`, and the class-5 event at `game+0x1819A`. Selecting cells by
+that rule across all 18 files gives **99 grid cells**, and the POI tables
+hold **99 records landing on one**, matching **cell-for-cell at exactly the
+same `(col, row)`: 99/99, zero event cells without a record, zero records
+for an event cell that isn't there.** Only two of the 101 in-range records
+land outside the rule (`out12.dat` `(14,14)` → tile 220, `out13.dat`
+`(19,8)` → tile 161), both in slots that otherwise look like stale edits.
+This is the strongest single invariant in the format: it confirms the grid
+width, the row order, the record's field order, and the dispatch rule
+simultaneously.
+
+The engine's *other* events are parameterless and correctly have no
+records — tile `41` raises event 9 (12 cells, 1 stray record), class 7
+raises `variant * 12 + 10`, class 10 event 10, class 11 event 8.
+
+**`+2` is a message index for every text feature — confirmed, 60/60.** The
+text renderer at `game+0x18084` multiplies the index by 40 and adds it to
+buffer `+0x253` (595), with a three-way length encoding (all three arms
+disassembled at `game+0x18084`, `0x180BA`, `0x180F2`):
+
+| `+2` value | Meaning |
+|---|---|
+| `0`-`9` | one line, slot `+2` |
+| `10`-`19` | two lines, slots `+2 - 10` and `+2 - 9` |
+| `≥ 20` | three lines, slots `+2 - 20`, `-19`, `-18` |
+
+Applied to every record in the corpus that sits on a "variant 6" tile (the
+arm that `game+0x18048` routes to the text path), **all 60 resolve to
+non-empty text lines, zero failures, zero out-of-range slots.** Worked
+example, `out5.dat` record at `(8,5)` with `+2 = 20`: three lines from slot
+0 — `"A SIGN READS: PELNOR 270 MILES EAST,"` / `"PINEVILLE 30 MILES
+NORTH,"` / `"'THE CONLEY INN' 170 MILES WEST"` — a three-line signpost
+recovered exactly.
+
+**Non-text features.** Two tile values are dispatched before the text path:
+
+- **Tile `40`** (`160` while unexplored) — `cmpi #40` at `game+0x18214`
+  raises the town prompt `"A TOWN.  ENTER?[YES|NO]"` (`game+0x18788`).
+  There are exactly 10 such cells and 10 records, `+2` =
+  `1,2,3,4,6,7,9,10,11` and one outlier `99` (in `out18.dat`, the astral
+  plane, whose text calls the place a `"MAGNIFICENT GOLDEN CITY"`), `+3`
+  always 0. A town index into `twns.int`'s 12-name roster fits the nine
+  small values (leaving `5`, `8`, `12` unplaced) but does not explain `99`.
+  **Confidence: confirmed** that tile 40 is a town; **hypothesis** that
+  `+2` is the `twns.int` index.
+- **Tile class 5** (`50`/`51`, i.e. `170`/`171` unexplored) —
+  `game+0x1819A` routes class 5 to event id 13. There are exactly 10 such
+  cells and 10 records, and their `+2` bytes are `1,2,3,4,5,6,7,8,9,10`:
+  **ten distinct consecutive values, one per record, in ten different
+  sections.** Phantasie I ships exactly ten dungeon files (`dng1`-`dng10`),
+  so "class 5 = dungeon entrance, `+2` = dungeon number" is the obvious
+  reading, and it is corroborated in `out1.dat`, where the class-5 cell at
+  `(8,16)` is ringed by four variant-6 cells all pointing at the same
+  message pair `"YOU ARE NEAR A SMALL DOOR SET"` / `"INTO THE HILLSIDE"`.
+  Their `+3` bytes are `20,15,15,14,10,8,16,15,20,16` — the only non-zero
+  `+3` in the corpus, not distinct, and **not** monotonic in `+2`, so not
+  the dungeon depth. **Confidence: confirmed** that class 5 is a distinct
+  event class with a per-instance 1-10 identifier; **hypothesis** that it
+  is the dungeon entrance; **open** for `+3`.
+
+The remaining 21 records sit on other landmark classes (`67`, `68`, `7`,
+`87`, `88`, `41`, `106`) with `+2` values well outside the message-index
+range (`42`, `54`, `64`, `66`, `68`, `73`, `77`, `78`, `79`) — most of them
+in `out16.dat` and `out18.dat`, the two most structurally unusual sections.
+`game+0x1819A` also routes class 7 to event `variant * 12 + 10` and class
+11 to event 8, but the downstream event handler (`game+0x13300`) was not
+traced. **Open.**
+
+#### 8.2.3 Text block (`0x0253`, 10 × 40 bytes)
+
+Ten fixed 40-byte slots. Used slots hold centred, space-padded, all-caps
+ASCII with a NUL terminator; unused slots are either space-filled
+(`out1.dat`) or filled with `0x0D` (`out2.dat` onward) — the same `0x0D`
+filler convention the dungeon action table uses (§3). Several files carry
+authoring residue in the later slots (e.g. `"ENDING SEQUENCEGE BUBBLING
+POOL"` in `out6`-`out15`, which is a partial overwrite of an older
+`"...ENDING SEQUENCE"` line by a newer `"...STRANGE BUBBLING POOL"` one).
+
+#### 8.2.4 Map display list (`0x03E8` = 1000) — confirmed
+
+**The 520-byte terrain grid is never drawn.** It is a gameplay layer
+(movement cost, passability, encounter group, fog of war, event dispatch).
+What the player sees is plotted from a display list stored later in the
+same file, read by `game+0x17124` from a pointer set up as `buffer + 1000`
+(`adda.w #0x3E8` at `game+0x17262`):
+
+```
+u16  backgroundIconIndex
+repeat {
+    u16 count            ; 0xFFFF terminates the list
+    u16 iconIndex
+    count × { u16 x; u16 y }    ; screen pixel coordinates
+}
+```
+
+`iconIndex` is scaled by 128 (`asl.l #7` at `game+0x1713C`) and added to a
+bitmap bank base of `game+0x196BC`, i.e. **128 bytes per icon**.
+
+**Verification:** parsing all 18 files with this grammar succeeds on every
+one — `backgroundIconIndex` is `10` in all 18, the `0xFFFF` terminator is
+found in bounds in all 18 (earliest at 1488 in `out18.dat`, latest at 2452
+in `out11.dat`, always < 2500), group counts run 1-10 and point counts
+120-355. Across all **4,627** plotted points the `y` coordinate **never
+exceeds 199** and only 46 `x` values (1.0%) sit past 319, the furthest at
+324 — a tight fit to a 320×200 screen that 16-bit noise could not produce.
+Zero parse failures, zero heuristics.
+
+Bytes after the terminator are genuine authoring residue: `out1.dat`, whose
+list ends at 1908, carries a **second, older copy of its own 400-byte text
+block** at offset 2143 (357 of 400 bytes identical to the live copy at
+595). The 5 bytes at `0x03E3`-`0x03E7`, between the text block and the
+display list, are not accounted for.
+
+> **Correction (2026-08-10, same day):** an earlier draft of this section,
+> written before the loader was disassembled, called the whole region from
+> 995 to end-of-file "residue, not structure," citing the duplicated text
+> block as decisive. That was wrong for the first ~500-1450 bytes of it.
+> The duplicated text block is real evidence of residue, but it sits
+> *after* the display-list terminator — the residue starts later than the
+> region does. Recorded per this project's supersede-in-place rule; the
+> lesson is that "some of this region is provably stale" does not bound
+> where the stale part begins.
+
+### 8.3 `maps.int` (9360 bytes) — solved: the concatenated world map
+
+> **Correction (2026-08-10):** an earlier version of this section recorded
+> `maps.int` as having "no clean square-grid factorization" and being
+> undecodable. The premise was wrong: `maps.int` is not one grid at all.
+> `9360 = 18 × 520`, and 520 is the size of one `out*.dat` terrain grid.
+
+#### 8.3.1 Container layout — confirmed, byte-exact
+
+`maps.int` is **18 concatenated 520-byte terrain grids, no header, no
+footer**. Block `k` at file offset `k * 520` is byte-identical to the
+leading 520 bytes of the `k`-th `out*.dat` file, in ordinal (not numeric)
+filename order:
+
+| Block | Offset | Source file | Block | Offset | Source file |
+|-------|--------|-------------|-------|--------|-------------|
+| 0 | `0x0000` | `out1.dat` | 9 | `0x1248` | `out10.dat` |
+| 1 | `0x0208` | `out2.dat` | 10 | `0x1450` | `out11.dat` |
+| 2 | `0x0410` | `out3.dat` | 11 | `0x1658` | `out12.dat` |
+| 3 | `0x0618` | `out4.dat` | 12 | `0x1860` | `out13.dat` |
+| 4 | `0x0820` | `out5.dat` | 13 | `0x1A68` | `out14.dat` |
+| 5 | `0x0A28` | `out6.dat` | 14 | `0x1C70` | `out15.dat` |
+| 6 | `0x0C30` | `out7.dat` | 15 | `0x1E78` | `out16.dat` |
+| 7 | `0x0E38` | `out8.dat` | 16 | `0x2080` | `out18.dat` |
+| 8 | `0x1040` | `out9.dat` | 17 | `0x2288` | `out19.dat` |
+
+Verified by exact substring match of each file's first 520 bytes at the
+predicted offset, all 18, zero mismatches; `18 × 520 = 9360` accounts for
+every byte of the file.
+
+**Block index is not section number − 1 for the last two blocks.** Blocks
+0-15 are sections 1-16, but block 16 is section **18** and block 17 is
+section **19** — `maps.int` is packed by ordinal over the files that exist,
+and there is no `out17.dat` (nor an `out20.dat`; see §8.3.2, where both are
+world-grid slots the engine can address but that ship no file).
+
+**Why `game` has no `maps.int` string.** It doesn't need one. The engine
+loads and *saves* `out%d.dat` directly (`SaveOutFile` runs on every section
+exit, `game+0x184C6`), mutating the terrain grid in place as the party
+explores — the `+120` unexplored flag in §8.3.3 is cleared by writing the
+tile byte back to the file's own buffer. `maps.int` is the **pristine
+master copy** of all 18 grids; the separate `backup` utility (which *does*
+contain the string, `backup+0x128D`, alongside `out%d.dat`, `TWNS.DAT`,
+`GUILD.DAT`, `DNG.SAV`, `DNGX.SAV`, `SACK.DAT`) is what restores it. That
+is exactly why our `maps.int` is byte-identical to the shipped `out*.dat`
+grids, and why it omits the non-existent `out17`. **Confidence: confirmed**
+for the layout; **confirmed** for the save-in-place behaviour;
+**hypothesis** for `maps.int`'s precise restore role (the copy direction
+inside `backup` was not traced).
+
+#### 8.3.2 How the sections tile — a 4 × 5 world grid, 77 × 126 cells
+
+The section-transition routine `ChangeSection(section, &row, &col, dRow,
+dCol)` at `game+0x184BA` computes the neighbour arithmetically:
+
+```
+0x184CE  move.w  22(a6),d0    ; dRow
+0x184D2  asl.w   #2,d0        ; dRow * 4
+0x184D4  move.w  10(a6),d1    ; section
+0x184D8  sub.w   d0,d1        ; section -= 4*dRow
+0x184DA  move.w  26(a6),d0    ; dCol
+0x184DE  sub.w   d0,d1        ; section -= dCol
+```
+
+i.e. **`newSection = section − 4·dRow − dCol`**, so the world is **4
+sections wide**, `section = mosaicRow * 4 + mosaicCol + 1`. The same
+routine sets the arrival coordinate to `0`, `19` or `25` (`moveq #25` /
+`moveq #19` / `moveq #0` at `0x184EE`-`0x18506`) — **not** `1`/`18`/`24` —
+so **adjacent sections share one row and one column.** Horizontal stride
+19, vertical stride 25.
+
+With 18 shipped sections the grid is 4 wide × 5 tall and the assembled
+world is `4·19 + 1 = 77` cells wide by `5·25 + 1 = 126` cells tall:
+
+```
+   1   2   3   4
+   5   6   7   8
+   9  10  11  12
+  13  14  15  16
+ (17) 18  19 (20)
+```
+
+Sections 17 and 20 are addressable slots with no file. `game+0x182E2`
+tests `cmpi.w #16` on the current section and refuses movement above it
+with `"THE RIVER STYX"` (`game+0x187A0`) instead of the ordinary
+`"THAT IS THE OCEAN"` (`game+0x187B3`), so the bottom band is a
+deliberately walled-off region — consistent with sections 18/19's text:
+`"YOU ARE IN THE ASTRAL PLANE, SURROUNDED BY A BRILLANT LIGHT"` /
+`"NEARBY IS A MAGNIFICENT GOLDEN CITY"` (18) and `"THE BOATMAN CHARON
+TAKES YOU ACROSS THE RIVER STYX"` / `"YOU ARE IN PART OF THE PLANE OF
+OLYMPUS"` (19).
+
+**Data-side confirmation of the overlap.** Taking every pair of
+mosaic-adjacent sections among 1-16 and comparing the shared edge
+(section's column 19 against its right neighbour's column 0; section's row
+25 against its lower neighbour's row 0) gives **552 shared cells** across
+24 seams, of which:
+
+- **488 (88.4%) agree on the exact tile code** after normalising the code
+  bank (§8.3.3);
+- **542 (98.2%) agree on the tile code's tens digit** — i.e. on the terrain
+  class, differing only in the ones digit;
+- only **10 cells (1.8%)** disagree on terrain class at all, and 7 of those
+  are one authoring inconsistency in the section-1/5 seam.
+
+Assembling from those strides produces a single coherent continent:
+one-cell-wide river/road lines run unbroken across section seams,
+coastlines close, and the landmass is fully enclosed by the ocean tile
+class. Assembling at stride 20/26 (no overlap) instead produces visibly
+duplicated rows and columns at every seam.
+
+> **Note on the bottom band's placement.** The 4×5 grid puts section 18
+> below section 14 and section 19 below section 15. The *data* cannot
+> distinguish this from the alternative (18/19 one column further left):
+> the relevant seam rows are uniform ocean in both sections, so both
+> placements score 20/20. The placement above rests entirely on the
+> `section − 4·dRow − dCol` arithmetic, which is uniform for every section.
+> **Confidence: confirmed** (code); the data is merely not contradictory.
+
+#### 8.3.3 Tile-code encoding — `+120` fog flag, then split by 10
+
+63 distinct byte values occur across `maps.int`. The engine decomposes each
+one exactly twice, and both steps are code-confirmed.
+
+**Step 1 — `+120` is the "not yet explored" flag. Confirmed.** The reveal
+routine `RevealBox(col, row, radius)` at `game+0x17450` does, per cell:
+
+```
+0x17526  cmpi.l  #120,d0
+0x1752C  blt.b   +14                ; already revealed, leave alone
+0x1752E  subi.l  #120,d0            ; clear the flag
+0x17534  movea.l $250.l,a0          ; cell address cached by GetTile
+0x1753A  move.b  d0,(a0)            ; write the revealed tile back
+```
+
+The same `#120` threshold gates the line-of-sight run at `game+0x16D06`
+and the town/temple icon scan at `game+0x1705C`. Because the engine saves
+`out*.dat` on every section exit (§8.2), this flag is live save state
+written into the data file itself.
+
+Empirically, in the shipped data the split is **perfectly clean and
+all-or-nothing per section**: `out1.dat` and `out5.dat` (sections 1 and 5)
+are `< 120` in **520/520** cells; the other 16 sections are `≥ 120` in
+**520/520** cells. No section is partially revealed. That is exactly a
+pristine new-game state with the starting region pre-revealed — and it is
+also why the three bank-crossing seams differ by *exactly* `+120` in 25/26,
+26/26 and 19/20 of their shared cells (§8.3.2): the same world cell, once
+revealed and once not.
+
+> **Correction (2026-08-10, same day):** an earlier draft of this section
+> called the `±120` split a per-section graphics "code bank" of unknown
+> meaning, on the strength of the clean 520/520 split alone. It is a
+> fog-of-war flag, and `subi.l #120` in the reveal routine says so
+> directly. The structural evidence was right; the interpretation was a
+> guess, and the guess reached for a rendering explanation when the
+> mechanism was game state.
+
+**Step 2 — divide by 10. Confirmed.** Immediately after the party steps on
+a tile, `game+0x18000`:
+
+```
+0x18000  moveq   #10,d1
+0x18002  divs.w  d1,d0
+0x18004  move.w  d0,$C.l       ; tile / 10  -> "terrain class" global
+0x18010  divs.w  #10,d1
+0x18014  swap    d1
+0x18016  move.w  d1,$E.l       ; tile % 10  -> "variant" global
+```
+
+**There is no terrain-property table and no tile-graphics table.** Both
+halves are consumed by branch chains, not as table indices — an exhaustive
+search of the two hunks that own this subsystem found no lookup keyed on
+either value. Confirmed consumers:
+
+| Consumer | Site | Behaviour |
+|---|---|---|
+| Movement time cost | `game+0x18022`-`0x1803E` | `(class + 1) * 75` if `class ≤ 3`, else `60`; added to the game clock, saturating at `0xFFFF` |
+| Impassable | `game+0x17FBE` | tile `== 100` → ocean / Styx refusal |
+| Variant dispatch | `game+0x18048` | `6` → show POI text; `7` → increment the tile byte and raise event `record[2] + 1`; `8` → no-op |
+| Class dispatch | `game+0x1819A` | `5` → event 13; `7` → event `variant * 12 + 10`; `10` → event 10; `11` → event 8 |
+| Whole-tile specials | `game+0x18214` | tile `== 40` → town prompt; tile `== 41` → event 9 |
+| Random encounter | `game+0x1E558` | `encounterGroup = variant * 12 + r`, `r ∈ {0,1,4}` |
+
+The encounter formula is worth noting: **the ones digit selects a
+12-monster block of the roster**, exactly the `level * 12 + offset`
+convention already confirmed for dungeon cells (§4). So the ones digit is
+primarily a *monster-group / region-difficulty* number, with values 6-8
+overloaded as event markers — which is why every cell with a ones digit of
+6, 7 or 8 carries a POI record (§8.2.2's 99/99 bijection) and no bulk
+terrain cell does.
+
+Class assignments read off the assembled map, **rendered** confidence
+only except where marked:
+
+| Class | Codes (revealed / hidden) | Cells | Reading |
+|---|---|---|---|
+| 10 | `100,101` / `220,221` | 2,940 | Ocean / off-map frame — **confirmed** impassable at `game+0x17FBE` |
+| 4 | `40,41` / `160,161` | 22 | `40` = town — **confirmed** at `game+0x18214` |
+| 5 | `50,51` / `170` | 10 | Dungeon entrance — **hypothesis**, §8.2.2 |
+| 6 | `60,62,63,64` / `180,182,183,184` | 211 | One-cell-wide connected lines running unbroken across section seams — river or road |
+| 0,1,2,3,7,8,9,11 | see histogram | ~6,100 | Bulk land, blob-shaped regions; movement cost separates classes 0-3 (75/150/225/300) from the rest (60) |
+
+Terrain *art* is not indexed by these codes at all — the visible map is
+plotted from the per-section display list (§8.2.4) against a 128-byte-per-
+entry icon bitmap bank at `game+0x196BC`. This is a genuine divergence
+from Phantasie III's `.set`, where the map byte **is** a rendering index
+(an X pixel-column into a bundled terrain-band picture, graphics-formats.md
+§5.3). Same series, same map-byte *shape*, different role: in P1 the byte
+is pure simulation state and the drawing is a separate vector-ish program.
 
 ### 8.4 `scrolls.dtx` (16000 bytes) — confirmed line encoding
 
@@ -466,9 +865,9 @@ in-executable character-record layout, which was out of scope here.
 | P1/P2 trailing bytes after the action-table terminator | Position varies per file; often holds an `"...ENDING SEQUENCE"` string | Whether this is meaningful game content or a development artifact |
 | ~~Phantasie II dungeon/message files~~ | **Resolved** — byte-level decode confirmed against all 8 real extracted `DNG1`-`DNG8`/`MESS1`-`MESS8` files, see §7 | n/a |
 | Phantasie III `a`-`k` dungeon-file letter-to-level-number mapping | Same size/count as reference archive's numeric `dng0`-`dng10` | Ordering assumed, not confirmed against actual level order |
-| `twns.int` 292-byte record | Stride, name-field offset, 12-town roster confirmed | Every other field in the record; the two non-empty non-name "slots" at the end |
-| `out*.dat` | POI text block confirmed (offset, encoding) | Leading grid region's dimensions and tile-code meaning |
-| `maps.int` | Same tile-code alphabet as `out*.dat`'s grid region | Dimensions, structure, relationship to `out*.dat` |
+| `twns.int` 292-byte record | Stride, name-field offset, 12-town roster confirmed. **The map position is *not* in this file** — it is in the `out*.dat` POI record (§8.2.2); a search of the whole file for the 10 known `(section, x, y)` triples returned zero hits, and the first 32 bytes of every populated record are byte-identical, i.e. a shared shop/price template | Every other field in the record; the two non-empty non-name "slots" at the end; which table the POI record's town index `+2` addresses |
+| `out*.dat` | **Full four-region layout confirmed** (§8.2): 20×26 grid, 15×5-byte POI table, 10×40-byte text array, trailing residue | Meaning of the POI record's `+2`/`+3` bytes for non-town features |
+| `maps.int` | **Solved** (§8.3): 18 × 520-byte grids = the 18 `out*.dat` grids; sections 1-16 tile 4×4 with 1-cell overlap into a 77×101 world | What the ±120 tile-code bank means; per-class terrain names; whether `game` reads the file at all (no `maps.int` string in it) |
 | `scrolls.dtx` | 40-byte line stride confirmed, 400 lines total | How lines subdivide into individual scrolls |
 | `tamb.dat` | Byte-frequency profile only | Everything else |
 | Phantasie III `S1`-`S20` | Readable narrative text, likely scroll/note pickups | Exact format beyond "flat null-terminated text blob"; `S6`'s outlier size |
