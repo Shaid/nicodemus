@@ -505,6 +505,16 @@ should apply to P2 directly with no format-discovery risk. `OUT*.DAT`'s
 save-vs-template status also remains unresolved (`p2-out-dat-save-status`
 in `TODO.md`), but nothing in this phase touches it.
 
+> **Update (2026-08-10):** `OUT*.DAT` is now fully decoded, and so is P2's
+> whole world-map layer — see `dungeon-format.md` §8.6. Its terrain grids
+> are **pristine** (`MAPS.INT` is the byte-identical master, 17/17), which
+> supersedes the earlier "no known pristine P2 counterpart" reading in
+> `stx-extraction.md` §6; only the never-read 995-1500 gap and the bytes
+> past the display-list terminator carry save residue. Decoder and tests
+> exist (`PHANTASIE2_OUTDOOR` in `src/assets/formats/outdoor.ts`); wiring
+> them into `tools/phantasieii/build-assets.ts` is tracked as
+> `world-p2-pipeline-wiring` in `TODO.md`.
+
 ### The asset viewer is now multi-game
 
 `tools/viewer/` was generalized: a game/platform selector (driven by

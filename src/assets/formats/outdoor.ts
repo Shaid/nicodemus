@@ -1,34 +1,45 @@
 /**
- * Phantasie I outdoor-section decoder: `out1.dat`..`out19.dat` and the
+ * Phantasie I **and II** outdoor-section decoder: `out*.dat` and the
  * `maps.int` container that holds a pristine copy of their terrain grids.
  *
- * See docs/phantasie/dungeon-format.md §8.2 and §8.3. Every offset and
- * constant below is code-confirmed against the Amiga `game` executable
+ * See docs/phantasie/dungeon-format.md §8.2, §8.3 and §8.6. Every offset and
+ * constant below is code-confirmed — against the Amiga `game` executable for
+ * Phantasie I, and against the Atari ST `PHANT.PRG` for Phantasie II —
  * unless the comment says otherwise.
  *
- * An `out*.dat` file is a fixed 2,500-byte record, read in one `Read()`
- * into a single buffer (`game+0x16F0A`), so file and buffer offsets agree:
+ * An `out*.dat` file is one fixed-size record, read in a single `Read()`
+ * into a single buffer (P1 `game+0x16F0A`, P2 `PHANT.PRG` addr `0x4B88`),
+ * so file and buffer offsets agree:
  *
- * | Offset | Size  | Region                                              |
- * |--------|-------|-----------------------------------------------------|
- * | 0      | 520   | Terrain grid, 20 x 26 (`GetTile`, `game+0x16C7C`)   |
- * | 520    | 75    | Point-of-interest table, 15 x 5 B (`game+0x18340`)  |
- * | 595    | 400   | Text block, 10 slots x 40 B (`game+0x18084`)        |
- * | 995    | 5     | Pad / unexplained                                   |
- * | 1000   | <=1452| Map display list (`game+0x17124`)                   |
- * | after  | rest  | Authoring residue, never read                       |
+ * | Offset | Size  | Region                                    | P1 reader | P2 reader |
+ * |--------|-------|-------------------------------------------|-----------|-----------|
+ * | 0      | 520   | Terrain grid, 20 x 26                     | `game+0x16C7C` | `PHANT.PRG` addr `0x48E6` |
+ * | 520    | 75    | Point-of-interest table, 15 x 5 B         | `game+0x18340` | addr `0x6528` |
+ * | 595    | 400   | Text block, 10 slots x 40 B               | `game+0x18084` | addr `0x615E` |
+ * | 995    | 5/505 | Pad / unexplained (P1: 5 B, P2: 505 B)    | — | — |
+ * | 1000 (P1) / 1500 (P2) | | Map display list                | `game+0x17124` | addr `0x5028` |
+ * | after  | rest  | Authoring residue, never read             | — | — |
  *
- * The engine *writes* these files back on every section exit
- * (`game+0x184C6`) — they are live save state, not read-only assets.
- * `maps.int` (9,360 bytes) is the pristine master: 18 of the 520-byte
- * grids back to back, no header, no footer, in ordinal filename order.
+ * The grid/POI/text regions are **byte-identical between the two games**;
+ * only the display-list offset (1000 vs 1500) and the total file size
+ * (2,500 vs 3,000) differ.
+ *
+ * Both engines *write* these files back on every section exit
+ * (P1 `game+0x184C6`, P2 addr `0x66C2`) — they are live save state, not
+ * read-only assets. `maps.int` is the pristine master: N of the 520-byte
+ * grids back to back, no header, no footer, in ordinal filename order
+ * (P1: 18 blocks / 9,360 B; P2: 17 blocks / 8,840 B).
  *
  * Sections tile into a 4-wide world grid (`newSection = section - 4*dRow -
- * dCol`, `game+0x184BA`) with adjacent sections **sharing one row and one
- * column**, giving strides of 19 and 25 and a 77 x 126 world.
+ * dCol`; P1 `game+0x184BA`, P2 addr `0x66BA` — byte-identical arithmetic)
+ * with adjacent sections **sharing one row and one column**, giving strides
+ * of 19 and 25. P1's 18 sections fill a 4 x 5 mosaic (77 x 126 cells);
+ * P2's 17 sections are scattered over a 4 x 8 mosaic (77 x 201 cells).
  */
 
 export const OUTDOOR_FILE_SIZE = 2500;
+/** Phantasie II's record is 500 bytes longer (`#$BB8` at `PHANT.PRG` addr `0x4BA8`). */
+export const OUTDOOR_FILE_SIZE_P2 = 3000;
 
 export const OUTDOOR_SECTION_WIDTH = 20;
 export const OUTDOOR_SECTION_HEIGHT = 26;
@@ -38,6 +49,8 @@ export const OUTDOOR_GRID_OFFSET = 0;
 export const OUTDOOR_POI_OFFSET = 520;
 export const OUTDOOR_TEXT_OFFSET = 595;
 export const OUTDOOR_DISPLAY_LIST_OFFSET = 1000;
+/** `buffer + 0x5DC` (`add.l #$5dc` at `PHANT.PRG` addr `0x531A`). */
+export const OUTDOOR_DISPLAY_LIST_OFFSET_P2 = 1500;
 
 export const OUTDOOR_POI_COUNT = 15;
 export const OUTDOOR_POI_RECORD_SIZE = 5;
@@ -66,6 +79,58 @@ export const WORLD_SECTION_STRIDE_X = OUTDOOR_SECTION_WIDTH - 1; // 19
 export const WORLD_SECTION_STRIDE_Y = OUTDOOR_SECTION_HEIGHT - 1; // 25
 export const WORLD_WIDTH = WORLD_COLUMNS * WORLD_SECTION_STRIDE_X + 1; // 77
 export const WORLD_HEIGHT = WORLD_ROWS * WORLD_SECTION_STRIDE_Y + 1; // 126
+
+/**
+ * Phantasie II ships 17 `OUT*.DAT` files, and `MAPS.INT` (8,840 bytes) is
+ * 17 x 520 in the same ordinal order. The numbers are sparse: the mosaic is
+ * still 4 columns wide (`asl.w #2` at `PHANT.PRG` addr `0x66D0`), but only
+ * 17 of its 32 slots ship a file. Every section edge that faces an absent
+ * slot is pure ocean (class 10) in 29 of 30 cases — see §8.6.3.
+ */
+export const SECTION_NUMBER_BY_BLOCK_P2: readonly number[] = [
+  1, 2, 3, 5, 6, 7, 8, 11, 12, 17, 18, 22, 26, 27, 28, 30, 31,
+];
+export const WORLD_SECTION_COUNT_P2 = SECTION_NUMBER_BY_BLOCK_P2.length; // 17
+export const MAPS_INT_SIZE_P2 = WORLD_SECTION_COUNT_P2 * OUTDOOR_GRID_SIZE; // 8840
+export const WORLD_ROWS_P2 = 8;
+export const WORLD_HEIGHT_P2 = WORLD_ROWS_P2 * WORLD_SECTION_STRIDE_Y + 1; // 201
+
+/**
+ * The two games differ only in the record size, the display-list offset and
+ * the section roster; everything else in the format is byte-identical.
+ */
+export interface OutdoorLayout {
+  /** Exact `out*.dat` record size. */
+  fileSize: number;
+  /** Offset of the map display list within the record. */
+  displayListOffset: number;
+  /** `maps.int` block index -> section number, in ordinal filename order. */
+  sectionNumberByBlock: readonly number[];
+  /** Exact `maps.int` size (`sectionNumberByBlock.length * 520`). */
+  mapsIntSize: number;
+  /** Mosaic rows the section numbers span. */
+  worldRows: number;
+  /** Assembled world height in cells. */
+  worldHeight: number;
+}
+
+export const PHANTASIE1_OUTDOOR: OutdoorLayout = {
+  fileSize: OUTDOOR_FILE_SIZE,
+  displayListOffset: OUTDOOR_DISPLAY_LIST_OFFSET,
+  sectionNumberByBlock: SECTION_NUMBER_BY_BLOCK,
+  mapsIntSize: MAPS_INT_SIZE,
+  worldRows: WORLD_ROWS,
+  worldHeight: WORLD_HEIGHT,
+};
+
+export const PHANTASIE2_OUTDOOR: OutdoorLayout = {
+  fileSize: OUTDOOR_FILE_SIZE_P2,
+  displayListOffset: OUTDOOR_DISPLAY_LIST_OFFSET_P2,
+  sectionNumberByBlock: SECTION_NUMBER_BY_BLOCK_P2,
+  mapsIntSize: MAPS_INT_SIZE_P2,
+  worldRows: WORLD_ROWS_P2,
+  worldHeight: WORLD_HEIGHT_P2,
+};
 
 /**
  * Tile codes at or above this are "not yet explored"; the engine subtracts
@@ -217,9 +282,9 @@ function decodeTextLine(data: Uint8Array, offset: number): string {
 
 const DISPLAY_LIST_TERMINATOR = 0xffff;
 
-function decodeDisplayList(data: Uint8Array): OutdoorDisplayList {
+function decodeDisplayList(data: Uint8Array, startOffset: number): OutdoorDisplayList {
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-  let p = OUTDOOR_DISPLAY_LIST_OFFSET;
+  let p = startOffset;
   const backgroundIconIndex = view.getUint16(p, false);
   p += 2;
 
@@ -246,10 +311,13 @@ function decodeDisplayList(data: Uint8Array): OutdoorDisplayList {
   return { backgroundIconIndex, groups, endOffset: p };
 }
 
-/** Decode one `out*.dat` file. */
-export function decodeOutdoorSection(data: Uint8Array): OutdoorSection {
-  if (data.length !== OUTDOOR_FILE_SIZE) {
-    throw new Error(`outdoor section must be ${OUTDOOR_FILE_SIZE} bytes, got ${data.length}`);
+/** Decode one `out*.dat` file. Defaults to the Phantasie I layout. */
+export function decodeOutdoorSection(
+  data: Uint8Array,
+  layout: OutdoorLayout = PHANTASIE1_OUTDOOR,
+): OutdoorSection {
+  if (data.length !== layout.fileSize) {
+    throw new Error(`outdoor section must be ${layout.fileSize} bytes, got ${data.length}`);
   }
 
   const grid = data.slice(OUTDOOR_GRID_OFFSET, OUTDOOR_GRID_OFFSET + OUTDOOR_GRID_SIZE);
@@ -277,7 +345,13 @@ export function decodeOutdoorSection(data: Uint8Array): OutdoorSection {
     textLines.push(decodeTextLine(data, OUTDOOR_TEXT_OFFSET + i * OUTDOOR_TEXT_LINE_SIZE));
   }
 
-  return { grid, pois, rawPois, textLines, displayList: decodeDisplayList(data) };
+  return {
+    grid,
+    pois,
+    rawPois,
+    textLines,
+    displayList: decodeDisplayList(data, layout.displayListOffset),
+  };
 }
 
 /** Resolve a POI record's message to the text lines the engine would show. */
@@ -287,13 +361,16 @@ export function poiMessage(section: OutdoorSection, poi: OutdoorPoi): string[] {
     .map((slot) => section.textLines[slot]);
 }
 
-/** Split `maps.int` into its 18 section grids, in ordinal file order. */
-export function decodeMapsInt(data: Uint8Array): Uint8Array[] {
-  if (data.length !== MAPS_INT_SIZE) {
-    throw new Error(`maps.int must be ${MAPS_INT_SIZE} bytes, got ${data.length}`);
+/** Split `maps.int` into its section grids, in ordinal file order. */
+export function decodeMapsInt(
+  data: Uint8Array,
+  layout: OutdoorLayout = PHANTASIE1_OUTDOOR,
+): Uint8Array[] {
+  if (data.length !== layout.mapsIntSize) {
+    throw new Error(`maps.int must be ${layout.mapsIntSize} bytes, got ${data.length}`);
   }
   const grids: Uint8Array[] = [];
-  for (let i = 0; i < WORLD_SECTION_COUNT; i++) {
+  for (let i = 0; i < layout.sectionNumberByBlock.length; i++) {
     grids.push(data.slice(i * OUTDOOR_GRID_SIZE, (i + 1) * OUTDOOR_GRID_SIZE));
   }
   return grids;
@@ -307,19 +384,23 @@ export interface AssembledWorld {
 }
 
 /**
- * Assemble sections into the 77 x 126 world grid.
+ * Assemble sections into the world grid (P1: 77 x 126, P2: 77 x 201).
  *
  * `grids` is keyed by `maps.int` block index; the section number (and hence
- * the world slot) comes from `SECTION_NUMBER_BY_BLOCK`. Adjacent sections
- * share one column / one row, so later sections overwrite the shared edge.
- * Tile codes are flag-stripped so the two pre-revealed sections are
- * comparable with the rest; 98.2% of the 552 shared seam cells among
- * sections 1-16 then agree on terrain class.
+ * the world slot) comes from the layout's `sectionNumberByBlock`. Adjacent
+ * sections share one column / one row, so later sections overwrite the
+ * shared edge. Tile codes are flag-stripped so pre-revealed sections are
+ * comparable with the rest; 98.2% of P1's 552 shared seam cells (sections
+ * 1-16) and 99.5% of P2's 440 then agree on terrain class.
  */
-export function assembleWorld(grids: readonly Uint8Array[]): AssembledWorld {
-  const cells = new Uint8Array(WORLD_WIDTH * WORLD_HEIGHT);
-  for (let block = 0; block < grids.length && block < SECTION_NUMBER_BY_BLOCK.length; block++) {
-    const slot = SECTION_NUMBER_BY_BLOCK[block] - 1;
+export function assembleWorld(
+  grids: readonly Uint8Array[],
+  layout: OutdoorLayout = PHANTASIE1_OUTDOOR,
+): AssembledWorld {
+  const { sectionNumberByBlock, worldHeight } = layout;
+  const cells = new Uint8Array(WORLD_WIDTH * worldHeight);
+  for (let block = 0; block < grids.length && block < sectionNumberByBlock.length; block++) {
+    const slot = sectionNumberByBlock[block] - 1;
     const originX = (slot % WORLD_COLUMNS) * WORLD_SECTION_STRIDE_X;
     const originY = Math.floor(slot / WORLD_COLUMNS) * WORLD_SECTION_STRIDE_Y;
     const grid = grids[block];
@@ -331,5 +412,5 @@ export function assembleWorld(grids: readonly Uint8Array[]): AssembledWorld {
       }
     }
   }
-  return { width: WORLD_WIDTH, height: WORLD_HEIGHT, cells };
+  return { width: WORLD_WIDTH, height: worldHeight, cells };
 }

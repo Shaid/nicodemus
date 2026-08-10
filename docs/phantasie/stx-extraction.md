@@ -374,6 +374,38 @@ file layout the way it seems to for P1.
 > visited/unvisited differ per playthrough. Closes `p2-out-dat-save-status`
 > in `TODO.md`.
 
+> **Correction (2026-08-10) — two of the three claims above are wrong; the
+> byte-level residue evidence is not.** See `dungeon-format.md` §8.6.
+>
+> - **There *is* a pristine counterpart, and it was sitting on disk 1 the
+>   whole time: `MAPS.INT`.** It is exactly `17 × 520` bytes, and block `k`
+>   is byte-identical to the `k`-th `OUT*.DAT`'s leading 520-byte terrain
+>   grid — **17/17, zero mismatches**. The section grids in the shipped
+>   `OUT*.DAT` files are therefore pristine, and `MAPS.INT` is the master
+>   the `BACKUP` utility restores from, exactly as in Phantasie I (§8.3.1).
+>   This pass missed it because `MAPS.INT` was filed as an unrelated
+>   `TWNS.INT`-adjacent disk-1 file rather than as `OUT*.DAT`'s sibling.
+> - **The sparse `1,2,3,5,6,7,8,11,12,17,18,22,26,27,28,30,31` numbering is
+>   not a playthrough artefact.** `MAPS.INT` — shipped, never written by the
+>   game — holds exactly those seventeen sections and no others, so
+>   seventeen *is* the complete world. The engine's own section arithmetic
+>   (`newSection = section − 4·dRow − dCol`, `PHANT.PRG` addr `0x66BA`) lays
+>   them out on a 4-wide mosaic, and **every section edge facing one of the
+>   15 absent slots is impassable ocean** (29 of 30 edges 100% ocean class).
+>   The gaps are unreachable map, not unvisited outposts.
+> - **What still stands:** the shared `"ENDING SEQUENCE"` block and
+>   `OUT1.DAT`'s embedded GEMDOS directory entries really are save-write
+>   residue. Both live in bytes the engine never reads back — the
+>   995-1500 dead gap between the text block and the display list
+>   (`OUT1.DAT`'s directory entries start at `0x400` = 1,024). So
+>   "`OUT*.DAT` is written by the game" is correct; "therefore its world
+>   content is playthrough-specific" does not follow.
+>
+> General lesson: *some* of a file provably being stale save residue does
+> not make the whole file save state — check whether the region the format
+> actually reads was disturbed, and look for a pristine sibling before
+> concluding none exists.
+
 ## 7. Cross-reference against existing P1 hypotheses (facts only, no decode)
 
 These are the two "does the size match" checks the parent task asked this
