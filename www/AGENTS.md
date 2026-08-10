@@ -128,23 +128,31 @@ When a game's upstream extraction changes (new sprites, corrected data, etc.):
 
 - **This site deploys to a subpath (`base: '/nicodemus'` in
   `astro.config.mjs`), and Astro/Starlight do not auto-prefix hand-authored
-  links or images with it.** Starlight's own generated chrome (sidebar,
-  pagination, breadcrumbs, favicon) is base-aware automatically; anything you
-  type by hand is not. **Rule**: in `.astro` components or `.mdx`
-  frontmatter/JS, build paths with `` `${import.meta.env.BASE_URL}assets/...` ``
-  (note `BASE_URL` already ends in `/`); in markdown/MDX prose, use a
+  links or images with it — not even inside Starlight's own frontmatter
+  fields (e.g. a splash page's `hero.actions[].link`).** Starlight's own
+  *generated* chrome (sidebar, pagination, breadcrumbs, favicon) is
+  base-aware automatically; anything you typed a path into yourself, YAML or
+  JS, is not. **Rule**: in `.astro` components or `.mdx` frontmatter/JS, build
+  paths with `import.meta.env.BASE_URL`, but normalize its trailing slash
+  first — it is **not** guaranteed to end in `/` (that depends on the
+  separate `trailingSlash` config, not on how `base` is written):
+  `` const base = import.meta.env.BASE_URL.replace(/\/$/, ''); `${base}/assets/...` ``.
+  In markdown/MDX prose *and* in frontmatter YAML link fields, use a
   **relative path** computed from the page's route depth (e.g.
-  `../../assets/phantasie/amiga/cover1.png` from a page two segments deep),
-  never an absolute `/assets/...` or `/phantasie/...`. **Never use markdown
-  `![alt](path)` image syntax for a `public/assets/` image** — Astro's
-  markdown image pipeline intercepts that syntax specifically and either
-  silently skips base-prefixing (absolute path) or fails the build outright
-  with `[ImageNotFound]` (relative path, since it tries to import it as a
-  local `src/`-relative asset). Use a raw `<img src="...">` HTML tag instead
-  — it passes through untouched in both `.md` and `.mdx`. Full writeup with
-  the empirical evidence: `~/.claude/skills/seer-website/references/base-path.md`.
-  Before calling any subpath-deploy change done, build with the real `base`
-  set and grep `dist/**/*.html` for un-prefixed `href="/`/`src="/`.
+  `../../assets/phantasie/amiga/cover1.png` from a page two segments deep,
+  or just `phantasie/`/`assets/foo.png` with no prefix from the depth-0
+  homepage), never an absolute `/assets/...` or `/phantasie/...`. **Never use
+  markdown `![alt](path)` image syntax for a `public/assets/` image** —
+  Astro's markdown image pipeline intercepts that syntax specifically and
+  either silently skips base-prefixing (absolute path) or fails the build
+  outright with `[ImageNotFound]` (relative path, since it tries to import it
+  as a local `src/`-relative asset). Use a raw `<img src="...">` HTML tag
+  instead — it passes through untouched in both `.md` and `.mdx`. Full
+  writeup with the empirical evidence:
+  `~/.claude/skills/seer-website/references/base-path.md`. Before calling any
+  subpath-deploy change done, build with the real `base` set and grep
+  `dist/**/*.html` (including the homepage) for un-prefixed
+  `href="/`/`src="/`.
 
 ## Documentation
 
