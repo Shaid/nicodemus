@@ -28,18 +28,25 @@ import {
   decodeP1RaceSprite,
   P1_RACE_COUNT,
 } from '../../src/assets/formats/sprite-bank.ts';
+import { buildWorldMap } from './build-map.ts';
 // getGameConfig is dynamically imported inside main() (CLI-only) to avoid a
 // static circular import — game-config.ts imports buildAssets from this
 // file to register the pipeline step.
 
-interface ManifestEntry {
+export interface ManifestEntry {
   name: string;
   sprites: number;
   hasPalette: boolean;
   png: string;
+  /**
+   * Which viewer to open the entry in. Absent (the default) means the
+   * ordinary sprite-atlas / picture view; `'map'` is the world-map view,
+   * which reads `<name>.json` + `<name>-pois.json` instead of a PNG.
+   */
+  type?: 'atlas' | 'map';
 }
 
-function upsertManifest(outDir: string, entries: ManifestEntry[]): void {
+export function upsertManifest(outDir: string, entries: ManifestEntry[]): void {
   const manifestPath = resolve(outDir, 'manifest.json');
   let existing: ManifestEntry[] = [];
   if (existsSync(manifestPath)) {
@@ -234,6 +241,9 @@ export function buildAssets(config: PlatformConfig, dataDir: string): void {
   } else {
     console.warn(`  ⚠ ${gamePath} not found — skipping .pat sprite bank assets`);
   }
+
+  // The overworld: maps.int + out*.dat -> world-map.json / world-map-pois.json.
+  entries.push(...buildWorldMap(dataDir, outDir));
 
   upsertManifest(outDir, entries);
   console.log(`Wrote ${entries.length} asset(s) to ${outDir}`);

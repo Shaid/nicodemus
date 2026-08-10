@@ -1,4 +1,5 @@
 import { setHidden, type AtlasMeta, type PaletteData, type AtlasFrame } from './shared.ts';
+import { WorldMapViewer } from './map-viewer.ts';
 import {
   GAME_IDS,
   GAME_DISPLAY_NAMES,
@@ -41,6 +42,13 @@ interface ManifestEntry {
   sprites: number;
   hasPalette: boolean;
   png: string;
+  /**
+   * Which view the entry opens in. Absent (every sprite atlas and picture)
+   * means the ordinary PNG-backed canvas; `'map'` means the world-map view,
+   * which fetches `<name>.json` + `<name>-pois.json` and draws vector-ish
+   * flat-coloured cells instead — see `map-viewer.ts`.
+   */
+  type?: 'atlas' | 'map';
 }
 
 const listEl = document.getElementById('list')!;
@@ -66,15 +74,18 @@ let currentAtlas: AtlasMeta | null = null;
 let currentPalette: PaletteData | null = null;
 let currentFrames: AtlasFrame[] = [];
 let currentFrame = 0;
+/** Created on first use — most sessions never open the map. */
+let mapViewer: WorldMapViewer | null = null;
 
 let currentGame: GameId = DEFAULT_GAME;
 let currentPlatform: PlatformId = DEFAULT_PLATFORM;
 let ASSET_BASE = assetBaseFor(currentGame, currentPlatform);
 
-/** Read `?game=`/`?platform=` from the URL, falling back to the game-id
- *  module's defaults, and clamping to a platform that's actually valid for
- *  the chosen game (per `GAME_PLATFORMS` above). */
-function parseInitialSelection(): { game: GameId; platform: PlatformId } {
+/** Read `?game=`/`?platform=`/`?asset=` from the URL, falling back to the
+ *  game-id module's defaults, and clamping to a platform that's actually
+ *  valid for the chosen game (per `GAME_PLATFORMS` above). `asset` is left
+ *  unvalidated here — it can only be checked against a loaded manifest. */
+function parseInitialSelection(): { game: GameId; platform: PlatformId; asset: string | null } {
   const params = new URLSearchParams(location.search);
   const gameParam = params.get('game');
   const platformParam = params.get('platform');
@@ -86,13 +97,18 @@ function parseInitialSelection(): { game: GameId; platform: PlatformId } {
       ? platformParam
       : platformsForGame[0].platform;
 
-  return { game, platform };
+  return { game, platform, asset: params.get('asset') };
 }
+
+/** `?asset=` from the initial URL, consumed by the first manifest load. */
+let pendingAsset: string | null = null;
 
 function updateUrl() {
   const url = new URL(location.href);
   url.searchParams.set('game', currentGame);
   url.searchParams.set('platform', currentPlatform);
+  if (selected) url.searchParams.set('asset', selected.name);
+  else url.searchParams.delete('asset');
   history.replaceState({}, '', url);
 }
 
@@ -142,20 +158,32 @@ async function switchGamePlatform(game: GameId, platform: PlatformId) {
   currentGame = game;
   currentPlatform = platform;
   ASSET_BASE = assetBaseFor(currentGame, currentPlatform);
-  updateUrl();
 
   pageTitleEl.textContent = `${GAME_DISPLAY_NAMES[currentGame]} (${currentPlatform}) — Asset Viewer`;
   document.title = pageTitleEl.textContent;
 
+  // Cleared before updateUrl() so a stale `?asset=` doesn't survive the
+  // switch — the name almost certainly doesn't exist in the new manifest.
   selected = null;
+  updateUrl();
   currentAtlas = null;
   currentPalette = null;
   currentFrames = [];
   currentFrame = 0;
+  mapViewer?.hide();
 
   manifest = await loadManifest();
+  // `?asset=` is honoured once, on the load that the URL was parsed for —
+  // switching game/platform afterwards starts from no selection again.
+  const wanted = pendingAsset;
+  pendingAsset = null;
+  const preselect = wanted ? manifest.find((a) => a.name === wanted) : undefined;
   if (manifest.length === 0) {
     listEl.innerHTML = '<div class="no-results"><p>No assets found.</p><p style="margin-top:8px;font-size:11px;">Run <code>npm run build-assets</code> first.</p></div>';
+  }
+  if (preselect) {
+    await selectAsset(preselect);
+    return;
   }
   renderList();
   drawAsset();
@@ -180,7 +208,9 @@ function renderList() {
     const item = document.createElement('div');
     item.className = 'item';
     if (selected === a) item.classList.add('selected');
-    item.innerHTML = `<span class="item-label">${a.name}</span><span class="item-dim">${a.sprites}sp${a.hasPalette ? ' · pal' : ''}</span>`;
+    const dim =
+      a.type === 'map' ? '<span class="tag">map</span>' : `${a.sprites}sp${a.hasPalette ? ' · pal' : ''}`;
+    item.innerHTML = `<span class="item-label">${a.name}</span><span class="item-dim">${dim}</span>`;
     item.addEventListener('click', () => selectAsset(a));
     listEl.appendChild(item);
   }
@@ -189,6 +219,18 @@ function renderList() {
 async function selectAsset(asset: ManifestEntry) {
   selected = asset;
   currentFrame = 0;
+  updateUrl();
+
+  if (asset.type === 'map') {
+    currentAtlas = null;
+    currentPalette = null;
+    currentFrames = [];
+    renderList();
+    await showMap(asset);
+    return;
+  }
+
+  mapViewer?.hide();
   currentAtlas = await loadJSON<AtlasMeta>(`${asset.name}.json`);
   currentPalette = asset.hasPalette ? await loadJSON<PaletteData>(`${asset.name}.pal.json`) : null;
   currentFrames = currentAtlas?.frames ?? [];
@@ -196,8 +238,26 @@ async function selectAsset(asset: ManifestEntry) {
   drawAsset();
 }
 
+/** World-map entries bypass the atlas canvas entirely. */
+async function showMap(asset: ManifestEntry) {
+  titleEl.textContent = `${asset.name} — world map`;
+  metaEl.textContent = '';
+  frameInfoEl.textContent = 'drag to pan · scroll to zoom';
+  setHidden(frameStrip, true);
+  setHidden(paletteBar, true);
+  mapViewer ??= new WorldMapViewer(canvasWrap);
+  await mapViewer.show(ASSET_BASE, asset.name);
+  metaEl.textContent = mapViewer.summary;
+}
+
 function drawAsset() {
+  if (selected?.type === 'map') return;
   if (!selected || !currentAtlas) {
+    titleEl.textContent = 'No asset selected';
+    metaEl.textContent = '';
+    frameInfoEl.textContent = '';
+    setHidden(frameStrip, true);
+    setHidden(paletteBar, true);
     canvasWrap.innerHTML = '<div class="state-panel"><span class="state-icon">🖼</span><span class="state-title">Select an asset</span></div>';
     return;
   }
@@ -344,6 +404,7 @@ function populatePlatformSelectAndSwitch(game: GameId, platform: PlatformId) {
   const initial = parseInitialSelection();
   currentGame = initial.game;
   currentPlatform = initial.platform;
+  pendingAsset = initial.asset;
   populateGameSelect();
   populatePlatformSelect();
   await switchGamePlatform(currentGame, currentPlatform);

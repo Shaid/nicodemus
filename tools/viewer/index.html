@@ -48,6 +48,21 @@
         </label>
       </div>
       <div id="canvas-wrap"></div>
+      <div id="map-strip" class="hidden">
+        <div class="map-strip-row">
+          <label><input id="map-layer-terrain" type="checkbox" checked /> Terrain</label>
+          <label><input id="map-layer-pois" type="checkbox" checked /> POIs</label>
+          <label><input id="map-layer-labels" type="checkbox" checked /> Labels</label>
+          <label><input id="map-layer-sections" type="checkbox" /> Sections</label>
+          <button id="map-fit" type="button">Fit</button>
+          <span id="map-coord"></span>
+        </div>
+        <div class="map-strip-row">
+          <span class="map-strip-note" title="Phantasie I's terrain byte is not a graphics index; the real icon bank is not decoded yet, so these are placeholder colours per terrain class.">Terrain class (placeholder colours):</span>
+          <span id="map-legend"></span>
+        </div>
+        <div id="map-detail"></div>
+      </div>
       <div id="frame-strip" class="hidden">
         <input id="frame-slider" type="range" min="0" max="0" value="0" />
         <span id="frame-label">Sprite 0 / 0</span>

@@ -48,7 +48,7 @@ npm run dev                   # start the dev server
 | `npm run format` | Prettier auto-format |
 | `npm run extract-data` | Full offline pipeline (export + build-assets) |
 | `npm run build-assets` | Asset-build stage only |
-| `npm run viewer` | Dev server opened straight at the asset viewer (`tools/viewer/`) — pick game/platform from the dropdowns, selection is shareable via URL |
+| `npm run viewer` | Dev server opened straight at the asset viewer (`tools/viewer/`) — pick game/platform from the dropdowns, selection is shareable via URL (`?game=&platform=&asset=`). Phantasie I also lists a `world-map` entry: the assembled 77×126 overworld, pan/zoom, with point-of-interest markers |
 
 ## Project structure
 
