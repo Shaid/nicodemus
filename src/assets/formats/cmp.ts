@@ -3,6 +3,12 @@
  *
  * See docs/phantasie/graphics-formats.md §4. `.CSH` is byte-for-byte the
  * same container format as `.CMP` — both are handled by this module.
+ *
+ * **A file's own header palette is not always the palette it renders
+ * under.** `PhantasieIII`'s loader parks every `.cmp` header palette in one
+ * shared global and the *caller* decides what to do with it; six of the
+ * seven sprite banks never get theirs installed at all. Pass
+ * `options.palette` for those. Full evidence: graphics-formats.md §4.5.
  */
 
 import { bitplaneByteOffset, decodeBitplaneIndices, type BitplaneConfig } from './bitplane.ts';
@@ -37,7 +43,17 @@ export type CmpInterleaveType = 1 | 2;
 export interface CmpImage {
   width: number;
   height: number;
+  /**
+   * The palette this image is actually displayed under. Equal to
+   * `headerPalette` unless a caller supplied an override — which the
+   * monster/race sprite banks require, since the game never installs their
+   * own header palettes (see `decodeCmp`'s doc comment and
+   * graphics-formats.md §4.5).
+   */
   palette: RGB[];
+  /** The file's own 32-byte header palette, always decoded, regardless of
+   *  whether the game ever installs it. */
+  headerPalette: RGB[];
   /** One palette-index byte per pixel, row-major. */
   indices: Uint8Array;
   interleaveType: CmpInterleaveType;
@@ -158,9 +174,33 @@ export function decompressCmpBuffer(
   return { buffer, bytesConsumed: reader.bytesConsumed };
 }
 
+/**
+ * Read just the 32-byte header palette of a `.cmp`/`.csh` file, without
+ * decompressing it. Cheap enough to call on `heros.cmp` purely to obtain
+ * the encounter palette every sprite bank renders under
+ * (`P3_ENCOUNTER_PALETTE_BANK` in `sprite-bank.ts`).
+ */
+export function decodeCmpHeaderPalette(data: Uint8Array): RGB[] {
+  return decodePalette16(data, HEADER_PALETTE_OFFSET, 'amigaFromSt');
+}
+
+export interface DecodeCmpOptions {
+  /**
+   * Render under this palette instead of the file's own header palette.
+   *
+   * Required for the six non-`heros` sprite banks: `PhantasieIII` parks
+   * every loaded `.cmp`'s header palette in one shared 32-byte global
+   * (`palScratch`, DATA hunk `+0x2AEE`), and only banks 0/1/2 get theirs
+   * copied out to a slot afterwards — of which **only slot 0 (heros.cmp)
+   * is ever installed**. See graphics-formats.md §4.5.
+   */
+  palette?: RGB[];
+}
+
 /** Decode a full `.cmp`/`.csh` file into a palette + palette-index image. */
-export function decodeCmp(data: Uint8Array): CmpImage {
-  const palette = decodePalette16(data, HEADER_PALETTE_OFFSET, 'st');
+export function decodeCmp(data: Uint8Array, options: DecodeCmpOptions = {}): CmpImage {
+  const headerPalette = decodeCmpHeaderPalette(data);
+  const palette = options.palette ?? headerPalette;
   const compressedSize =
     (data[HEADER_COMPRESSED_SIZE_OFFSET] << 8) | data[HEADER_COMPRESSED_SIZE_OFFSET + 1];
   const type = data[HEADER_TYPE_OFFSET];
@@ -186,6 +226,7 @@ export function decodeCmp(data: Uint8Array): CmpImage {
     width: CMP_WIDTH,
     height: CMP_HEIGHT,
     palette,
+    headerPalette,
     indices,
     interleaveType: type,
     rleBytesConsumed: bytesConsumed,

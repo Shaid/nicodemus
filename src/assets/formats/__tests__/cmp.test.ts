@@ -4,12 +4,18 @@ import { describe, it, expect } from 'vitest';
 import { bitplaneByteOffset } from '../bitplane.ts';
 import {
   decodeCmp,
+  decodeCmpHeaderPalette,
   cmpToRGBA,
   decompressCmpBuffer,
   CMP_BUFFER_SIZE,
   CMP_STRIP_SIZE,
   type CmpInterleaveType,
 } from '../cmp.ts';
+import {
+  P3_ENCOUNTER_PALETTE_BANK,
+  P3_SPRITE_BANKS,
+  isP3SpriteBankFile,
+} from '../sprite-bank.ts';
 
 const GRAPHICS_DIR = resolve('data/phantasieiii/amiga/Graphics');
 
@@ -164,5 +170,91 @@ describe('decodeCmp — golden files (graphics-formats.md §4.4)', () => {
       const data = new Uint8Array(readFileSync(resolve(GRAPHICS_DIR, f)));
       expect(() => decodeCmp(data)).not.toThrow();
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The encounter palette (graphics-formats.md §4.5)
+//
+// `PhantasieIII` never installs six of the seven sprite banks' own header
+// palettes: `loadCmp()` (file offset 0x1264) parks every loaded file's
+// 32-byte header palette in one shared global (`palScratch`, DATA +0x2AEE),
+// and `loadBanks()` (0x7F64) copies it out only for banks 0/1/2 — of which
+// only slot 0 (`heros.cmp`, DATA +0x2BCE) is ever passed to `setPalette()`
+// (single install site, PhantasieIII+0x19936). `LoadRGB4` has exactly one
+// caller in the binary, so there is no other path a colour can reach the
+// screen.
+// ---------------------------------------------------------------------------
+describe('decodeCmp — encounter palette override for sprite banks', () => {
+  const encounterPalette = decodeCmpHeaderPalette(
+    new Uint8Array(readFileSync(resolve(GRAPHICS_DIR, P3_ENCOUNTER_PALETTE_BANK))),
+  );
+
+  it('identifies exactly the seven sprite-bank files', () => {
+    expect(P3_SPRITE_BANKS.map((b) => b.file).every(isP3SpriteBankFile)).toBe(true);
+    expect(isP3SpriteBankFile('GIANT1.CMP')).toBe(true); // case-insensitive
+    expect(isP3SpriteBankFile('title.cmp')).toBe(false);
+    expect(isP3SpriteBankFile('dng.csh')).toBe(false);
+  });
+
+  it('is a no-op for heros.cmp itself — bank 0 is the palette source', () => {
+    const data = new Uint8Array(readFileSync(resolve(GRAPHICS_DIR, P3_ENCOUNTER_PALETTE_BANK)));
+    const image = decodeCmp(data, { palette: encounterPalette });
+    expect(image.palette).toEqual(image.headerPalette);
+  });
+
+  for (const bank of P3_SPRITE_BANKS.filter((b) => b.file !== P3_ENCOUNTER_PALETTE_BANK)) {
+    it(`${bank.file} renders under heros.cmp's palette, and its own header palette really does differ`, () => {
+      const data = new Uint8Array(readFileSync(resolve(GRAPHICS_DIR, bank.file)));
+      const image = decodeCmp(data, { palette: encounterPalette });
+      expect(image.palette).toEqual(encounterPalette);
+      // The header palette is still parsed and preserved — the bytes exist,
+      // the game just discards them.
+      expect(image.headerPalette).toHaveLength(16);
+      expect(image.headerPalette).not.toEqual(encounterPalette);
+      // Every pixel still resolves to a real colour under the override.
+      const rgba = cmpToRGBA(image);
+      expect(rgba.length).toBe(320 * 200 * 4);
+    });
+  }
+
+  it('giant1.cmp: the shading ramp at indices 8-10 is green under the encounter palette, blue under its own header palette (the reported bug)', () => {
+    const data = new Uint8Array(readFileSync(resolve(GRAPHICS_DIR, 'giant1.cmp')));
+    const own = decodeCmp(data);
+    const fixed = decodeCmp(data, { palette: encounterPalette });
+    for (const i of [8, 9, 10]) {
+      // Own header palette: blue-dominant (b > g) -> the "blue giant".
+      expect(own.palette[i].b).toBeGreaterThan(own.palette[i].g);
+      // Encounter palette: green-dominant (g > b) -> the correct green giant.
+      expect(fixed.palette[i].g).toBeGreaterThan(fixed.palette[i].b);
+    }
+    // Indices 4-6 (the dragon's body ramp): magenta-tinted under the file's
+    // own palette (r == b, both above g), neutral grey-blue under the real
+    // encounter palette (r == g, both below b).
+    for (const i of [4, 5, 6]) {
+      expect(own.palette[i].r).toBe(own.palette[i].b);
+      expect(own.palette[i].r).toBeGreaterThan(own.palette[i].g);
+      expect(fixed.palette[i].r).toBe(fixed.palette[i].g);
+      expect(fixed.palette[i].b).toBeGreaterThan(fixed.palette[i].r);
+    }
+  });
+});
+
+describe('P3 embedded palettes — the `(word & 0x0777) << 1` mask is lossless', () => {
+  it('every palette word in every Graphics/*.cmp and *.csh file uses only 3-bit channel nibbles with a zero high nibble', () => {
+    const files = readdirSync(GRAPHICS_DIR).filter((f) => /\.(cmp|csh)$/i.test(f));
+    let checked = 0;
+    for (const f of files) {
+      const data = new Uint8Array(readFileSync(resolve(GRAPHICS_DIR, f)));
+      for (let i = 0; i < 16; i++) {
+        const word = (data[i * 2] << 8) | data[i * 2 + 1];
+        expect(word & 0xf000).toBe(0);
+        expect((word >> 8) & 0xf).toBeLessThanOrEqual(7);
+        expect((word >> 4) & 0xf).toBeLessThanOrEqual(7);
+        expect(word & 0xf).toBeLessThanOrEqual(7);
+        checked++;
+      }
+    }
+    expect(checked).toBe(files.length * 16);
   });
 });

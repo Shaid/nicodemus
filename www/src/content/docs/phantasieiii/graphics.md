@@ -88,11 +88,42 @@ this scheme:
 - `heros.cmp` → a 10×4 grid of humanoid sprites at 32×48 spacing (40 cells
   total, see [Sprite Galleries](../../phantasieiii/sprites/)) — matches its
   assigned "hero/soldier bank" role (bank index 0).
-- `giant1.cmp` → two purple serpent/dragon sprites and two blue ogre/giant
-  sprites, tiled at 80×72 spacing.
+- `giant1.cmp` → two grey-blue serpent/dragon sprites and two green
+  ogre/giant sprites, tiled at 80×72 spacing.
 - `anatomy1.csh`/`dng.csh`/`scroll.csh` → small icon sprites scattered
   across an otherwise black canvas — consistent with `.CSH` being an icon
   sheet, using only a small corner of the fixed 320×200 canvas.
+
+### The header palette is not always the palette
+
+A `.cmp`'s 32-byte header palette is a real field, but for the sprite banks
+it is **not** what the game displays. `PhantasieIII`'s loader reads every
+`.cmp` header palette into one shared global (`loadCmp`, file offset
+`0x1264`, destination `DATA+0x2AEE`), and the caller decides what to do with
+it. `loadBanks()` (`0x7F64`) copies that scratch into a per-bank slot for
+banks 0, 1 and 2 only — and of those three slots, **only slot 0
+(`heros.cmp`, `DATA+0x2BCE`) is ever installed**, by the encounter-screen
+redraw at `0x19936`. Slots 1 and 2 have exactly one reference each in the
+whole executable: their own store. Banks 3-6 (`purple2`, `yellow2`,
+`giant1`, `giant2`) are not copied out at all — their palettes are
+overwritten by the next bank's load.
+
+So all seven banks render under `heros.cmp`'s palette. Decoding `giant1.cmp`
+with its own header palette gives a purple dragon and a blue giant; the game
+shows a grey-blue dragon and a green giant. Verified pixel-exact against an
+independent third-party render: **0 mismatches across 384,000 pixels** for
+the six non-`heros` banks, versus 36,487 under their own header palettes —
+while the four `D/w*.cmp` scene files stay at 0 mismatches under *their* own
+palettes, so the rule is bank-specific, not a global override.
+
+A related correction applies to the colour ramp itself. The Amiga port
+converts the ST palette word at runtime — `setPalette()` at file offset
+`0x11D6` computes `(word & 0x0777) << 1` and hands the result to
+`graphics.library/LoadRGB4` (its only caller anywhere in the binary; there
+is no `SetRGB4` and no direct `$DFF180` write). Each 3-bit channel value
+`n` therefore reaches the screen as `2n` out of 15, i.e. 8-bit `n × 34` —
+not the Atari ST's own `n × 36.43` ramp. The brightest value is `0xEE`, not
+`0xFF`.
 
 ## `.SET` — world map + picture container
 

@@ -89,7 +89,11 @@ export function decodeSet(data: Uint8Array): SetFile {
   const unknownByte = data[HEADER_UNKNOWN_BYTE_OFFSET];
   const mapHeight = data[HEADER_MAP_HEIGHT_OFFSET];
   const mapWidth = data[HEADER_MAP_WIDTH_OFFSET];
-  const palette = decodePalette16(data, HEADER_PALETTE_OFFSET, 'st');
+  // `amigaFromSt`, not `st`: this is the Amiga port, whose one and only
+  // palette path (`setPalette()`, PhantasieIII+0x11D6) doubles each 3-bit
+  // ST nibble into an OCS 4-bit register before LoadRGB4. See
+  // graphics-formats.md §2's 2026-08-11 correction block.
+  const palette = decodePalette16(data, HEADER_PALETTE_OFFSET, 'amigaFromSt');
 
   const mapOffset = HEADER_SIZE;
   const mapSize = mapWidth * mapHeight;

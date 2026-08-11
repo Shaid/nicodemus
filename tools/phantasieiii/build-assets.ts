@@ -9,10 +9,14 @@ import { existsSync, readFileSync, readdirSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writePNG, writeJson, type PlatformConfig } from '@seer-project/pipeline';
-import { decodeCmp, cmpToRGBA } from '../../src/assets/formats/cmp.ts';
+import { decodeCmp, cmpToRGBA, decodeCmpHeaderPalette } from '../../src/assets/formats/cmp.ts';
 import { decodeSet } from '../../src/assets/formats/set.ts';
-import { indicesToRGBA } from '../../src/assets/formats/palette.ts';
-import { P3_SPRITE_BANKS } from '../../src/assets/formats/sprite-bank.ts';
+import { indicesToRGBA, type RGB } from '../../src/assets/formats/palette.ts';
+import {
+  P3_SPRITE_BANKS,
+  P3_ENCOUNTER_PALETTE_BANK,
+  isP3SpriteBankFile,
+} from '../../src/assets/formats/sprite-bank.ts';
 // getGameConfig is dynamically imported inside main() (CLI-only) to avoid a
 // static circular import — game-config.ts imports buildAssets from this
 // file to register the pipeline step.
@@ -46,18 +50,41 @@ function baseName(filename: string): string {
   return filename.replace(/\.(cmp|csh)$/i, '');
 }
 
+/**
+ * The palette the game actually installs for the encounter screen — the
+ * header palette of `heros.cmp` (sprite bank 0). Every sprite bank renders
+ * under it; the other six banks' own header palettes are loaded into a
+ * shared scratch global and then discarded without ever reaching the
+ * hardware. See graphics-formats.md §4.5 for the disassembly evidence.
+ */
+function readEncounterPalette(graphicsDir: string): RGB[] | undefined {
+  const path = resolve(graphicsDir, P3_ENCOUNTER_PALETTE_BANK);
+  if (!existsSync(path)) return undefined;
+  return decodeCmpHeaderPalette(new Uint8Array(readFileSync(path)));
+}
+
 function buildCmpAssets(graphicsDir: string, outDir: string): ManifestEntry[] {
   const files = readdirSync(graphicsDir).filter((f) => /\.(cmp|csh)$/i.test(f));
   const entries: ManifestEntry[] = [];
+  const encounterPalette = readEncounterPalette(graphicsDir);
 
   for (const file of files) {
     const name = baseName(file);
     const data = new Uint8Array(readFileSync(resolve(graphicsDir, file)));
-    const image = decodeCmp(data);
+    // Sprite banks render under the encounter palette, not their own
+    // header palette (graphics-formats.md §4.5). `heros.cmp` is itself the
+    // source of that palette, so the override is a no-op for it.
+    const paletteOverride = isP3SpriteBankFile(file) ? encounterPalette : undefined;
+    const image = decodeCmp(data, { palette: paletteOverride });
     const rgba = cmpToRGBA(image);
     writePNG(resolve(outDir, `${name}.png`), rgba, image.width, image.height);
     writeJson(resolve(outDir, `${name}.pal.json`), {
       colors: image.palette,
+      // Preserved for provenance where the two differ: the bytes really are
+      // in the file, the game just never installs them.
+      ...(paletteOverride
+        ? { source: P3_ENCOUNTER_PALETTE_BANK, unusedHeaderColors: image.headerPalette }
+        : {}),
     });
 
     // Sprite-bank files additionally get a grid-cell frame list so the

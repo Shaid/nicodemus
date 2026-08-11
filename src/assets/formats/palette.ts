@@ -54,7 +54,41 @@ export const AMIGA_OCS_CHANNEL_LOOKUP: readonly number[] = [
   0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
 ];
 
-export type PaletteVariant = 'st' | 'amigaToSt' | 'amiga';
+/**
+ * Phantasie III (Amiga) container palettes: the ST 3-bit word is **doubled
+ * into an Amiga OCS 4-bit register at runtime**, then handed to
+ * `graphics.library/LoadRGB4`.
+ *
+ * Ground truth is `setPalette()` in `data/phantasieiii/amiga/PhantasieIII`,
+ * file offset `0x11D6` (single CODE hunk starts at file offset `0x28`, so
+ * hunk-relative `0x11AE`):
+ *
+ * ```
+ * for (i = 0; i < 16; i++) tmp[i] = (pal[i] & 0x0777) << 1;   // 0x11DE-0x1210
+ * LoadRGB4(viewPort, tmp, 16);                                // 0x1222
+ * ```
+ *
+ * `LoadRGB4` is called from exactly **one** site in the whole executable
+ * (`PhantasieIII+0x1224`), and there is no `SetRGB4` call and no direct
+ * `$DFF180` colour-register write anywhere — so this is the only path a
+ * colour ever reaches the screen. Each 3-bit channel value `n` therefore
+ * lands in the OCS register as `2n`, i.e. 8-bit `2n * 17 = 34n` — **not**
+ * the Atari ST's own `n * 36.43` ramp (`ST_CHANNEL_LOOKUP`). The difference
+ * is small but real: the brightest value `7` displays as `0xEE` (238) on
+ * the Amiga, not `0xFF`.
+ *
+ * The `& 0x0777` mask is lossless on the shipped data: all 288 palette
+ * words across the 18 embedded P3 palettes (13 `Graphics/*.cmp`/`*.csh`,
+ * `phantasy.set`, `D/w0`-`w4.cmp`) have a zero high nibble and all three
+ * channel nibbles in 0-7 — zero deviations.
+ *
+ * See graphics-formats.md §2's 2026-08-11 correction block.
+ */
+export const AMIGA_FROM_ST_CHANNEL_LOOKUP: readonly number[] = [
+  0x00, 0x22, 0x44, 0x66, 0x88, 0xaa, 0xcc, 0xee,
+];
+
+export type PaletteVariant = 'st' | 'amigaToSt' | 'amiga' | 'amigaFromSt';
 
 /** Decode one 16-bit ST-style RGB444 word into an 8-bit RGB triple. */
 export function decodeColorWord(word: number, variant: PaletteVariant): RGB {
@@ -66,6 +100,13 @@ export function decodeColorWord(word: number, variant: PaletteVariant): RGB {
       r: ST_CHANNEL_LOOKUP[r & 7],
       g: ST_CHANNEL_LOOKUP[g & 7],
       b: ST_CHANNEL_LOOKUP[b & 7],
+    };
+  }
+  if (variant === 'amigaFromSt') {
+    return {
+      r: AMIGA_FROM_ST_CHANNEL_LOOKUP[r & 7],
+      g: AMIGA_FROM_ST_CHANNEL_LOOKUP[g & 7],
+      b: AMIGA_FROM_ST_CHANNEL_LOOKUP[b & 7],
     };
   }
   if (variant === 'amiga') {

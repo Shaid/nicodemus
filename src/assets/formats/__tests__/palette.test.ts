@@ -12,6 +12,31 @@ describe('decodeColorWord — ST variant', () => {
   });
 });
 
+describe('decodeColorWord — amigaFromSt variant (graphics-formats.md §2 correction, 2026-08-11)', () => {
+  it('doubles each 3-bit ST nibble into an OCS 4-bit register: channel = nibble * 34', () => {
+    for (let n = 0; n <= 7; n++) {
+      const word = (n << 8) | (n << 4) | n;
+      const expected = n * 2 * 17;
+      expect(decodeColorWord(word, 'amigaFromSt')).toEqual({
+        r: expected,
+        g: expected,
+        b: expected,
+      });
+    }
+  });
+
+  it('the brightest ST value (7) is 0xEE on the Amiga, not the ST ramp’s 0xFF', () => {
+    expect(decodeColorWord(0x0777, 'amigaFromSt')).toEqual({ r: 0xee, g: 0xee, b: 0xee });
+    expect(decodeColorWord(0x0777, 'st')).toEqual({ r: 0xff, g: 0xff, b: 0xff });
+  });
+
+  it('reproduces setPalette()’s `(word & 0x0777) << 1` mask on the high nibble', () => {
+    // Bits 15-12 are masked off by the game before LoadRGB4, so a stray
+    // high nibble must not leak into any channel.
+    expect(decodeColorWord(0xf777, 'amigaFromSt')).toEqual(decodeColorWord(0x0777, 'amigaFromSt'));
+  });
+});
+
 // data-tables.md §1.3 — the 16 confirmed P1 palette entries decoded via the
 // AmigaToST even-nibble lookup, read from game+0x194BC. This is the exact
 // table from that section, used as a golden byte-exact regression test.

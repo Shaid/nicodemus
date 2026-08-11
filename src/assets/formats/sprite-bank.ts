@@ -38,6 +38,45 @@ export const P3_SPRITE_BANKS: readonly SpriteBank[] = [
   { index: 6, file: 'giant2.cmp', cellWidth: 80, cellHeight: 72, cols: 4, rows: 2 },
 ];
 
+/**
+ * The bank whose header palette every P3 sprite bank actually renders
+ * under — `heros.cmp`, bank 0.
+ *
+ * `PhantasieIII` loads all seven banks once at boot (`loadBanks()`, file
+ * offset `0x7F64`). `loadCmp()` (file offset `0x1264`) always deposits the
+ * file's 32-byte header palette into a single shared global,
+ * `palScratch` = DATA hunk `+0x2AEE`; `loadBanks()` then copies that
+ * scratch into a per-bank slot for `i == 0/1/2` only:
+ *
+ * | Slot | DATA offset | Filled from | Ever installed? |
+ * |------|-------------|-------------|-----------------|
+ * | 0 | `+0x2BCE` | `heros.cmp` | **yes** — `PhantasieIII+0x19936` |
+ * | 1 | `+0x2BEE` | `purple1.cmp` | no — 1 reference in the whole binary (its own store at `+0x7FBE`) |
+ * | 2 | `+0x2C0E` | `yellow1.cmp` | no — 1 reference (`+0x7FDC`) |
+ *
+ * Banks 3-6 (`purple2`, `yellow2`, `giant1`, `giant2`) are not copied out
+ * at all: their palettes are overwritten in `palScratch` by the next
+ * bank's load. The one install site sits in the encounter-screen redraw
+ * (file offset `0x198CA`), which is called from the same function
+ * (`0x14C8A`) as the two monster-sprite dispatcher calls at `0x14E48`/
+ * `0x14E5E` — so bank 0's palette is what is on the hardware whenever any
+ * monster sprite is on screen.
+ *
+ * Verified pixel-exact: 384,000 pixels across all six non-`heros` banks
+ * match Kroah's independent reference renders with **0 mismatches** under
+ * this palette, versus 36,487 under the banks' own header palettes. See
+ * graphics-formats.md §4.5.
+ */
+export const P3_ENCOUNTER_PALETTE_BANK = 'heros.cmp';
+
+/** True if `filename` is one of the seven P3 sprite-bank `.cmp` files —
+ *  i.e. one that must render under `P3_ENCOUNTER_PALETTE_BANK`'s palette
+ *  rather than its own. */
+export function isP3SpriteBankFile(filename: string): boolean {
+  const lower = filename.toLowerCase();
+  return P3_SPRITE_BANKS.some((b) => b.file.toLowerCase() === lower);
+}
+
 export interface BankCellRef {
   bank: number;
   cell: number;

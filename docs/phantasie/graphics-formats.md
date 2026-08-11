@@ -128,6 +128,53 @@ cyan, light blue, blue, red, grey, magenta, white).
 > and the even-only lookup silently zeroes those channels. `AmigaToST`
 > remains correct for the genuinely ST-sourced P2/P3 container palettes.
 
+> **Correction (2026-08-11, game-re):** the sentence above is right about
+> P2 and wrong about **P3**. The P3 container palettes are ST-*sourced*,
+> but P3 runs on an **Amiga**, and the Amiga port converts them at
+> runtime before they ever reach the hardware. Ground truth is
+> `setPalette()` in `data/phantasieiii/amiga/PhantasieIII`, **file offset
+> `0x11D6`** (the single CODE hunk starts at file offset `0x28`, so
+> hunk-relative `0x11AE`):
+>
+> ```
+> setPalette(const UWORD *pal)                       /* PhantasieIII+0x11D6 */
+> {
+>     for (i = 0; i < 16; i++)                       /* +0x11DE .. +0x1210 */
+>         tmp[i] = (pal[i] & 0x0777) << 1;           /* tmp = DATA+0x2B6E   */
+>     LoadRGB4(viewPort /* DATA+0x2CF8 */, tmp, 16); /* jsr at +0x1222      */
+> }
+> ```
+>
+> `<< 1` doubles every 3-bit channel nibble into the low 4 bits of an OCS
+> colour register, so the value the screen actually shows is `2n` out of
+> 15 — i.e. 8-bit `2n * 17 = 34n`, **not** the Atari ST's own `n * 36.43`
+> ramp. The two agree at `n = 0` and diverge progressively; the brightest
+> value `7` is `0xEE` (238) on the Amiga, not `0xFF`. The correct P3
+> lookup is therefore:
+>
+> ```
+> Amiga-from-ST lookup: [0x00, 0x22, 0x44, 0x66, 0x88, 0xAA, 0xCC, 0xEE]
+> ```
+>
+> `src/assets/formats/palette.ts` gains a fourth variant, `'amigaFromSt'`,
+> for exactly this; `cmp.ts` and `set.ts` now use it. `'st'` stays correct
+> for P2 (`exe-data.ts`), which is a genuine Atari ST binary.
+>
+> **Why this is exhaustive, not just one call site:** `LoadRGB4` has
+> **exactly one caller** in the whole 174,928-byte executable — the `jsr`
+> at `PhantasieIII+0x1224` inside `setPalette` — and the binary contains
+> no `SetRGB4` call and no direct `$DFF180` colour-register write
+> anywhere (`$DFF096`/DMACON writes exist, colour-register writes do not).
+> There is no second path a colour can reach the screen.
+>
+> **The `& 0x0777` mask is lossless on the shipped data**, so no
+> information is being discarded: all **288** palette words across the 18
+> embedded P3 palettes (13 `Graphics/*.cmp`/`*.csh`, `phantasy.set`, and
+> `D/w0`-`w4.cmp`) have a zero high nibble and all three channel nibbles
+> in 0-7 — **zero deviations**. This is also an independent structural
+> confirmation of the field layout table above. Regression-tested in
+> `cmp.test.ts` ("the `(word & 0x0777) << 1` mask is lossless").
+
 **Confidence: confirmed** — every rendered image in §3/§4 below uses this
 decoding and produces recognisable art with correct-looking colours (e.g.
 `title.cmp`'s red/orange "PHANTASIE III" logotype, `heros.cmp`'s green/brown
@@ -465,6 +512,20 @@ file (`heros`, `giant1`, `giant2`, `purple1`, `purple2`, `yellow1`,
 
 ### 4.4 Verification
 
+> **Correction (2026-08-11, game-re):** this section's renders — and the
+> decoder that produced them — assumed **every** `.cmp`/`.csh` displays
+> under its own embedded header palette. That is wrong for the six
+> non-`heros` sprite banks, and the error was invisible to the
+> eyeball-level check recorded below: `giant1.cmp`'s "two purple serpent/
+> dragon sprites and two blue ogre/giant sprites" are really a **grey-blue
+> dragon and a green giant**. The header palette is a real field and is
+> really there in those files; the *game* just never installs it. Full
+> mechanism, disassembly evidence and pixel-exact verification: **§4.5**,
+> new this pass. The bullet list below is left as written, with the
+> `giant1.cmp` colour claim struck through, because the shapes,
+> dimensions and grid spacing it reports are all still correct — only the
+> colours were wrong.
+
 All renders used the file's own embedded palette (§2) and the RLE
 algorithm above, piped through the §1 `Interleaved` (interleave=2) pixel
 formula. Results:
@@ -477,9 +538,11 @@ formula. Results:
   green/brown armour, some carrying shields/weapons) tiled in a regular
   32×48 grid — matches the "hero/soldier bank" role assigned to it by
   `BanksManager` (bank index 0, see §6).
-- `giant1.cmp` → two purple serpent/dragon sprites and two blue ogre/giant
-  sprites, tiled at 80×72 spacing — matches its "giant" bank role (uses the
-  larger sprite cell size, see §6).
+- `giant1.cmp` → ~~two purple serpent/dragon sprites and two blue
+  ogre/giant sprites~~ **(wrong colours — see the correction above and
+  §4.5; really a grey-blue dragon and a green giant)**, tiled at 80×72
+  spacing — matches its "giant" bank role (uses the larger sprite cell
+  size, see §6).
 - `anatomy1.csh`, `dng.csh`, `scroll.csh` → small icon sprites (a handful
   of tiny UI glyphs, roughly 16×16-24×24px) scattered across an otherwise
   black 320×200 canvas near the top-left — consistent with `.CSH` being an
@@ -493,6 +556,186 @@ render quality above and from Sprite.cs's own `CreateBitmap` call passing
 `Interleaved`/interleave=2 explicitly for all `.cmp` decodes) — noted here
 only as a path not separately re-walked, not a gap in the positive
 evidence.
+
+### 4.5 Which palette a `.cmp` actually renders under — the shared scratch global
+
+**A `.cmp`'s header palette is a real field, but it is not necessarily the
+palette the game displays that file under.** `PhantasieIII` reads every
+`.cmp` header palette into **one shared 32-byte global**, and it is the
+*caller* that decides whether to install it, stash it in a per-screen slot,
+or let the next load overwrite it. For six of the seven sprite banks, the
+answer is the last one.
+
+#### 4.5.1 The loader — `loadCmp(name, buffer)`, file offset `0x1264`
+
+All offsets in this section are **file offsets** into
+`data/phantasieiii/amiga/PhantasieIII`. Its single CODE hunk starts at file
+offset `0x28` and its DATA hunk at `0x278C8`; `DATA+0xNNNN` below means an
+offset within that hunk. (The `HUNK_HEADER` declares hunk 1 as `0x6B0C`
+bytes while its `HUNK_DATA` block holds only `0x277C` — the usual SAS/C
+merged `data+bss` encoding, so every `DATA+` address past `0x277C` is
+zero-initialised BSS, not file content.)
+
+```
+loadCmp(char *name, void *buffer)                     /* PhantasieIII+0x1264 */
+{
+    fh = Open(name, MODE_OLDFILE /* 1005 */);         /* +0x1274 */
+    Read(fh, palScratch /* DATA+0x2AEE */, 0x20);     /* +0x1294 — header palette */
+    Read(fh, &compressedSize, 2);                     /* +0x12AE */
+    Read(fh, buffer, compressedSize);                 /* +0x12CC — type byte + RLE */
+    Close(fh);                                        /* +0x12EA */
+}
+```
+
+This is also an independent, code-level confirmation of §4.1's header
+table: 32 bytes of palette, then a 2-byte size, then exactly
+`compressedSize` bytes starting **at the type byte** — the "counts from the
+type byte inclusive" rule falls straight out of the third `Read`'s length
+argument.
+
+Note the palette destination is a **fixed global**, not a per-file
+allocation. Every subsequent `loadCmp` overwrites it.
+
+#### 4.5.2 The bank loader — `loadBanks()`, file offset `0x7F64`
+
+Called exactly once, from the boot-time resource-init routine
+(`jsr` at `+0x75F8`):
+
+```
+for (i = 0; i < 7; i++) {                             /* +0x7F6C .. +0x7FF8 */
+    loadCmp(bankName[i]   /* DATA+0x0816 + i*4 */,
+            bankBuffer[i] /* DATA+0x2D20 + i*4 */);   /* +0x7F90 */
+    if (i == 0) copyPalette16(palScratch, DATA+0x2BCE);   /* +0x7FAA */
+    if (i == 1) copyPalette16(palScratch, DATA+0x2BEE);   /* +0x7FC8 */
+    if (i == 2) copyPalette16(palScratch, DATA+0x2C0E);   /* +0x7FE6 */
+}
+```
+
+`copyPalette16(src, dst)` is at file offset `0x30E0` — a plain 16-iteration
+`move.w (a0)+,(a1)+` loop (`cmpi.w #$10` bound at `+0x30FE`).
+
+`DATA+0x0816` is the 7-entry filename pointer table (file offset `0x280DE`),
+whose entries resolve to `Graphics/heros.cmp`, `purple1`, `yellow1`,
+`purple2`, `yellow2`, `giant1`, `giant2` in that order — **the same bank
+order as §6's table**, independently confirmed.
+
+So only banks 0, 1 and 2 get their palette copied anywhere at all. Banks
+3-6 (`purple2`, `yellow2`, `giant1`, `giant2`) have theirs overwritten in
+`palScratch` by the very next iteration.
+
+#### 4.5.3 Only slot 0 is ever installed
+
+| Slot | DATA offset | Filled from | References in the **entire** binary |
+|------|-------------|-------------|------------------------------------|
+| 0 | `+0x2BCE` | `heros.cmp` | 2 — the store at `+0x7FA0`, and **one read at `+0x19930`** |
+| 1 | `+0x2BEE` | `purple1.cmp` | 1 — its own store at `+0x7FBE`. Never read. |
+| 2 | `+0x2C0E` | `yellow1.cmp` | 1 — its own store at `+0x7FDC`. Never read. |
+
+The single read of slot 0 is `pea DATA+0x2BCE; jsr setPalette` at
+`PhantasieIII+0x1992E`-`0x19934`, at the end of the **encounter-screen
+redraw** at file offset `0x198CA`. That routine is called from `+0x14ED6`,
+inside the function at `0x14C8A` — the same function that issues the only
+two calls to the monster-sprite bank dispatcher (§6, file offset `0x1B4F0`)
+at `+0x14E46` and `+0x14E5C`. So bank 0's palette is what is loaded in the
+hardware colour registers whenever any monster sprite is on screen.
+
+**Both addressing roots were searched, so "never read" is a decidable
+negative, not "I found none":**
+
+- **Absolute, relocation-patched references** — a from-scratch walker over
+  every `HUNK_ABSRELOC32` block in the file as a *flat* `(offset,
+  targetHunk)` list (6,141 entries in the CODE hunk + 697 in DATA = 6,838
+  total; **not** `amitools`' `HunkReader.reloc`, whose dict shape silently
+  drops repeated target-hunk groups — see `game-re-tooling/amiga.md`).
+  Every reloc slot's currently-stored longword was compared against each
+  slot address. Counts as tabulated above.
+- **A4-relative small-data references** — this binary does use SAS/C
+  small-data addressing for library bases (`GfxBase` at `-0x56D2(a4)`,
+  `DOSBase` at `-0x5856(a4)`, giving `A4 = DATA + 0x7FFE`), and those
+  carry **no** relocation entry, so the scan above is structurally blind to
+  them. A separate word-scan of the whole CODE hunk for each slot's own A4
+  displacement (`0x2BEE - 0x7FFE = 0xABF0`, etc.) found **zero**
+  occurrences of any of them, at any alignment.
+
+Neither `setPalette` nor `copyPalette16` takes a base-plus-index form, and
+the one read site is a direct `pea` of the literal slot address, so there is
+no indexed access from a common base to hide behind either.
+
+#### 4.5.4 The full per-file palette map
+
+Derived from all 13 `setPalette` (file offset `0x11D6`) call sites, which
+are the complete set — `LoadRGB4` has exactly one caller (§2's correction),
+and `setPalette` is it.
+
+| Palette slot | DATA offset | Filled from | Installed at | Governs |
+|---|---|---|---|---|
+| `palScratch` | `+0x2AEE` | the most recently loaded `.cmp`/`.csh` | `+0x7462`, `+0x1907A`, `+0x1F15C` | `Title.cmp` (installed immediately after its load), plus two later screens |
+| black | `+0x01F8` | static, all-zero in the DATA hunk | 7 sites incl. `+0x7690`, `+0x198D6` | screen blank before a redraw |
+| anatomy | `+0x2780` | `Anatomy1.csh` (copied at `+0x74D4`) | `+0x76B8` | the anatomy/character screen |
+| encounter | `+0x2BCE` | **`heros.cmp`** (copied at `+0x7FA0`) | `+0x19936` | **the encounter screen — every sprite bank** |
+| dungeon | `+0x2C4E` | `Dng.csh` (copied at `+0x751C`) | `+0x1DBB8`, `+0x1F136` | the dungeon view |
+| (unused) | `+0x2BEE`, `+0x2C0E` | `purple1.cmp`, `yellow1.cmp` | never | nothing |
+
+`D/w0`-`w4.cmp` are loaded by their own call sites and displayed under
+their own header palettes — independently confirmed by render (§4.5.5).
+
+#### 4.5.5 Verification — pixel-exact against an independent reference
+
+Ground truth: Kroah's Phantasie Sprite Viewer reference renders
+(`bringerp.free.fr/RE/Phantasie/Images/Phantasie - Sprite Viewer - <NAME>.png`),
+ten 320×200 PNGs. No code from that tool was read or reproduced for this
+pass — the PNGs were used purely as pixel oracles. Method: decode our own
+copy of each file to palette indices, then for every index 0-15 collect the
+set of distinct RGB triples the reference uses at pixels carrying that
+index.
+
+1. **The pixel data is identical.** Across all ten files, every palette
+   index maps to **exactly one** RGB triple in the reference — zero
+   ambiguity anywhere. This rules out the "our copy of the file differs
+   from the reference tool's copy" hypothesis outright: the RLE decode,
+   the bitplane assembly and the file bytes all agree exactly. Only the
+   colour lookup differed.
+2. **The reference's palette for all six banks is byte-identical to
+   `heros.cmp`'s header palette** — all 16 words, on all six files,
+   including slots the banks' own headers disagree on (`heros` slot 11 is
+   `0x0347`, `purple*` is `0x0734`, `yellow*` is `0x0444`, `giant2` is
+   `0x0363`).
+3. **Pixel counts.** Rendering the six banks under `heros.cmp`'s palette
+   gives **0 mismatching pixels out of 384,000**. Under each file's own
+   header palette: **36,487 mismatches** (giant1 8,286 / giant2 7,516 /
+   purple1 6,952 / purple2 4,548 / yellow1 6,015 / yellow2 3,170).
+4. **Control group — the rule is bank-specific, not a global override.**
+   The four scene files the same site publishes (`D/w0`, `w1`, `w2`,
+   `w4.cmp`) render at **0 mismatches under their own header palettes**,
+   and forcing `heros`' palette onto them *breaks* them (`w4` 55,591
+   mismatches, `w1` 30). A blanket "always use heros" rule would be wrong;
+   "sprite banks use heros" is right.
+5. **Rebuilt pipeline output.** The reference uses the Atari ST's own
+   channel ramp; our output uses the Amiga's (§2's correction). Passing
+   the reference PNGs through that single fixed 8-entry channel
+   translation (`0x24→0x22`, `0x49→0x44`, … `0xFF→0xEE`) reproduces
+   `public/assets/phantasieiii/amiga/{giant1,giant2,purple1,purple2,yellow1,yellow2}.png`
+   **byte for byte: 0 mismatches out of 384,000 pixels.** Every reference
+   channel value was first asserted to be one of the 8 ST ramp steps, so
+   the translation is total and information-preserving.
+
+**Confidence: confirmed** — mechanism (disassembly, exhaustive on both
+addressing roots) and result (pixel-exact against an independent
+third-party render, with a discriminating control group).
+
+#### 4.5.6 Still open — `Anatomy2.csh` and `Scroll.csh`
+
+The same census shows these two are loaded (`+0x74EE`, `+0x7536`) but have
+**no** palette slot copied out and no `setPalette(palScratch)` after their
+load — so, like banks 3-6, their own header palettes are provably never
+installed. Which palette they *do* display under was not traced; the
+obvious candidates are the slot filled by their nearest sibling
+(`Anatomy1.csh`'s `+0x2780` and `Dng.csh`'s `+0x2C4E` respectively, since
+each pair is loaded back-to-back and shares a screen). The difference is
+small — `anatomy2` differs from `anatomy1` only at slots 11/12 (swapped)
+and 14, and `scroll` differs from `dng` only at slot 8 — so this was left
+alone rather than guessed at. Tracked as `gfx-p3-csh-host-palette` in
+`docs/phantasie/TODO.md`.
 
 ## 5. World map + tileset container (`.SET`, Phantasie III)
 
@@ -834,10 +1077,10 @@ recognisable as the named creature.
 | Format | Layout | Palette | Rendered content | Confidence |
 |--------|--------|---------|-------------------|------------|
 | `.pic` (P1) | confirmed | not embedded; real per-screen palette confirmed for all 6 files (§3, `data-tables.md` §1.3a) | confirmed legible + correct colours (title screen, town scene, ending art, credits panel) | **confirmed** |
-| `.cmp`/`.csh` (P3) | confirmed | confirmed embedded, decoded correctly | confirmed legible + correct colours (title screen text, sprite grids) | **confirmed** |
-| `.set` (P3) | confirmed (header/map/picture split, byte-exact) | confirmed (same ST encoding) | picture confirmed legible; map array's terrain-panel *semantics* unverified | **confirmed** (container layout); **hypothesis** (map cell meaning) |
+| `.cmp`/`.csh` (P3) | confirmed | confirmed: embedded word format + the Amiga `(w & 0x777) << 1` runtime conversion (§2 correction), **and** which palette each file actually renders under (§4.5) — 11/13 files code-traced, 2 open (§4.5.6) | confirmed pixel-exact against an independent third-party render: 384,000/384,000 sprite-bank pixels, 0 mismatches | **confirmed** |
+| `.set` (P3) | confirmed (header/map/picture split, byte-exact) | confirmed (same ST encoding, decoded through the Amiga ramp per §2's 2026-08-11 correction) | picture confirmed legible; map array's terrain-panel *semantics* unverified | **confirmed** (container layout); **hypothesis** (map cell meaning) |
 | `.pat` sprite banks (P1) | confirmed, byte-exact | confirmed (via executable table, `data-tables.md` §1.3) | confirmed legible, name-matched sprites | **confirmed** |
-| `.cmp` sprite-bank grid math (P3) | confirmed (structural) | n/a (inherits CMP palette) | confirmed visually consistent | **confirmed** (grid + `spriteIndex`→bank table, both byte-exact via disassembly) |
+| `.cmp` sprite-bank grid math (P3) | confirmed (structural) | **not** the file's own — all seven banks render under `heros.cmp`'s header palette (§4.5), disassembly-traced and pixel-exact | confirmed visually consistent | **confirmed** (grid + `spriteIndex`→bank table + palette source, all byte-exact via disassembly) |
 | `.pat` sprite banks (P2) | confirmed, ST word-interleaved (interleave=2) | confirmed (`PHANT.PRG` executable table, `data-tables.md` §2.3) | confirmed legible, name-matched sprites (skeleton, orc, cobra, human/dwarf/ogre race sprites) | **confirmed** |
 | `.PIC` full-screen pictures (P2) | confirmed, ST word-interleaved (interleave=2), five distinct (width,height,bitplane) shapes (§10) | confirmed, three disassembly-traced `Setpalette` sources (§10) | confirmed legible + correct colours for 5/6 files (title, town, ending scenes); `crowd.pic` legible but palette source one inference step weaker | **confirmed** (5 files); **confirmed, palette one inference step weaker** (`crowd.pic`) |
 
