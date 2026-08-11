@@ -38,10 +38,13 @@
  */
 import { setHidden } from './shared.ts';
 import {
-  MUSIC_FRAME_SECONDS,
+  AMIGA_NTSC_CLOCK,
+  AMIGA_PAL_CLOCK,
   MUSIC_MAX_VOLUME,
   MUSIC_SAMPLES_PER_CYCLE,
-  MUSIC_VIBRATO_HZ,
+  MUSIC_TICK_HZ,
+  MUSIC_TICK_HZ_PAL,
+  MUSIC_VIBRATO_PHASES,
   MUSIC_WAVEFORM_NAMES,
   MUSIC_WAVEFORM_PRIMITIVES,
   MusicWaveform,
@@ -53,6 +56,12 @@ import {
   type MusicScheduledNote,
   type MusicTimeline,
 } from '../../src/assets/formats/music.ts';
+
+type MusicRegion = 'ntsc' | 'pal';
+
+/** Real tick rate and Paula clock per region — see `AMIGA_PAL_CLOCK`'s doc comment in music.ts. */
+const REGION_HZ: Record<MusicRegion, number> = { ntsc: MUSIC_TICK_HZ, pal: MUSIC_TICK_HZ_PAL };
+const REGION_CLOCK: Record<MusicRegion, number> = { ntsc: AMIGA_NTSC_CLOCK, pal: AMIGA_PAL_CLOCK };
 
 /** Per-track colour, matching the piano roll and the mute buttons. */
 const TRACK_COLORS = ['#6cf', '#f9a', '#9e8'] as const;
@@ -86,12 +95,14 @@ export class MusicPlayer {
   private playBtn: HTMLButtonElement;
   private stopBtn: HTMLButtonElement;
   private loopEl: HTMLInputElement;
+  private regionEl: HTMLSelectElement;
   private timeEl: HTMLElement;
   private trackToggleEl: HTMLElement;
   private detailEl: HTMLElement;
 
   private name = '';
   private timeline: MusicTimeline | null = null;
+  private region: MusicRegion = 'ntsc';
 
   private audio: AudioContext | null = null;
   private master: GainNode | null = null;
@@ -114,6 +125,7 @@ export class MusicPlayer {
     this.playBtn = document.getElementById('music-play') as HTMLButtonElement;
     this.stopBtn = document.getElementById('music-stop') as HTMLButtonElement;
     this.loopEl = document.getElementById('music-loop') as HTMLInputElement;
+    this.regionEl = document.getElementById('music-region') as HTMLSelectElement;
     this.timeEl = document.getElementById('music-time')!;
     this.trackToggleEl = document.getElementById('music-tracks')!;
     this.detailEl = document.getElementById('music-detail')!;
@@ -154,6 +166,8 @@ export class MusicPlayer {
     }
 
     this.muted = [false, false, false];
+    this.region = 'ntsc';
+    this.regionEl.value = 'ntsc';
     this.buildCanvas();
     this.buildTrackToggles();
     this.bindStrip();
@@ -173,6 +187,21 @@ export class MusicPlayer {
     if (!this.timeline) return '';
     const notes = this.timeline.tracks.reduce((n, t) => n + t.notes.length, 0);
     return `3 tracks, ${notes} notes, ${this.timeline.seconds.toFixed(1)}s at ${this.timeline.tickHz} Hz`;
+  }
+
+  /** Seconds per tick under the selected playback region — see `REGION_HZ`. */
+  private get frameSeconds(): number {
+    return 1 / REGION_HZ[this.region];
+  }
+
+  /** `frequency * pitchScale` turns an NTSC-derived pitch into the selected region's. */
+  private get pitchScale(): number {
+    return REGION_CLOCK[this.region] / AMIGA_NTSC_CLOCK;
+  }
+
+  /** Total playback length under the selected region (the decoded timeline itself is NTSC-baked). */
+  private get totalSeconds(): number {
+    return (this.timeline?.frames ?? 0) * this.frameSeconds;
   }
 
   // ─── Setup ─────────────────────────────────────────────────────────────
@@ -249,6 +278,14 @@ export class MusicPlayer {
       this.draw();
     });
     this.on(this.canvas!, 'click', (e) => this.onCanvasClick(e as MouseEvent));
+    // Changing region mid-playback would need re-deriving the current offset
+    // under the new rate; simplest and least surprising is to stop instead.
+    this.on(this.regionEl, 'change', () => {
+      this.region = this.regionEl.value === 'pal' ? 'pal' : 'ntsc';
+      this.stop();
+      this.updateTransport();
+      this.draw();
+    });
   }
 
   // ─── Transport ─────────────────────────────────────────────────────────
@@ -287,10 +324,11 @@ export class MusicPlayer {
     this.master = master;
 
     // One shared vibrato LFO — the driver's wobble is global-phase, so all
-    // three tracks swing together (hunk-1 `$281A`, addr 0x227C).
+    // three tracks swing together (hunk-1 `$281A`, addr 0x227C). The phase
+    // counter advances at the tick rate, so its rate scales with region too.
     const lfo = audio.createOscillator();
     lfo.type = 'triangle';
-    lfo.frequency.value = MUSIC_VIBRATO_HZ;
+    lfo.frequency.value = REGION_HZ[this.region] / MUSIC_VIBRATO_PHASES;
     const depth = audio.createGain();
     depth.gain.value = VIBRATO_CENTS;
     lfo.connect(depth);
@@ -326,7 +364,7 @@ export class MusicPlayer {
     gain.gain.cancelScheduledValues(0);
     gain.gain.setValueAtTime(0, t0);
     for (const p of points) {
-      const at = t0 + p.frame * MUSIC_FRAME_SECONDS;
+      const at = t0 + p.frame * this.frameSeconds;
       gain.gain.linearRampToValueAtTime(p.value / MUSIC_MAX_VOLUME, at);
     }
   }
@@ -350,9 +388,9 @@ export class MusicPlayer {
       while (runEnd < notes.length && notes[runEnd].waveform === notes[runStart].waveform) runEnd++;
 
       const run = notes.slice(runStart, runEnd);
-      const startTime = t0 + run[0].startFrame * MUSIC_FRAME_SECONDS;
+      const startTime = t0 + run[0].startFrame * this.frameSeconds;
       const last = run[run.length - 1];
-      const stopTime = t0 + (last.startFrame + last.frames) * MUSIC_FRAME_SECONDS;
+      const stopTime = t0 + (last.startFrame + last.frames) * this.frameSeconds;
 
       const source =
         run[0].waveform === MusicWaveform.Noise
@@ -382,12 +420,12 @@ export class MusicPlayer {
 
     let lastFrequency = 0;
     for (const note of run) {
-      const at = t0 + note.startFrame * MUSIC_FRAME_SECONDS;
+      const at = t0 + note.startFrame * this.frameSeconds;
       // A rest holds the previous pitch: the driver leaves AUDxPER alone
       // and only forces the release phase (addr 0x22FE).
       const frequency = note.frequency || lastFrequency;
       if (frequency > 0 && frequency !== lastFrequency) {
-        osc.frequency.setValueAtTime(frequency, at);
+        osc.frequency.setValueAtTime(frequency * this.pitchScale, at);
         lastFrequency = frequency;
       }
     }
@@ -409,10 +447,10 @@ export class MusicPlayer {
     // created at the context's own rate, so that ratio is the playback rate.
     for (const note of run) {
       if (!note.period) continue;
-      const paulaRate = note.frequency * MUSIC_SAMPLES_PER_CYCLE;
+      const paulaRate = note.frequency * this.pitchScale * MUSIC_SAMPLES_PER_CYCLE;
       source.playbackRate.setValueAtTime(
         Math.max(0.02, paulaRate / audio.sampleRate),
-        t0 + note.startFrame * MUSIC_FRAME_SECONDS,
+        t0 + note.startFrame * this.frameSeconds,
       );
     }
     return source;
@@ -499,12 +537,12 @@ export class MusicPlayer {
   private get position(): number {
     if (!this.timeline || !this.audio || this.startedAt === 0) return 0;
     const t = this.startOffset + (this.audio.currentTime - this.startedAt);
-    return Math.max(0, Math.min(this.timeline.seconds, t));
+    return Math.max(0, Math.min(this.totalSeconds, t));
   }
 
   private tick = (): void => {
     if (!this.playing || !this.timeline) return;
-    const done = this.audio!.currentTime - this.startedAt >= this.timeline.seconds;
+    const done = this.audio!.currentTime - this.startedAt >= this.totalSeconds;
     if (done) {
       if (this.loopEl.checked) {
         void this.start();
@@ -524,8 +562,7 @@ export class MusicPlayer {
     this.playBtn.textContent = this.playing ? '⏸ Pause' : '▶ Play';
     this.playBtn.dataset.state = this.playing ? 'playing' : 'stopped';
     this.stopBtn.disabled = !this.audio;
-    const total = this.timeline?.seconds ?? 0;
-    this.timeEl.textContent = `${formatTime(this.position)} / ${formatTime(total)}`;
+    this.timeEl.textContent = `${formatTime(this.position)} / ${formatTime(this.totalSeconds)}`;
     this.strip.dataset.state = this.playing ? 'playing' : this.audio ? 'paused' : 'stopped';
   }
 
@@ -605,7 +642,7 @@ export class MusicPlayer {
     ctx.globalAlpha = 1;
 
     if (this.audio) {
-      const x = Math.round(xOf(this.position / MUSIC_FRAME_SECONDS)) + 0.5;
+      const x = Math.round(xOf(this.position / this.frameSeconds)) + 0.5;
       ctx.strokeStyle = this.playing ? '#ffd24a' : '#8a8a8a';
       ctx.lineWidth = 2 * dpr;
       ctx.beginPath();
@@ -617,7 +654,7 @@ export class MusicPlayer {
     ctx.fillStyle = '#7a7a88';
     ctx.font = `${11 * dpr}px monospace`;
     ctx.fillText(
-      `${this.name} — ${musicNoteName(lo + 1)} … ${musicNoteName(hi - 2)} · ${this.timeline.frames} frames @ ${this.timeline.tickHz} Hz`,
+      `${this.name} — ${musicNoteName(lo + 1)} … ${musicNoteName(hi - 2)} · ${this.timeline.frames} frames @ ${REGION_HZ[this.region]} Hz${this.region === 'pal' ? ' (PAL sim)' : ''}`,
       pad,
       pad + 11 * dpr,
     );

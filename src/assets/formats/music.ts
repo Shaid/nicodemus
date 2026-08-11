@@ -59,6 +59,18 @@ export const MUSIC_FRAME_SECONDS = 1 / MUSIC_TICK_HZ;
 export const AMIGA_NTSC_CLOCK = 3579545;
 
 /**
+ * Real Amiga hardware constants (PAL field rate and Paula's PAL colour
+ * clock) — **not** derived from this game's own disassembly. The game
+ * itself is confirmed NTSC-tuned (see the module doc above); these exist
+ * only so `tools/viewer/music-player.ts`'s 50 Hz/PAL toggle can simulate
+ * this NTSC-authored music running on a real PAL Amiga's tick rate and
+ * clock — a "what if this ran in Europe" playback option, not a claim
+ * about what SSI shipped or intended.
+ */
+export const MUSIC_TICK_HZ_PAL = 50;
+export const AMIGA_PAL_CLOCK = 3546895;
+
+/**
  * Each waveform buffer is eight repeats of an 8-byte primitive, so one
  * DMA-fetched "cycle" is 8 samples and the sounding frequency is
  * `clock / (period * 8)` — an octave above the period table's ProTracker

@@ -69,6 +69,12 @@
           <button id="music-play" type="button" data-state="stopped">▶ Play</button>
           <button id="music-stop" type="button" disabled>■ Stop</button>
           <label><input id="music-loop" type="checkbox" /> Loop</label>
+          <label title="The game is confirmed NTSC-tuned (dungeon-format.md §9.0.2.1) — this simulates the tick rate and Paula clock of a real PAL Amiga instead, which plays ~20% slower and very slightly lower-pitched. A &quot;what if&quot; playback option, not a claim about what SSI shipped.">Region
+            <select id="music-region">
+              <option value="ntsc" selected>60 Hz (NTSC)</option>
+              <option value="pal">50 Hz (PAL)</option>
+            </select>
+          </label>
           <span id="music-tracks"></span>
           <span id="music-time">0:00 / 0:00</span>
         </div>
