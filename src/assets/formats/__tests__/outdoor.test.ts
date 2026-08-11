@@ -27,6 +27,16 @@ import {
   tileClass,
   tileMovementCost,
   tileVariant,
+  OUTDOOR_ICON_BANK_OFFSET,
+  OUTDOOR_ICON_COUNT,
+  OUTDOOR_ICON_SIZE,
+  OUTDOOR_MAP_HEIGHT,
+  OUTDOOR_MAP_WIDTH,
+  TERRAIN_CLASS_NAMES,
+  cellScreenRect,
+  decodeOutdoorIcon,
+  rasteriseOutdoorSection,
+  terrainClassName,
 } from '../outdoor.ts';
 
 const DATA_DIR = resolve('data/phantasie/amiga');
@@ -253,5 +263,119 @@ describe('world assembly (dungeon-format.md §8.3.2)', () => {
     }
     expect(shared).toBe(552);
     expect(sameClass).toBe(542);
+  });
+});
+
+describe('outdoor icon bank (dungeon-format.md §8.2.4a)', () => {
+  const gameExe = new Uint8Array(readFileSync(resolve(DATA_DIR, 'game')));
+
+  it('sits at game+0x196BC — DATA hunk 69 (file 0x19428) plus the 0x294 the code adds', () => {
+    expect(OUTDOOR_ICON_BANK_OFFSET).toBe(0x19428 + 0x294);
+    expect(OUTDOOR_ICON_SIZE).toBe(128);
+  });
+
+  it('decodes 16x16x4bpp plane-major, giving indices in 0..15', () => {
+    for (let i = 0; i < OUTDOOR_ICON_COUNT; i++) {
+      const px = decodeOutdoorIcon(gameExe, i);
+      expect(px).toHaveLength(256);
+      for (const v of px) expect(v).toBeLessThanOrEqual(15);
+    }
+  });
+
+  it('icon 0 (Grassland) is a two-colour dither of palette index 12 on 0', () => {
+    // Planes 0 and 1 are all zero and planes 2/3 hold the same 32 bytes, so
+    // every set pixel is 0b1100 = 12 and every clear one is 0.
+    const px = decodeOutdoorIcon(gameExe, 0);
+    const used = new Set(px);
+    expect([...used].sort((a, b) => a - b)).toEqual([0, 12]);
+    expect(px.filter((v) => v === 12)).toHaveLength(50);
+  });
+
+  it('icon 10 (Ocean) has no transparent-looking index-0 pixel at all', () => {
+    const px = decodeOutdoorIcon(gameExe, 10);
+    expect([...new Set(px)].sort((a, b) => a - b)).toEqual([4, 7, 14]);
+  });
+
+  it('every icon index any shipped display list uses is inside the 12-entry bank', () => {
+    const used = new Set<number>();
+    for (const name of OUT_FILES) {
+      const section = decodeOutdoorSection(readData(name));
+      used.add(section.displayList.backgroundIconIndex);
+      for (const g of section.displayList.groups) used.add(g.iconIndex);
+    }
+    expect(Math.max(...used)).toBe(OUTDOOR_ICON_COUNT - 1);
+    expect(used.has(4)).toBe(false); // towns are markers, not fills
+    expect(used.has(5)).toBe(false); // dungeons too
+  });
+
+  it('names all twelve classes', () => {
+    expect(TERRAIN_CLASS_NAMES).toHaveLength(OUTDOOR_ICON_COUNT);
+    expect(terrainClassName(0)).toBe('Grassland');
+    expect(terrainClassName(100)).toBe('Ocean'); // ocean tile code
+    expect(terrainClassName(220)).toBe('Ocean'); // ...and its unexplored form
+  });
+});
+
+describe('display-list icon index == terrain class (dungeon-format.md §8.2.4a)', () => {
+  it('reproduces the map: 99%+ of cells sample their own class from the raster', () => {
+    let total = 0;
+    let hits = 0;
+    for (const name of OUT_FILES) {
+      const section = decodeOutdoorSection(readData(name));
+      const raster = rasteriseOutdoorSection(section);
+      for (let fileRow = 0; fileRow < OUTDOOR_SECTION_HEIGHT; fileRow++) {
+        for (let col = 0; col < OUTDOOR_SECTION_WIDTH; col++) {
+          const cls = tileClass(section.grid[fileRow * OUTDOOR_SECTION_WIDTH + col]);
+          if (cls === 4 || cls === 5) continue; // drawn as markers, never filled
+          const rect = cellScreenRect(fileRow, col);
+          const x = rect.x + Math.floor(rect.w / 2);
+          const y = rect.y + Math.floor(rect.h / 2);
+          total++;
+          if (raster.icons[y * raster.width + x] === cls) hits++;
+        }
+      }
+    }
+    expect(total).toBe(9328);
+    expect(hits).toBe(9271);
+  });
+
+  it('the background is always the ocean class', () => {
+    for (const name of OUT_FILES) {
+      const section = decodeOutdoorSection(readData(name));
+      expect(section.displayList.backgroundIconIndex).toBe(10);
+    }
+  });
+
+  it('the map rectangle is exactly 26 cells wide by 20 tall', () => {
+    expect(OUTDOOR_MAP_WIDTH).toBe(312);
+    expect(OUTDOOR_MAP_HEIGHT).toBe(180);
+    // file row 0 is the section's *eastern* edge, so it maps to the right
+    expect(cellScreenRect(25, 0)).toEqual({ x: 4, y: 15, w: 12, h: 9 });
+    expect(cellScreenRect(0, 19)).toEqual({ x: 304, y: 186, w: 12, h: 9 });
+  });
+});
+
+describe('POI +3/+4 are the dungeon entry cell (dungeon-format.md §8.2.2a)', () => {
+  it('+3 lands on the only cell-215 marker in each of the ten dungeons', () => {
+    const entries: { dungeon: number; x: number; y: number }[] = [];
+    for (const name of OUT_FILES) {
+      const section = decodeOutdoorSection(readData(name));
+      for (const poi of section.pois) {
+        const tile = section.grid[poi.row * OUTDOOR_SECTION_WIDTH + poi.col];
+        if (tileClass(tile) === TILE_CLASS_DUNGEON) {
+          entries.push({ dungeon: poi.index, x: poi.param, y: poi.unused });
+        }
+      }
+    }
+    expect(entries).toHaveLength(10);
+    expect(entries.map((e) => e.dungeon).sort((a, b) => a - b)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+    ]);
+    for (const { dungeon, x, y } of entries) {
+      const grid = readData(`dng${dungeon}`).subarray(0, 33 * 38);
+      expect(grid[y * 33 + x]).toBe(215);
+      // and it is the first such marker in the file
+      expect(grid.indexOf(215)).toBe(y * 33 + x);
+    }
   });
 });

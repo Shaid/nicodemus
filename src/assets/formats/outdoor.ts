@@ -414,3 +414,252 @@ export function assembleWorld(
   }
   return { width: WORLD_WIDTH, height: worldHeight, cells };
 }
+
+// ---------------------------------------------------------------------------
+// Outdoor icon bank and section rendering — dungeon-format.md §8.2.4a
+// ---------------------------------------------------------------------------
+
+/**
+ * The outdoor terrain-icon bank in the Phantasie I `game` executable:
+ * DATA hunk 69 `+0x294`, i.e. file offset `0x196BC`. The display list's
+ * `iconIndex` is scaled by 128 (`asl.l #7` at `game+0x1713C`) and added to
+ * this base.
+ */
+export const OUTDOOR_ICON_BANK_OFFSET = 0x196bc;
+
+/**
+ * Each entry is a `graphics.library` **multi-coloured area-fill pattern**,
+ * not a sprite: the two draw routines set `rp->AreaPtrn = iconAddress` and
+ * `rp->AreaPtSz = -4` (`game+0x1F392`/`0x1F39A`), and a negative
+ * `AreaPtSz` means `2^4 = 16` rows per plane, 16 pixels wide, one 16-word
+ * block per bitplane with the planes stored consecutively.
+ */
+export const OUTDOOR_ICON_WIDTH = 16;
+export const OUTDOOR_ICON_HEIGHT = 16;
+export const OUTDOOR_ICON_PLANES = 4;
+export const OUTDOOR_ICON_SIZE =
+  (OUTDOOR_ICON_WIDTH / 8) * OUTDOOR_ICON_HEIGHT * OUTDOOR_ICON_PLANES; // 128
+
+/** Indices 0-11 — one per terrain class; nothing in any display list exceeds 11. */
+export const OUTDOOR_ICON_COUNT = 12;
+
+/**
+ * `P1_PALETTE_SLOT_OFFSETS[2]` (file `0x1949C`, hunk 69 `+0x74`) is the
+ * world-map palette: the only two `SetPalette` call sites in the
+ * world-map hunk are `pea $74.l` at `game+0x16FB8` and `game+0x1793E`.
+ */
+export const OUTDOOR_PALETTE_SLOT = 2;
+
+/**
+ * Decode one 16 x 16 icon to palette indices (row-major, 256 entries).
+ * `gameExe` is the whole Phantasie I `game` file.
+ */
+export function decodeOutdoorIcon(gameExe: Uint8Array, index: number): Uint8Array {
+  if (index < 0 || !Number.isInteger(index)) {
+    throw new RangeError(`outdoor icon index must be a non-negative integer, got ${index}`);
+  }
+  const base = OUTDOOR_ICON_BANK_OFFSET + index * OUTDOOR_ICON_SIZE;
+  if (base + OUTDOOR_ICON_SIZE > gameExe.length) {
+    throw new RangeError(`outdoor icon ${index} runs past the end of the executable`);
+  }
+  const planeStride = (OUTDOOR_ICON_WIDTH / 8) * OUTDOOR_ICON_HEIGHT; // 32
+  const pixels = new Uint8Array(OUTDOOR_ICON_WIDTH * OUTDOOR_ICON_HEIGHT);
+  for (let plane = 0; plane < OUTDOOR_ICON_PLANES; plane++) {
+    for (let y = 0; y < OUTDOOR_ICON_HEIGHT; y++) {
+      const at = base + plane * planeStride + y * 2;
+      const word = (gameExe[at] << 8) | gameExe[at + 1];
+      for (let x = 0; x < OUTDOOR_ICON_WIDTH; x++) {
+        if (word & (0x8000 >> x)) pixels[y * OUTDOOR_ICON_WIDTH + x] |= 1 << plane;
+      }
+    }
+  }
+  return pixels;
+}
+
+/** Decode all 12 icons, indexed by terrain class. */
+export function decodeOutdoorIconBank(gameExe: Uint8Array): Uint8Array[] {
+  const icons: Uint8Array[] = [];
+  for (let i = 0; i < OUTDOOR_ICON_COUNT; i++) icons.push(decodeOutdoorIcon(gameExe, i));
+  return icons;
+}
+
+/**
+ * English names for the twelve terrain classes (dungeon-format.md §8.3.3a).
+ * Confirmed from three agreeing oracles: the class's own rendered icon, the
+ * movement-cost ramp at `game+0x18022`, and the Phantasie I rulebook's
+ * terrain key. Classes 4 and 5 have no icon — they are drawn as the town/inn
+ * and dungeon markers instead (`game+0x1702C`).
+ */
+export const TERRAIN_CLASS_NAMES: readonly string[] = [
+  'Grassland',
+  'Forest',
+  'Hills',
+  'Mountains',
+  'Town',
+  'Dungeon',
+  'Path',
+  'Mist',
+  'Desert',
+  'Desert',
+  'Ocean',
+  'Lake',
+];
+
+export function terrainClassName(code: number): string {
+  return TERRAIN_CLASS_NAMES[tileClass(code)] ?? `Class ${tileClass(code)}`;
+}
+
+/**
+ * Map-display geometry, all from `game+0x173B0`, which stores the four
+ * words that `MarkerRect()` (`game+0x16EB8`) multiplies by:
+ * `x = fileRow * 12 + 4`, `y = col * 9 + 15`. The background rectangle the
+ * same routine builds is `(4, 15, 312, 180)` — and `312 = 26 * 12`,
+ * `180 = 20 * 9`, which is what fixes the axis assignment (§8.2.1).
+ */
+export const OUTDOOR_CELL_WIDTH = 12;
+export const OUTDOOR_CELL_HEIGHT = 9;
+export const OUTDOOR_MAP_ORIGIN_X = 4;
+export const OUTDOOR_MAP_ORIGIN_Y = 15;
+export const OUTDOOR_MAP_WIDTH = OUTDOOR_SECTION_HEIGHT * OUTDOOR_CELL_WIDTH; // 312
+export const OUTDOOR_MAP_HEIGHT = OUTDOOR_SECTION_WIDTH * OUTDOOR_CELL_HEIGHT; // 180
+
+export interface ScreenRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * Screen rectangle of one grid cell, in the same coordinate space the
+ * display list's polygon points use. `fileRow` is the east-west index
+ * (0 = the section's *eastern* edge) and `col` the north-south one
+ * (0 = north) — see §8.2.1's 2026-08-11 correction.
+ *
+ * `MarkerRect()` is written in terms of the **engine** row, so the flip
+ * `engineRow = 25 - fileRow` belongs here: screen x grows eastward, and
+ * file row 0 is the eastern edge.
+ */
+export function cellScreenRect(fileRow: number, col: number): ScreenRect {
+  return {
+    x:
+      (OUTDOOR_SECTION_HEIGHT - 1 - fileRow) * OUTDOOR_CELL_WIDTH + OUTDOOR_MAP_ORIGIN_X,
+    y: col * OUTDOOR_CELL_HEIGHT + OUTDOOR_MAP_ORIGIN_Y,
+    w: OUTDOOR_CELL_WIDTH,
+    h: OUTDOOR_CELL_HEIGHT,
+  };
+}
+
+/** Raster of terrain-class indices; `-1` where nothing was painted. */
+export interface OutdoorRaster {
+  width: number;
+  height: number;
+  /** Row-major `iconIndex` per pixel, `-1` outside the map rectangle. */
+  icons: Int16Array;
+}
+
+function fillPolygon(
+  icons: Int16Array,
+  width: number,
+  height: number,
+  points: readonly { x: number; y: number }[],
+  value: number,
+): void {
+  const n = points.length;
+  if (n === 0) return;
+  const put = (x: number, y: number) => {
+    if (x >= 0 && x < width && y >= 0 && y < height) icons[y * width + x] = value;
+  };
+  if (n === 1) {
+    put(points[0].x, points[0].y);
+    return;
+  }
+  // Even-odd scanline fill, matching graphics.library's AreaEnd().
+  let minY = points[0].y;
+  let maxY = points[0].y;
+  for (const p of points) {
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  }
+  const crossings: number[] = [];
+  for (let y = Math.max(0, minY); y <= Math.min(height - 1, maxY); y++) {
+    crossings.length = 0;
+    for (let i = 0; i < n; i++) {
+      const a = points[i];
+      const b = points[(i + 1) % n];
+      if (a.y === b.y) continue;
+      if (y >= Math.min(a.y, b.y) && y < Math.max(a.y, b.y)) {
+        crossings.push(a.x + ((y - a.y) / (b.y - a.y)) * (b.x - a.x));
+      }
+    }
+    crossings.sort((p, q) => p - q);
+    for (let i = 0; i + 1 < crossings.length; i += 2) {
+      const from = Math.max(0, Math.round(crossings[i]));
+      const to = Math.min(width - 1, Math.round(crossings[i + 1]));
+      for (let x = from; x <= to; x++) icons[y * width + x] = value;
+    }
+  }
+  // AreaMove/AreaDraw paint the outline too.
+  for (let i = 0; i < n; i++) {
+    const a = points[i];
+    const b = points[(i + 1) % n];
+    const steps = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+    for (let s = 0; s <= steps; s++) {
+      const t = steps === 0 ? 0 : s / steps;
+      put(Math.round(a.x + t * (b.x - a.x)), Math.round(a.y + t * (b.y - a.y)));
+    }
+  }
+}
+
+/**
+ * Replay a section's display list into a raster of terrain-class indices,
+ * reproducing `game+0x17124`: `RectFill` the map rectangle with the
+ * background icon, then `AreaMove`/`AreaDraw`/`AreaEnd` each group as one
+ * filled polygon, in list order.
+ *
+ * The result is *indices*, not pixels — `renderOutdoorSection()` turns it
+ * into palette indices by tiling each class's 16 x 16 pattern.
+ */
+export function rasteriseOutdoorSection(
+  section: OutdoorSection,
+  width = 336,
+  height = 208,
+): OutdoorRaster {
+  const icons = new Int16Array(width * height).fill(-1);
+  for (let y = OUTDOOR_MAP_ORIGIN_Y; y < OUTDOOR_MAP_ORIGIN_Y + OUTDOOR_MAP_HEIGHT; y++) {
+    if (y >= height) break;
+    for (let x = OUTDOOR_MAP_ORIGIN_X; x < OUTDOOR_MAP_ORIGIN_X + OUTDOOR_MAP_WIDTH; x++) {
+      if (x >= width) break;
+      icons[y * width + x] = section.displayList.backgroundIconIndex;
+    }
+  }
+  for (const group of section.displayList.groups) {
+    fillPolygon(icons, width, height, group.points, group.iconIndex);
+  }
+  return { width, height, icons };
+}
+
+/**
+ * Render a section to palette indices. The area pattern is aligned to the
+ * RastPort origin, not to the polygon, so a pixel takes
+ * `icon[y mod 16][x mod 16]` — which is why cell boundaries are invisible
+ * in the real game's map.
+ */
+export function renderOutdoorSection(
+  section: OutdoorSection,
+  icons: readonly Uint8Array[],
+  width = 336,
+  height = 208,
+): { width: number; height: number; pixels: Uint8Array } {
+  const raster = rasteriseOutdoorSection(section, width, height);
+  const pixels = new Uint8Array(width * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const icon = raster.icons[y * width + x];
+      if (icon < 0 || icon >= icons.length) continue;
+      pixels[y * width + x] =
+        icons[icon][(y % OUTDOOR_ICON_HEIGHT) * OUTDOOR_ICON_WIDTH + (x % OUTDOOR_ICON_WIDTH)];
+    }
+  }
+  return { width, height, pixels };
+}

@@ -10,21 +10,28 @@
  *
  * Output (under `public/assets/phantasie/amiga/`):
  *
- * | File               | Contents                                          |
- * |--------------------|---------------------------------------------------|
- * | `world-map.json`   | `{ width, height, cells }` — flat revealed codes   |
- * | `world-pois.json`  | `{ pois }` — world-coordinate markers + messages   |
+ * | File                          | Contents                                |
+ * |-------------------------------|-----------------------------------------|
+ * | `world-map.json`              | `{ width, height, cells }` — flat codes  |
+ * | `world-map-pois.json`         | `{ pois }` — world markers + messages    |
+ * | `screens/world-map.png`       | the real 1512 x 693 overworld picture    |
+ * | `textures/terrain-icons.png`  | the twelve 16 x 16 fill patterns         |
  *
- * No tile image is baked. Phantasie I's terrain byte is **not** a rendering
- * index (dungeon-format.md §8.3.3: the visible map is plotted from each
- * section's own display list against an icon bank that is not yet decoded),
- * so there is no "tile size" to bake against and no art to bake. The viewer
- * flat-colours each terrain class instead — see `tools/viewer/map-viewer.ts`.
+ * Phantasie I's terrain byte is not a per-*cell* graphics index, but the
+ * per-section display list's `iconIndex` **is** the terrain class
+ * (dungeon-format.md §8.2.4a), so the art is baked by replaying each
+ * section's display list as filled polygons and painting the result with
+ * that class's 16 x 16 `AreaPtrn` pattern from the executable's icon bank.
+ * The gameplay grid stays a separate, flat-coloured layer in the viewer —
+ * it is the layer the party walks on, and its axes are the engine's rather
+ * than the screen's (see `tools/viewer/map-viewer.ts`).
  */
 import { existsSync, readFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { writeJson, findFileCI } from '@seer-project/pipeline';
+import { writePNG, writeJson, findFileCI } from '@seer-project/pipeline';
+import { indicesToRGBA } from '../../src/assets/formats/palette.ts';
+import { readP1PaletteSlot } from '../../src/assets/formats/exe-data.ts';
 import {
   OUTDOOR_SECTION_HEIGHT,
   OUTDOOR_SECTION_WIDTH,
@@ -37,7 +44,20 @@ import {
   EVENT_VARIANT_BUMP,
   EVENT_VARIANT_NONE,
   EVENT_VARIANT_TEXT,
+  OUTDOOR_CELL_HEIGHT,
+  OUTDOOR_CELL_WIDTH,
+  OUTDOOR_ICON_COUNT,
+  OUTDOOR_ICON_HEIGHT,
+  OUTDOOR_ICON_WIDTH,
+  OUTDOOR_MAP_ORIGIN_X,
+  OUTDOOR_MAP_ORIGIN_Y,
+  OUTDOOR_MAP_HEIGHT,
+  OUTDOOR_MAP_WIDTH,
+  OUTDOOR_PALETTE_SLOT,
+  TERRAIN_CLASS_NAMES,
   assembleWorld,
+  decodeOutdoorIconBank,
+  rasteriseOutdoorSection,
   decodeMapsInt,
   decodeOutdoorSection,
   poiMessage,
@@ -86,12 +106,11 @@ export interface WorldPoi {
   tile: number;
   /** Record byte `+2`: message index, town id or dungeon id by type. */
   index: number;
-  /** Record byte `+3`: non-zero only on class-5 records, meaning unknown. */
+  /** Record byte `+3`: the dungeon entry column on class-5 records (§8.2.2a). */
   param: number;
   /**
-   * Short marker caption. Deliberately generic where the real name is
-   * unknown: `twns.int`'s town roster has not been tied to the town-record
-   * index yet (TODO `world-p1-town-index`), so no town is ever named here.
+   * Short marker caption. Towns carry their real `twns.int` name (§8.2.2a);
+   * dungeons are still numbered, since `dng1`-`dng10` ship no name strings.
    */
   label: string;
   /** Resolved text lines, for the records that address the text block. */
@@ -158,16 +177,60 @@ export function poiTypeForTile(code: number): WorldPoiType {
 
 const LABEL_MAX = 30;
 
-function labelFor(type: WorldPoiType, index: number, message: string[] | undefined): string {
+/**
+ * `twns.int`'s town-record array: 12 records of 292 bytes at file offset
+ * 2446, name at record `+0x118` (dungeon-format.md §8.1 — both the base and
+ * the name offset are code-confirmed, from `game+0x7280` and `game+0xA14E`).
+ */
+export const TWNS_RECORD_BASE = 2446;
+export const TWNS_RECORD_STRIDE = 292;
+export const TWNS_RECORD_COUNT = 12;
+export const TWNS_NAME_OFFSET = 0x118;
+export const TWNS_NAME_LENGTH = 10;
+
+/** Read the twelve town names in record order (record 0 = PELNOR). */
+export function readTownNames(twnsInt: Uint8Array): string[] {
+  const names: string[] = [];
+  for (let i = 0; i < TWNS_RECORD_COUNT; i++) {
+    const at = TWNS_RECORD_BASE + i * TWNS_RECORD_STRIDE + TWNS_NAME_OFFSET;
+    const raw = twnsInt.subarray(at, at + TWNS_NAME_LENGTH);
+    let end = raw.length;
+    for (let j = 0; j < raw.length; j++) {
+      if (raw[j] === 0x00) {
+        end = j;
+        break;
+      }
+    }
+    names.push(new TextDecoder('ascii').decode(raw.subarray(0, end)).trim());
+  }
+  return names;
+}
+
+/**
+ * `SelectTown()` at `game+0xA10C`: the POI record's `+2` is 1-based, and
+ * `99` is an explicit alias for record 11 (`OLYMPIA`).
+ */
+export function townRecordIndex(poiIndex: number): number {
+  return poiIndex === 99 ? 11 : poiIndex - 1;
+}
+
+function labelFor(
+  type: WorldPoiType,
+  index: number,
+  message: string[] | undefined,
+  townNames?: readonly string[],
+): string {
   if (type === 'text') {
     const line = message?.find((l) => l !== '');
     if (line) return line.length > LABEL_MAX ? `${line.slice(0, LABEL_MAX - 1)}…` : line;
   }
   switch (type) {
-    // No real name is available for towns or dungeons: `+2` is only a
-    // *hypothesised* index into twns.int / dng1-10 (dungeon-format.md §8.2.2).
-    case 'town':
-      return `Town ${index}`;
+    case 'town': {
+      // `+2` is a 1-based index into twns.int's 12 records, with 99 aliased
+      // to record 11 — confirmed at `game+0xA10C` (dungeon-format.md §8.2.2a).
+      const name = townNames?.[townRecordIndex(index)];
+      return name && name !== '' ? name : `Town ${index}`;
+    }
     case 'dungeon':
       return `Dungeon ${index}`;
     case 'text':
@@ -182,7 +245,11 @@ function labelFor(type: WorldPoiType, index: number, message: string[] | undefin
 }
 
 /** Convert one decoded section's POI records into world-coordinate markers. */
-export function sectionPoisToWorld(section: number, decoded: OutdoorSection): WorldPoi[] {
+export function sectionPoisToWorld(
+  section: number,
+  decoded: OutdoorSection,
+  townNames?: readonly string[],
+): WorldPoi[] {
   return decoded.pois.map((poi) => {
     const tile = revealedTileCode(tileAt(decoded.grid, poi.col, poi.row));
     const type = poiTypeForTile(tile);
@@ -198,7 +265,7 @@ export function sectionPoisToWorld(section: number, decoded: OutdoorSection): Wo
       tile,
       index: poi.index,
       param: poi.param,
-      label: labelFor(type, poi.index, message),
+      label: labelFor(type, poi.index, message, townNames),
       ...(message && message.length > 0 ? { message } : {}),
     };
   });
@@ -217,12 +284,105 @@ export function sectionPoisToWorld(section: number, decoded: OutdoorSection): Wo
 export function buildWorldFromSections(
   sections: readonly { section: number; decoded: OutdoorSection }[],
   sectionGrids?: readonly Uint8Array[],
+  townNames?: readonly string[],
 ): WorldMapOutput {
   const grids = sectionGrids ?? sections.map((s) => s.decoded.grid);
   const world = assembleWorld(grids);
-  const pois = sections.flatMap((s) => sectionPoisToWorld(s.section, s.decoded));
+  const pois = sections.flatMap((s) => sectionPoisToWorld(s.section, s.decoded, townNames));
   pois.sort((a, b) => a.y - b.y || a.x - b.x);
   return { world, pois };
+}
+
+/**
+ * World-image geometry. Sections tile 5 wide (east-west) x 4 tall
+ * (north-south) sharing one cell at each seam (dungeon-format.md §8.3.2's
+ * 2026-08-11 correction), and each cell is drawn 12 x 9 pixels
+ * (`game+0x173B0`), so the assembled overworld picture is
+ * `126 * 12` x `77 * 9` = 1512 x 693.
+ */
+export const WORLD_MOSAIC_COLUMNS = 5;
+export const WORLD_MOSAIC_ROWS = 4;
+export const WORLD_IMAGE_WIDTH =
+  ((WORLD_MOSAIC_COLUMNS - 1) * (OUTDOOR_SECTION_HEIGHT - 1) + OUTDOOR_SECTION_HEIGHT) *
+  OUTDOOR_CELL_WIDTH; // 1512
+export const WORLD_IMAGE_HEIGHT =
+  ((WORLD_MOSAIC_ROWS - 1) * (OUTDOOR_SECTION_WIDTH - 1) + OUTDOOR_SECTION_WIDTH) *
+  OUTDOOR_CELL_HEIGHT; // 693
+
+/**
+ * North-west pixel corner of a section's map rectangle in the world image.
+ * `section - 1 = 4 * p + q`; `p` counts **westward** (so the eastward index
+ * is `4 - p`) and `q` counts **southward** — the arrival-coordinate arms of
+ * `ChangeSection` at `game+0x184E4`.
+ */
+export function sectionImageOrigin(section: number): { x: number; y: number } {
+  const slot = section - 1;
+  const p = Math.floor(slot / 4);
+  const q = slot % 4;
+  return {
+    x: (WORLD_MOSAIC_COLUMNS - 1 - p) * (OUTDOOR_SECTION_HEIGHT - 1) * OUTDOOR_CELL_WIDTH,
+    y: q * (OUTDOOR_SECTION_WIDTH - 1) * OUTDOOR_CELL_HEIGHT,
+  };
+}
+
+/**
+ * Composite every section's display list into one world-sized raster of
+ * terrain-class indices, then paint it with the 16 x 16 area-fill patterns
+ * from the icon bank (dungeon-format.md §8.2.4a). Returns palette indices.
+ */
+export function renderWorldImage(
+  sections: readonly { section: number; decoded: OutdoorSection }[],
+  icons: readonly Uint8Array[],
+): { width: number; height: number; pixels: Uint8Array } {
+  const width = WORLD_IMAGE_WIDTH;
+  const height = WORLD_IMAGE_HEIGHT;
+  const classes = new Int16Array(width * height).fill(-1);
+
+  for (const { section, decoded } of sections) {
+    const raster = rasteriseOutdoorSection(decoded);
+    const origin = sectionImageOrigin(section);
+    for (let sy = 0; sy < OUTDOOR_MAP_HEIGHT; sy++) {
+      const dy = origin.y + sy;
+      if (dy < 0 || dy >= height) continue;
+      for (let sx = 0; sx < OUTDOOR_MAP_WIDTH; sx++) {
+        const dx = origin.x + sx;
+        if (dx < 0 || dx >= width) continue;
+        const v =
+          raster.icons[(OUTDOOR_MAP_ORIGIN_Y + sy) * raster.width + (OUTDOOR_MAP_ORIGIN_X + sx)];
+        if (v >= 0) classes[dy * width + dx] = v;
+      }
+    }
+  }
+
+  const pixels = new Uint8Array(width * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const cls = classes[y * width + x];
+      if (cls < 0 || cls >= icons.length) continue;
+      pixels[y * width + x] =
+        icons[cls][(y % OUTDOOR_ICON_HEIGHT) * OUTDOOR_ICON_WIDTH + (x % OUTDOOR_ICON_WIDTH)];
+    }
+  }
+  return { width, height, pixels };
+}
+
+/** Lay the twelve 16 x 16 icons out as a single 192 x 16 strip. */
+export function renderIconStrip(icons: readonly Uint8Array[]): {
+  width: number;
+  height: number;
+  pixels: Uint8Array;
+} {
+  const width = OUTDOOR_ICON_COUNT * OUTDOOR_ICON_WIDTH;
+  const height = OUTDOOR_ICON_HEIGHT;
+  const pixels = new Uint8Array(width * height);
+  for (let i = 0; i < icons.length && i < OUTDOOR_ICON_COUNT; i++) {
+    for (let y = 0; y < OUTDOOR_ICON_HEIGHT; y++) {
+      for (let x = 0; x < OUTDOOR_ICON_WIDTH; x++) {
+        pixels[y * width + i * OUTDOOR_ICON_WIDTH + x] = icons[i][y * OUTDOOR_ICON_WIDTH + x];
+      }
+    }
+  }
+  return { width, height, pixels };
 }
 
 /**
@@ -251,9 +411,62 @@ export function buildWorldMap(dataDir: string, outDir: string): ManifestEntry[] 
     console.warn('  ⚠ maps.int not found — assembling from the out*.dat grids instead');
   }
 
-  const { world, pois } = buildWorldFromSections(sections, grids);
+  const twnsPath = resolve(dataDir, findFileCI(dataDir, 'twns.int'));
+  const townNames = existsSync(twnsPath)
+    ? readTownNames(new Uint8Array(readFileSync(twnsPath)))
+    : undefined;
+  if (!townNames) console.warn('  ⚠ twns.int not found — town markers stay numbered');
+
+  const { world, pois } = buildWorldFromSections(sections, grids, townNames);
 
   mkdirSync(outDir, { recursive: true });
+
+  // Real terrain art: the icon bank + palette both live in `game`
+  // (dungeon-format.md §8.2.4a). Without the executable we still emit the
+  // gameplay grid and POIs, just no picture.
+  const gamePath = resolve(dataDir, findFileCI(dataDir, 'game'));
+  let worldPng = '';
+  if (existsSync(gamePath)) {
+    const gameExe = new Uint8Array(readFileSync(gamePath));
+    const palette = readP1PaletteSlot(gameExe, OUTDOOR_PALETTE_SLOT);
+    const icons = decodeOutdoorIconBank(gameExe);
+
+    const image = renderWorldImage(sections, icons);
+    mkdirSync(resolve(outDir, 'screens'), { recursive: true });
+    writePNG(
+      resolve(outDir, `screens/${WORLD_MAP_ASSET_NAME}.png`),
+      indicesToRGBA(image.pixels, palette),
+      image.width,
+      image.height,
+    );
+    worldPng = `screens/${WORLD_MAP_ASSET_NAME}.png`;
+
+    const strip = renderIconStrip(icons);
+    mkdirSync(resolve(outDir, 'textures'), { recursive: true });
+    writePNG(
+      resolve(outDir, 'textures/terrain-icons.png'),
+      indicesToRGBA(strip.pixels, palette),
+      strip.width,
+      strip.height,
+    );
+    writeJson(resolve(outDir, 'textures/terrain-icons.json'), {
+      width: strip.width,
+      height: strip.height,
+      frames: TERRAIN_CLASS_NAMES.map((name, i) => ({
+        name: `class-${i}-${name.toLowerCase()}`,
+        x: i * OUTDOOR_ICON_WIDTH,
+        y: 0,
+        w: OUTDOOR_ICON_WIDTH,
+        h: OUTDOOR_ICON_HEIGHT,
+      })),
+    });
+    console.log(
+      `  Terrain art: ${image.width}×${image.height} world picture + ` +
+        `${OUTDOOR_ICON_COUNT} 16×16 fill patterns`,
+    );
+  } else {
+    console.warn('  ⚠ game executable not found — no terrain art rendered');
+  }
   // Compact: the grid is 9,702 numbers and one-per-line is unreadable anyway.
   writeJson(
     resolve(outDir, `${WORLD_MAP_ASSET_NAME}.json`),
@@ -265,6 +478,16 @@ export function buildWorldMap(dataDir: string, outDir: string): ManifestEntry[] 
       sectionStrideX: WORLD_SECTION_STRIDE_X,
       sectionStrideY: WORLD_SECTION_STRIDE_Y,
       sections: SECTION_NUMBER_BY_BLOCK,
+      terrainClassNames: TERRAIN_CLASS_NAMES,
+      cellWidth: OUTDOOR_CELL_WIDTH,
+      cellHeight: OUTDOOR_CELL_HEIGHT,
+      ...(worldPng
+        ? {
+            image: worldPng,
+            imageWidth: WORLD_IMAGE_WIDTH,
+            imageHeight: WORLD_IMAGE_HEIGHT,
+          }
+        : {}),
       cells: Array.from(world.cells),
     },
     false,
@@ -280,8 +503,8 @@ export function buildWorldMap(dataDir: string, outDir: string): ManifestEntry[] 
       name: WORLD_MAP_ASSET_NAME,
       type: 'map',
       sprites: 0,
-      hasPalette: false,
-      png: '',
+      hasPalette: true,
+      png: worldPng,
     },
   ];
 }

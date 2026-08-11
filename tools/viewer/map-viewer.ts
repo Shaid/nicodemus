@@ -5,16 +5,22 @@
  * `tools/phantasie/build-map.ts`) on a Canvas 2D surface with drag-to-pan,
  * wheel zoom toward the cursor, and toggleable overlay layers.
  *
- * **The colours are placeholders.** Phantasie I's terrain byte is not a
- * graphics index at all (docs/phantasie/dungeon-format.md §8.3.3) — the
- * visible map is plotted from each section's own display list against an
- * icon bitmap bank in the executable that has not been decoded yet (TODO
- * `world-p1-outdoor-icons`), and the English names of the twelve terrain
- * classes are likewise unknown (TODO `world-p1-tile-class-names`). Until
- * both land, each class is drawn as a flat colour, per
- * implementation-plan.md Phase 3's "no art needed yet, flat colours
- * suffice" bar. Only the notes marked below are documented readings; the
- * rest of the palette carries no claim about what the terrain *is*.
+ * The terrain byte is not a per-cell graphics index — the real game plots
+ * the visible map from each section's own display list against the 16 x 16
+ * area-fill patterns in the executable's icon bank, one per terrain class
+ * (docs/phantasie/dungeon-format.md §8.2.4a). That bank is now decoded, and
+ * `build-map.ts` bakes the true-to-hardware picture to
+ * `screens/world-map.png` (1512 x 693) plus a `textures/terrain-icons.png`
+ * strip of the twelve patterns.
+ *
+ * This *view* stays a flat-colour rendering of the gameplay grid on
+ * purpose: it is the layer the party actually walks on (movement cost,
+ * passability, fog, event dispatch), it needs per-cell hit-testing for the
+ * POI overlay, and the grid's axes are the engine's, not the screen's — see
+ * §8.2.1's 2026-08-11 correction, where `x` here is the north-south index
+ * and `y` the east-west one, so this grid is a quarter-turn from the baked
+ * picture. Each swatch below is now taken from its class's own real art,
+ * and every class name is confirmed (§8.3.3a).
  */
 import { setHidden } from './shared.ts';
 
@@ -48,29 +54,31 @@ export interface WorldPoi {
 
 interface TileClassStyle {
   color: string;
-  /** Only set where dungeon-format.md §8.3.3 records a reading. */
+  /** English name, all confirmed — dungeon-format.md §8.3.3a. */
+  name: string;
   note?: string;
 }
 
 /**
- * Placeholder palette, one flat colour per terrain class (`tile / 10`).
- * Classes 0-3 are the four movement-cost tiers (75/150/225/300), so they
- * are ramped light-to-dark; everything else is just picked to be
- * distinguishable at a glance.
+ * One flat colour per terrain class (`tile / 10`), each keyed off the
+ * dominant ink of that class's own 16 x 16 fill pattern in the icon bank,
+ * lightened enough to stay legible against the black most of those patterns
+ * use as their background. Classes 4 and 5 have no pattern at all — the
+ * engine draws them as markers — so those two are chosen freely.
  */
 const TILE_CLASS_STYLES: TileClassStyle[] = [
-  { color: '#8fbc5a' }, // 0
-  { color: '#57933f' }, // 1
-  { color: '#a3803f' }, // 2
-  { color: '#6c6357' }, // 3
-  { color: '#f2d24b', note: 'town (confirmed)' }, // 4
-  { color: '#c0392b', note: 'dungeon entrance (hypothesis)' }, // 5
-  { color: '#4aa3df', note: 'river / road (rendered)' }, // 6
-  { color: '#b5651d' }, // 7
-  { color: '#8e6bbf' }, // 8
-  { color: '#d98cb3' }, // 9
-  { color: '#16367c', note: 'ocean, impassable (confirmed)' }, // 10
-  { color: '#3f9d8a' }, // 11
+  { color: '#2f7a1e', name: 'Grassland', note: 'movement cost 75' },
+  { color: '#2b5200', name: 'Forest', note: 'movement cost 150' },
+  { color: '#8a5520', name: 'Hills', note: 'movement cost 225' },
+  { color: '#6e3a12', name: 'Mountains', note: 'movement cost 300' },
+  { color: '#f2d24b', name: 'Town / Inn', note: 'tile 40 town, tile 41 inn' },
+  { color: '#c0392b', name: 'Dungeon', note: 'entrance to dng1-dng10' },
+  { color: '#6b6b6b', name: 'Path', note: 'cheapest terrain, cost 60' },
+  { color: '#4d4d4d', name: 'Mist', note: 'astral plane / Olympus only' },
+  { color: '#7a4a08', name: 'Desert' },
+  { color: '#b06a10', name: 'Desert', note: 'second art variant' },
+  { color: '#0780af', name: 'Ocean', note: 'tile 100 impassable' },
+  { color: '#2230d0', name: 'Lake', note: 'three cells in the whole world' },
 ];
 const UNKNOWN_CLASS_COLOR = '#ff00ff';
 
@@ -267,12 +275,13 @@ export class WorldMapViewer {
       const style = TILE_CLASS_STYLES[cls];
       const item = document.createElement('span');
       item.className = 'map-legend-item';
-      item.title = style?.note ? `Class ${cls} — ${style.note}` : `Terrain class ${cls} (unnamed)`;
+      const label = style?.name ?? `Class ${cls}`;
+      item.title = style?.note ? `${label} (class ${cls}) — ${style.note}` : `${label} (class ${cls})`;
       const sw = document.createElement('span');
       sw.className = 'map-legend-swatch';
       sw.style.background = style?.color ?? UNKNOWN_CLASS_COLOR;
       item.appendChild(sw);
-      item.appendChild(document.createTextNode(String(cls)));
+      item.appendChild(document.createTextNode(label));
       this.legendEl.appendChild(item);
     }
   }
