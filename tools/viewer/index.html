@@ -58,10 +58,20 @@
           <span id="map-coord"></span>
         </div>
         <div class="map-strip-row">
-          <span class="map-strip-note" title="Phantasie I's terrain byte is not a graphics index; the real icon bank is not decoded yet, so these are placeholder colours per terrain class.">Terrain class (placeholder colours):</span>
+          <span id="map-legend-note" class="map-strip-note" title="Phantasie I/II's terrain byte is not a graphics index, so the legend swatches are placeholder colours per terrain class. Phantasie III's byte IS a tile index into artwork bundled in phantasy.set, so its swatches are sampled from the real tiles.">Terrain class (placeholder colours):</span>
           <span id="map-legend"></span>
         </div>
         <div id="map-detail"></div>
+      </div>
+      <div id="music-strip" class="hidden">
+        <div class="music-strip-row">
+          <button id="music-play" type="button" data-state="stopped">▶ Play</button>
+          <button id="music-stop" type="button" disabled>■ Stop</button>
+          <label><input id="music-loop" type="checkbox" /> Loop</label>
+          <span id="music-tracks"></span>
+          <span id="music-time">0:00 / 0:00</span>
+        </div>
+        <div id="music-detail"></div>
       </div>
       <div id="frame-strip" class="hidden">
         <input id="frame-slider" type="range" min="0" max="0" value="0" />

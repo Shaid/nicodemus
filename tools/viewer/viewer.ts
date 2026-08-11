@@ -1,5 +1,6 @@
 import { setHidden, type AtlasMeta, type PaletteData, type AtlasFrame } from './shared.ts';
 import { WorldMapViewer } from './map-viewer.ts';
+import { MusicPlayer } from './music-player.ts';
 import {
   GAME_IDS,
   GAME_DISPLAY_NAMES,
@@ -46,9 +47,11 @@ interface ManifestEntry {
    * Which view the entry opens in. Absent (every sprite atlas and picture)
    * means the ordinary PNG-backed canvas; `'map'` means the world-map view,
    * which fetches `<name>.json` + `<name>-pois.json` and draws vector-ish
-   * flat-coloured cells instead — see `map-viewer.ts`.
+   * flat-coloured cells instead — see `map-viewer.ts`; `'music'` means the
+   * Web Audio player, which fetches the raw `music/<name>.bin` stream and
+   * decodes it in the browser — see `music-player.ts`.
    */
-  type?: 'atlas' | 'map';
+  type?: 'atlas' | 'map' | 'music';
 }
 
 const listEl = document.getElementById('list')!;
@@ -76,6 +79,8 @@ let currentFrames: AtlasFrame[] = [];
 let currentFrame = 0;
 /** Created on first use — most sessions never open the map. */
 let mapViewer: WorldMapViewer | null = null;
+/** Likewise: no AudioContext exists until a music asset is opened. */
+let musicPlayer: MusicPlayer | null = null;
 
 let currentGame: GameId = DEFAULT_GAME;
 let currentPlatform: PlatformId = DEFAULT_PLATFORM;
@@ -171,6 +176,7 @@ async function switchGamePlatform(game: GameId, platform: PlatformId) {
   currentFrames = [];
   currentFrame = 0;
   mapViewer?.hide();
+  musicPlayer?.hide();
 
   manifest = await loadManifest();
   // `?asset=` is honoured once, on the load that the URL was parsed for —
@@ -209,7 +215,9 @@ function renderList() {
     item.className = 'item';
     if (selected === a) item.classList.add('selected');
     const dim =
-      a.type === 'map' ? '<span class="tag">map</span>' : `${a.sprites}sp${a.hasPalette ? ' · pal' : ''}`;
+      a.type === 'map' || a.type === 'music'
+        ? `<span class="tag">${a.type}</span>`
+        : `${a.sprites}sp${a.hasPalette ? ' · pal' : ''}`;
     item.innerHTML = `<span class="item-label">${a.name}</span><span class="item-dim">${dim}</span>`;
     item.addEventListener('click', () => selectAsset(a));
     listEl.appendChild(item);
@@ -221,16 +229,23 @@ async function selectAsset(asset: ManifestEntry) {
   currentFrame = 0;
   updateUrl();
 
-  if (asset.type === 'map') {
+  if (asset.type === 'map' || asset.type === 'music') {
     currentAtlas = null;
     currentPalette = null;
     currentFrames = [];
     renderList();
-    await showMap(asset);
+    if (asset.type === 'map') {
+      musicPlayer?.hide();
+      await showMap(asset);
+    } else {
+      mapViewer?.hide();
+      await showMusic(asset);
+    }
     return;
   }
 
   mapViewer?.hide();
+  musicPlayer?.hide();
   currentAtlas = await loadJSON<AtlasMeta>(`${asset.name}.json`);
   currentPalette = asset.hasPalette ? await loadJSON<PaletteData>(`${asset.name}.pal.json`) : null;
   currentFrames = currentAtlas?.frames ?? [];
@@ -250,8 +265,20 @@ async function showMap(asset: ManifestEntry) {
   metaEl.textContent = mapViewer.summary;
 }
 
+/** Music entries open the Web Audio player and its piano roll. */
+async function showMusic(asset: ManifestEntry) {
+  titleEl.textContent = `${asset.name} — music`;
+  metaEl.textContent = '';
+  frameInfoEl.textContent = 'click the roll to inspect a note';
+  setHidden(frameStrip, true);
+  setHidden(paletteBar, true);
+  musicPlayer ??= new MusicPlayer(canvasWrap);
+  await musicPlayer.show(ASSET_BASE, asset.name);
+  metaEl.textContent = musicPlayer.summary;
+}
+
 function drawAsset() {
-  if (selected?.type === 'map') return;
+  if (selected?.type === 'map' || selected?.type === 'music') return;
   if (!selected || !currentAtlas) {
     titleEl.textContent = 'No asset selected';
     metaEl.textContent = '';

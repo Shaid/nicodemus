@@ -132,6 +132,34 @@ canvas { image-rendering: pixelated; }
 .map-legend-swatch { width: 12px; height: 12px; border: 1px solid var(--border-control); border-radius: 2px; }
 #map-detail { font-size: 11px; color: var(--text-secondary); font-family: monospace; min-height: 14px; }
 
+/* Music player: the piano roll fills the pane like the map canvas does. */
+#canvas-wrap.music-mode {
+  overflow: hidden; align-items: stretch; justify-content: stretch;
+  background: #0d0d12; background-image: none;
+}
+.music-canvas { width: 100%; height: 100%; display: block; cursor: crosshair; image-rendering: auto; }
+
+#music-strip {
+  border-top: 1px solid var(--border); background: var(--bg-panel); padding: 6px 12px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+#music-strip.hidden { display: none; }
+.music-strip-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px; }
+.music-strip-row > label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+#music-play, #music-stop {
+  background: var(--bg-input); border: 1px solid var(--border-control);
+  border-radius: var(--radius); padding: 3px 11px; cursor: pointer; min-width: 74px;
+}
+#music-play:hover:not(:disabled), #music-stop:hover:not(:disabled) { border-color: var(--border-control-hover); }
+#music-play[data-state="playing"] { border-color: var(--accent); color: var(--accent-strong); }
+#music-stop:disabled { opacity: 0.4; cursor: default; }
+#music-tracks { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.music-track-toggle { display: flex; align-items: center; gap: 4px; cursor: pointer; font-family: monospace; font-size: 11px; }
+.music-track-swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+#music-time { margin-left: auto; color: var(--text-muted); font-family: monospace; font-size: 12px; }
+#music-strip[data-state="playing"] #music-time { color: var(--accent-strong); }
+#music-detail { font-size: 11px; color: var(--text-secondary); font-family: monospace; min-height: 14px; }
+
 #frame-strip {
   border-top: 1px solid var(--border); background: var(--bg-panel); padding: 8px 12px;
   display: flex; align-items: center; gap: 10px;

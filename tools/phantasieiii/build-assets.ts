@@ -17,20 +17,30 @@ import {
   P3_ENCOUNTER_PALETTE_BANK,
   isP3SpriteBankFile,
 } from '../../src/assets/formats/sprite-bank.ts';
+import { buildWorldMap } from './build-map.ts';
+import { buildMusicAssets } from './build-music.ts';
 // getGameConfig is dynamically imported inside main() (CLI-only) to avoid a
 // static circular import — game-config.ts imports buildAssets from this
 // file to register the pipeline step.
 
-interface ManifestEntry {
+export interface ManifestEntry {
   name: string;
   sprites: number;
   hasPalette: boolean;
   png: string;
+  /**
+   * Which view the entry opens in. Absent (the default) means the ordinary
+   * sprite-atlas / picture canvas; `'map'` is the world-map view, which
+   * reads `<name>.json` + `<name>-pois.json` instead of an atlas; `'music'`
+   * is the player, which reads `music/<name>.bin` and decodes it in the
+   * browser (see `tools/phantasieiii/build-music.ts`).
+   */
+  type?: 'atlas' | 'map' | 'music';
 }
 
 /** Upsert-by-name merge into an existing manifest.json, since multiple
  *  build steps may contribute entries (see AGENTS conventions). */
-function upsertManifest(outDir: string, entries: ManifestEntry[]): void {
+export function upsertManifest(outDir: string, entries: ManifestEntry[]): void {
   const manifestPath = resolve(outDir, 'manifest.json');
   let existing: ManifestEntry[] = [];
   if (existsSync(manifestPath)) {
@@ -132,15 +142,6 @@ function buildSetAssets(graphicsDir: string, outDir: string): ManifestEntry[] {
     height: set.picture.height,
   });
 
-  // Bonus artifact: the raw map array, for future terrain-semantics work
-  // (TODO gfx-set-map-semantics) — not a rendered asset, just decoded data.
-  writeJson(resolve(outDir, 'data', 'set-map.json'), {
-    width: set.mapWidth,
-    height: set.mapHeight,
-    unknownByte: set.unknownByte,
-    cells: Array.from(set.mapArray),
-  });
-
   return [{ name, sprites: 0, hasPalette: true, png: `${name}.png` }];
 }
 
@@ -153,10 +154,13 @@ export function buildAssets(config: PlatformConfig, dataDir: string): void {
   const graphicsDir = resolve(dataDir, 'Graphics');
   const cmpEntries = buildCmpAssets(graphicsDir, outDir);
   const setEntries = buildSetAssets(graphicsDir, outDir);
+  const mapEntries = buildWorldMap(dataDir, outDir);
+  const musicEntries = buildMusicAssets(dataDir, outDir);
 
-  upsertManifest(outDir, [...cmpEntries, ...setEntries]);
+  const entries = [...cmpEntries, ...setEntries, ...mapEntries, ...musicEntries];
+  upsertManifest(outDir, entries);
 
-  console.log(`Wrote ${cmpEntries.length + setEntries.length} asset(s) to ${outDir}`);
+  console.log(`Wrote ${entries.length} asset(s) to ${outDir}`);
 }
 
 async function main() {
