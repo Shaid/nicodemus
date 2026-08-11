@@ -504,7 +504,7 @@ bundled together with the terrain-art picture used to render it.
 
 | Offset | Size | Field | Notes |
 |--------|------|-------|-------|
-| `0x0000` | 1 | Unknown byte | `0xFA` (250) in `phantasy.set`; not consumed by anything else in the format — possibly a version/checksum byte |
+| `0x0000` | 1 | Unused byte | `0xFA` (250) in `phantasy.set`. **Read and discarded by the game** — see §5.4 |
 | `0x0001` | 1 | Map height (tiles) | `75` |
 | `0x0002` | 1 | Map width (tiles) | `50` |
 | `0x0003` | 32 | ST palette | Same 16×16-bit-word encoding as §2 |
@@ -608,6 +608,95 @@ This reclassifies `.SET` from "sprite sheet" (its file extension's naming
 pattern by association with `.CSH` might suggest) to "world map
 container" — a correction to the task brief's working assumption, not to
 any earlier version of this document.
+
+> **Correction (2026-08-11) — the `.set`-consuming code has now been found,
+> and the single-occurrence-values claim needs two fixes.** See
+> `dungeon-format.md` §9.0.5 for the full evidence.
+>
+> 1. **The column-index reading is now confirmed at code level**, not just
+>    structurally. The paragraph above says "no `.set`-consuming code was
+>    found in `PhantasieIII`'s disassembly". It exists: the 9 × 9 viewport
+>    blitter at hunk-0 addr `0x9B82` computes `base + Y*50 + X`
+>    (`muls.w $2808.l` at addr `0x9BAA` — one of only **two** such
+>    instructions in the entire 137,352-byte CODE hunk), fetches the byte
+>    at addr `0x9C1C`, and pushes it **verbatim, with no transform of any
+>    kind**, as the argument to the tile blitter at addr `0x3834`. The
+>    exact picture row it samples is still not pinned down, so
+>    `terrainPixelIndexForMapValue`'s row parameter remains a rendering
+>    choice.
+> 2. **The value range is `25`-`52` plus `54`, not `24`-`49`**, and it is
+>    30 map cells, not 26 — value `50` legitimately occurs **twice** (two
+>    inns share one graphic), `24` is an ordinary Water-band cell with no
+>    location attached, and `53` never occurs in the map at all.
+> 3. **The mechanism is refuted even though the correlation is real.**
+>    "Every named location on the map gets a distinct marker value" is
+>    true, and each of the 30 cells is now bound to a concrete name
+>    (Pendragon, Sandy Shores, … , The Deadly Inn — full table in
+>    `dungeon-format.md` §9.0.5.5). But the engine does **not** read the
+>    tile value to know what is there: it identifies every named place by a
+>    chain of hardcoded `(x, y)` comparisons at hunk-0 addr `0x9C6A`, which
+>    never touches the map array at all. The marker values are the artwork,
+>    not the lookup key. A separate terrain classifier at addr `0xA4A6`
+>    does branch on the map byte, but only into terrain-look bands
+>    (`0`/`1`/`2`-`25`/`61`-`67`/`68`-`74`/`90`-`114`/…); the only compare
+>    immediate it has anywhere in the `24`-`49` window is the `25` that
+>    closes the Water band.
+>
+> Practical consequence for this pipeline: the 30 marker values **can** be
+> used to place named-location pins on a rendered world map, and the names
+> are now known — but they must be treated as a rendering convenience
+> derived from `dungeon-format.md` §9.0.5.5's table, not as a decoded
+> engine mechanism.
+
+### 5.4 The `.SET` reader — located; the leading byte is read and discarded
+
+The `.set` **loader** — distinct from the map *renderer* found separately
+(§5.3's 2026-08-11 correction, `dungeon-format.md` §9.0.5) — is at
+**file offset `0x2800`** (hunk 0, addr `0x27D8`). It was reached from the
+one `"Graphics/Phantasy.set"` string (file `0x7df1`) by the PC-relative
+`PEA d16(PC)` xref scan (`game-re-tooling/amiga.md`): exactly one hit, at
+file `0x7576`, whose enclosing call is `jsr $27d8.l` →
+`0x27d8 + 0x28 = 0x2800`.
+
+The routine is a straight sequence of AmigaOS `Read()` calls and confirms
+§5.1's layout field by field, from code rather than byte accounting:
+
+```
+LoadSet(char *name /* +8(a5) */, void *mapBuf /* +0xC(a5) */)
+  0x280c:  fh = Open(name, MODE_OLDFILE)              ; 0x3ED
+  0x281c:  if (!fh) goto fail
+  0x282c:  Read(fh, &leadingByte, 1)                  ; -> -$9(a5)
+  0x2842:  Read(fh, &height,      1)                  ; -> -$B(a5)
+  0x2858:  Read(fh, &width,       1)                  ; -> -$A(a5)
+  0x2870:  Read(fh, $2AEE, 0x20)                      ; 32-byte ST palette
+  0x2894:  Read(fh, mapBuf, height * width)           ; muls.w at 0x2886
+  0x28ac:  Read(fh, *(void **)$290C, 0x7D00)          ; 32,000-byte picture
+  0x28ba:  Close(fh)
+  0x28c8:  $2806 = height ; $2808 = width             ; published as globals
+```
+
+**The leading byte is dead.** `-$9(a5)` is referenced exactly once in the
+whole function — the `PEA -$9(a5)` at `0x2824` that hands `Read()` its
+destination. It is never loaded, compared, stored to a global, or passed
+anywhere; the function returns at `0x2904` without touching it again.
+So whatever `0xFA` meant to whoever produced `phantasy.set` (an authoring
+tool's version stamp, a field another platform's build consumed, a
+sentinel), **the Amiga build ignores it entirely**, and no checksum or
+version hypothesis can be tested against behaviour because there is no
+behaviour to test. That closes the question as far as this executable can
+answer it.
+
+Two things this also settles for §5.1:
+
+- The `0x7D00` (32,000) picture read and the `0x20` (32) palette read are
+  **hardcoded constants in the reader**, not inferences from file size;
+  only the map array's length is computed (`height × width`).
+- The field order is confirmed as *(unused byte, **height**, **width**)* —
+  the two dimension bytes are read into separate byte locals in that
+  order and published to `$2806`/`$2808`, so `phantasy.set`'s `75`/`50` is
+  height-then-width as documented, not the reverse.
+
+**Confidence: confirmed** — code-traced, byte-verified.
 
 ## 6. Sprite-bank grid extraction (Phantasie III `.CMP` monster/race banks)
 
@@ -777,14 +866,19 @@ recognisable as the named creature.
   bytes entirely, so this was derived from scratch against real data. The
   exact row the real game samples from was not determined (no
   `.set`-consuming code was located in `PhantasieIII`'s disassembly).
-- **`.set`'s leading unknown byte** (`0xFA` in `phantasy.set`) — meaning
-  still not identified; not consumed by the reference decoder. Tested and
-  ruled out this pass: simple checksums (byte-sum mod 256, XOR-fold) of
-  the map array, the picture data, and the whole file after the header —
-  none reproduce `0xFA`. Only one `.set` file exists in this corpus, so
-  cross-file comparison isn't available; a code trace would need the
-  actual `.set`-reading routine in `PhantasieIII`, which wasn't located
-  (see the map-semantics note above — the same gap).
+- **`.set`'s leading unknown byte** (`0xFA` in `phantasy.set`) —
+  **RESOLVED 2026-08-10: the byte is read into a stack local and never
+  used.** The `.set` reader has now been located at file `0x2800` (see
+  §5.4) via the PC-relative `PEA d16(PC)` xref from the
+  `"Graphics/Phantasy.set"` string — the trace two earlier passes said
+  they needed. It issues `Read(fh, &local, 1)` for this byte and then
+  never references that local again anywhere in the function. It is
+  therefore not a checksum, version or dimension field *as far as this
+  executable is concerned*: no code path can observe it, so the earlier
+  checksum tests were testing a hypothesis the binary could never have
+  implemented. Whatever it meant to the authoring tool or another
+  platform's build is not recoverable from the Amiga data set (only one
+  `.set` file exists here). Closed.
 - **P3 `.cmp` sprite-bank `spriteIndex` mapping table — RESOLVED,
   confirmed byte-exact, with one correction.** See §6: the piecewise
   thresholds and bank assignments for `spriteIndex` 0-47 are now

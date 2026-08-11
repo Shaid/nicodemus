@@ -880,6 +880,26 @@ the **first** displacement after each base load, so it is shape-based and
 may undercount; it is evidence that these fields have no display
 consumer, not a proof that they have only one reader each.
 
+> **Narrowing for `statIndex 8` (2026-08-11) — a manual-backed lead, not
+> a naming.** The Phantasie I manual (plaintext copy at
+> `~/Development/amigagames/Phantasie/Manual`; the same text is in
+> `~/Development/amigadocs/game-manuals/Phantasie_I_and_Phantasie_II_Rulebook_SSI_text.pdf`,
+> which does have a real text layer) says of the town Inn:
+> *"Characters who have cast spells during their adventures may find their
+> maximum limit for magic has been raised after resting at an inn."*
+> That is a described behaviour with no field bound to it anywhere in this
+> document — and the one and only access site found for `char.+0x0E` is in
+> the **inn/rest routine** at `0x1DA6C`, where it is used as
+> `char.+0x0E − char.+0x10 (maximum Magic)`. A "magic exercised since the
+> last rest" accumulator that the inn compares against the current maximum
+> is exactly the shape that sentence implies. **Confidence: hypothesis** —
+> the inn routine's use of the difference was never traced past the
+> subtraction, so what it does with the result is unknown, and the field is
+> deliberately left unnamed here.
+>
+> No comparable lead exists for `statIndex 7` (`char.+0x0C`); the naive
+> "AGE" reading is refuted above.
+
 **Confidence:** every row of the two binding tables above is
 **confirmed** — instruction-level trace, 51/51 bytes re-read from the
 real file with 0 mismatches, plus two independent structural oracles
@@ -1825,14 +1845,14 @@ big-endian words):
 | Offset | Field | Confidence |
 |--------|-------|------------|
 | `+0x00` | Name, 8-byte NUL-padded ASCII | confirmed |
-| `+0x08` | Value averaged across the party and `×30`'d in the to-hit adjustment; `2` for every shipped record | confirmed read; semantics **hypothesis** (level?) |
+| `+0x08` | **Rank** — combat position `0`-`3` (the manual's Front/Middle/Back), driving the party sprite's screen X via the jump table at file `0x1b456`; the to-hit term is `(rank − partyAverageRank) × 30`. `2` for every shipped record | **confirmed** (§7.5.3) |
 | `+0x0A`-`+0x14` | Six attributes, order **Strength, Intelligence, Dexterity, Constitution, Charisma, Luck** — `FIGHTER` peaks at `+0x0A` (19), `WIZARD` at `+0x0C` (18), `THIEF` at `+0x0E` (21), matching that order | **confirmed** (upgraded from *rendered* this pass — §7.5.2's character-sheet template string prints these 6 labels in this exact order, independent of the class-peak-value reasoning) |
-| `+0x20`/`+0x22` | Current / maximum HP (`8`/`8` THIEF, `12` FIGHTER, `200` Mist) | **rendered** |
+| `+0x20`/`+0x22` | **Maximum / current** HP (`8`/`8` THIEF, `12` FIGHTER, `200` Mist) — *order corrected 2026-08-10: the sheet prints `+0x22` to the left of the `/` and `+0x20` to the right, and the manual (p.7) defines that display as `current / total`. §7.5.3* | **confirmed** |
 | `+0x2C` | Status; `1` = active, `0`/`2`/`3` skip the target, `4` takes a −40 to-hit penalty | confirmed |
-| `+0x30`-`+0x53` | Nine `(current, max)` word pairs — skill percentages, order **Attack, Parry, Swimming, Listen, Find Trap, Disarm Trap, Find Item, Pick Lock, Fire Bow** (`+0x30`=Attack, `+0x34`=Parry, ..., `+0x50`=Fire Bow) | confirmed (`+0x30` role and record layout), **strong hypothesis** (the specific pair↔name binding — see §7.5.2) |
-| `+0x48` | Spellcaster-branch threshold base — this is the *current* half of skill pair 6 (0-based) within the `+0x30` block above, i.e. the **Find Item** skill slot under the §7.5.2 naming hypothesis (an odd-looking reuse, flagged not resolved in §7.5.2) — not a separate field | confirmed (offset/role), hypothesis (which named skill) |
-| `+0x6A`, `+0x6C`, `+0x86` | Indices into the `+0x0F10` ramp table | confirmed |
-| `+0x6E`, `+0x70` | Weapon/attack mode source fields | confirmed |
+| `+0x30`-`+0x53` | Nine `(percentage, attribute-derived maximum)` word pairs. **The order is NOT the on-screen label order** — corrected 2026-08-10, see §7.5.3: `+0x30` Attack, `+0x34` Parry, `+0x38` Find Item, `+0x3C` Find Trap, `+0x40` Disarm Trap, `+0x44` Listen, `+0x48` Fire Bow, `+0x4C` Pick Lock, `+0x50` Swimming | **confirmed** (§7.5.3, two independent code paths) |
+| `+0x48` | **Fire Bow** skill percentage (§7.5.3) — read by the **Fire/missile** branch of the to-hit formula, not a "spellcaster" branch; not a separate field, it is skill pair 6 of the `+0x30` block | **confirmed** |
+| `+0x6A`, `+0x6C`, `+0x86` | Equipped **armour** / **melee weapon** / **bow** item ids — indices into the item point-value table at `+0x0F10` (`data-tables.md` §7). Shipped values `22`/`64`/`41`-`44` = Robes / Mace / Self Bow / Short Bow | **confirmed** |
+| `+0x6E`, `+0x70` | Combat-menu selection (the manual's Thrust/Attack/Slash/Lunge/Aim/Spell/Parry/Fire menu); `4`/`15` select the Fire/missile branch | confirmed |
 | `+0x106` | (= record stride; next record) | confirmed |
 
 **Bonus confirmation for `inititem.dat`:** the save block at hunk 1
@@ -1931,6 +1951,15 @@ table already used for its first 8 skills (`Attack, Parry, Swim, Listen,
 Spot trap, Disarm, Spot item, Pick lock`) — a third, structurally
 unrelated confirmation of the same ordering.
 
+> **Correction (2026-08-10, `game-re`) — the pair↔name binding below was
+> a *sequential* assumption and it is wrong for 6 of the 9 skills.** The
+> character-sheet draw routine has now been located and disassembled
+> (file `0x13b78`), and the skills are stored in an order that does **not**
+> follow the on-screen label order. The corrected, confirmed mapping is in
+> §7.5.3; the hypothesis table below is preserved as the superseded
+> reading. Only Attack (`+0x30`), Parry (`+0x34`) and Pick Lock (`+0x4C`)
+> were guessed correctly.
+
 **Binding these names to the `+0x30`-`+0x53` character-record pairs —
 strong hypothesis, not fully disassembly-confirmed.** A byte-level trace
 of the character-sheet screen's own draw routine (reading `charRec.+0x30`,
@@ -1983,6 +2012,28 @@ records around by score, doesn't read individual skill fields),
 `0x140be`, `0x14112`, `0x1fc0c`, `0x1fcf0`; `$3D0A` (active-party base)
 has 69 further sites, overwhelmingly the already-traced combat setup
 loops. None of the un-inspected sites were disassembled this pass.
+
+> **Correction (2026-08-10, `game-re`) — the "202-byte ramp table" is two
+> 101-byte per-item stat tables, and it is now fully identified.** The
+> block at hunk 1 `+0x0F10` is **not one table of concatenated arithmetic
+> ramps**; it is `pointValue[itemId]` (101 bytes, `+0x0F10`) immediately
+> followed by `attributesRequired[itemId]` (101 bytes, `+0x0F75`), both
+> indexed by item id `0`-`100` — `101 + 101 = 202`, exact. Both bases are
+> used directly by the armoury-stock builder at file `0x8b5a`
+> (`lea $f10.l,a1` / `lea $f75.l,a1`, indexed by the loop's item id), and
+> both are **byte-exact against the SSI rule book's own COMBAT EQUIPMENT
+> tables on pages 17-18** — 200/200 values, 0 mismatches. The "ramps" are
+> the item catalogue's ascending-quality runs (20 shields, 10+10 armours,
+> 20 bows, 20+20 weapons), not a numeric design curve. Likewise the word
+> table at `+0x0FDA` described below as "an experience-per-level curve" is
+> the **181-entry item base-price table** (`0x0FDA + 181×2 = 0x1144`,
+> exactly the start of the 18-entry armoury markup table). Full write-up:
+> `data-tables.md` §7. The three character-record index fields
+> `+0x6A`/`+0x6C`/`+0x86` are therefore **equipment-slot item ids**
+> (armour / melee weapon / bow), and the shipped `gamesave.dat` values
+> `22`/`64`/`41`-`44` resolve to Robes / Mace / Self Bow / Short Bow.
+> The HP/MP-chart test recorded below stays valid as a refutation, and is
+> now explained: the tables are indexed by item, never by class or level.
 
 **Ramp table (`+0x0F10`, file `0x287D8`) tested directly against the
 manual's Hit Points and Magic Points charts — no match, exhausted.** The
@@ -2082,6 +2133,172 @@ byte-exact. The body-location hypothesis against P1's `+0x146`/`+0x138`/
 `+0x132` — **tested and refuted** structurally; no P3 equivalent field
 identified to test it against.
 
+### 7.5.3 P3 character record — field names CONFIRMED via the character-sheet draw routine
+
+The draw routine §7.5.2 could not isolate has been found: **file
+`0x13b78`**. It was located not by chasing `$5174`/`$3D0A` xrefs (the
+search that failed) but by looking up the sheet-template string's own
+**pointer-table slot**: string ID 145 sits at file `0x290c8` = hunk 1
+`+0x1800`, and a `HUNK_RELOC32` scan for a stored longword equal to
+`0x1800` gives **exactly one** hit, at file `0x13b98` — inside the
+routine that prints it.
+
+The routine does not read the roster or party arrays at all. It reads a
+**flat 262-byte "current character" scratch copy based at hunk 1
+`$30E0`** (BSS), so every `$30xx`/`$31xx` address it touches is
+`recordBase + fieldOffset` with `recordBase = 0x30E0`. That the scratch
+struct really is a character record is over-determined: the four fields
+the **roster line printer** at file `0x129ec` reads out of the *real*
+262-byte records (`$5174 + i×0x106`) land on the same four offsets, and
+each is fed to the same string sub-table:
+
+| Roster printer (`0x129ec`) | Record offset | Scratch (`0x13b78`) | String table |
+|---|---|---|---|
+| name, col 2 | `+0x00` | `$30E0` | — |
+| race, col 10 | `+0xA8` | `$3188` | `+0x15BC` (race names, ID 0) |
+| level, col 21 | `+0x74` | `$3154` | — (numeric) |
+| class, col 24 | `+0x94` | `$3174` | `+0x1604` (class names, ID 18) |
+| status, col 32 | `+0x2C` | `$310C` | `+0x165C` (ID 40) |
+
+`$3174`/`$3154` are also the exact two globals the **skills-table reader**
+in `data-tables.md` §5.2 reads as `classIndex`/`level` — a third
+independent agreement on the same scratch base.
+
+**Confirmed field map** (262-byte stride; screen row/column are the
+sheet's, template blocks printed at col 3, rows 3 and 13):
+
+| Offset | Size | Field | Evidence |
+|---|---|---|---|
+| `+0x00` | 8 | Name, NUL-padded ASCII | sheet row 3; roster col 2 |
+| `+0x08` | 2 | **Rank** (combat position, `0`-`3`) | see below |
+| `+0x0A`-`+0x14` | 6×2 | Strength, Intelligence, Dexterity, Constitution, Charisma, Luck | sheet rows 11-16, col 18, in this order |
+| `+0x1C`/`+0x1E` | 2+2 | Magic Power **max** / **current** | sheet row 19: `+0x1E` printed left of the `/`, `+0x1C` right |
+| `+0x20`/`+0x22` | 2+2 | Hit Points **max** / **current** | sheet row 18, same rule; manual p.7: *"two numbers: current hit points / total hit points"* |
+| `+0x28` | 2 | Age, in 1/26 year (printed as `value / 26`) | sheet row 6 col 29, `divs #26`; manual p.7 *"the age of the adventurer in years"* |
+| `+0x2C` | 2 | Status → `Dead, Okay, Asleep, Out, Down` (ID 40) | sheet row 8 |
+| `+0x30`-`+0x53` | 9×(2+2) | Nine skills — **see the corrected order below** | sheet rows 8-16 col 36; skills-init at `0xe67a` |
+| `+0x58` | 2 | Origin (continent) → `Gelnor, Ferronrah, Netherworld, Scandor` (ID −6) | sheet row 7 |
+| `+0x6A` | 2 | Equipped **armour** item id | `data-tables.md` §7 |
+| `+0x6C` | 2 | Equipped **melee weapon** item id | " |
+| `+0x6E`/`+0x70` | 2+2 | Combat-menu selection (the manual's Thrust/Attack/Slash/Lunge/Aim/Spell/Parry/Fire menu) | §7.5.1 |
+| `+0x74` | 2 | Level | sheet row 4 |
+| `+0x82` | 2 | Score | sheet row 3 col 29 |
+| `+0x86` | 2 | Equipped **bow** item id | `data-tables.md` §7 |
+| `+0x8E` | 2 | Social class → `Peasant, Labourer, Craftsman, Noble, Darklord, Superhero` (ID 30) | sheet row 9 |
+| `+0x94` | 2 | Class → `Fighter, Thief, Priest, Ranger, Monk, Wizard` (ID 18) | sheet row 6 |
+| `+0xA8` | 2 | Race → the 18 `readP3RaceNames()` entries (ID 0) | sheet row 5 |
+| `+0xF2`-`+0xFC` | 6×2 | **Body locations** — Head, Torso, L-Arm, R-Arm, L-Leg, R-Leg, each `0`-`3` → `Okay, Injured, Broken, Gone` (ID 36) | sheet rows 18-23 col 31, a 6-iteration loop at `0x13f5c` |
+| `+0xFE` | 4 | Gold in bank (`u32`) | sheet row 5 col 29 |
+| `+0x102` | 4 | Experience points (`u32`) | sheet row 4 col 29 |
+
+> This also **answers the body-location question §7.5.2 left open for P3.**
+> The manual's *"Each character and monster has 6 Body Locations: Head,
+> Torso, Left and Right Arm, and Left and Right Leg… Okay (O), Injured
+> (I), Broken (B), or Gone (G)"* is implemented in P3 as exactly six
+> consecutive words at `+0xF2`, each indexing a four-entry string table
+> (`Okay/Injured/Broken/Gone`, table base hunk 1 `+0x164C`). §7.5.2's
+> refutation of the hypothesis against P1's `+0x146`/`+0x138`/`+0x132`
+> stands unchanged — those really aren't it; the P3 field simply hadn't
+> been found yet.
+
+**The nine skills — corrected order (supersedes §7.5.2's table).** Two
+independent code paths agree byte-for-byte:
+
+1. The **sheet draw routine** prints the nine labels' values at rows 8-16.
+2. The **skills-init / level-up routine** at file `0xe67a` reads
+   `data-tables.md` §5.1's eight class/level tables in their documented
+   order and writes each result into a specific field pair.
+
+| Label (screen order) | §5.1 class table | Record offset (pair) |
+|---|---|---|
+| Attack | `0x28386` (hunk 1 `+0xABE`) | `+0x30` / `+0x32` |
+| Parry | `0x283E0` (`+0xB18`) | `+0x34` / `+0x36` |
+| Swimming | `0x28439` (`+0xB71`) | **`+0x50` / `+0x52`** |
+| Listen | `0x28493` (`+0xBCB`) | **`+0x44` / `+0x46`** |
+| Find Trap | `0x284ED` (`+0xC25`) | **`+0x3C` / `+0x3E`** |
+| Disarm Trap | `0x28547` (`+0xC7F`) | **`+0x40` / `+0x42`** |
+| Find Item | `0x285A1` (`+0xCD9`) | **`+0x38` / `+0x3A`** |
+| Pick Lock | `0x285FB` (`+0xD33`) | `+0x4C` / `+0x4E` |
+| Fire Bow | *(none — no class table)* | **`+0x48` / `+0x4A`** |
+
+Fire Bow having no class/level table is itself confirmation: `0xe67a`
+computes the other eight as
+`new = (classTable[class][level] + old) / 2 + max − 49` but Fire Bow as
+`new = old / 2 + max − 49`, with no table load — matching §5.1's count of
+exactly **eight** 90-byte tables for **nine** skills.
+
+**The second word of each pair is an attribute-derived maximum —
+confirmed, 48/48.** §7.5.1 called these `(current, max)` pairs on
+structural grounds. For eight of the nine, word 1 is exactly
+`2 × governingAttribute + 30`, verified against all six shipped
+`gamesave.dat` characters with **zero mismatches across 48 checks**:
+
+| Skill | Governing attribute |
+|---|---|
+| Attack | Strength |
+| Parry, Disarm Trap, Pick Lock | Dexterity |
+| Listen, Find Trap, Find Item | Intelligence |
+| Swimming | Constitution |
+
+Fire Bow's maximum does not fit this form (values `134/91/82/96/80/64`
+against Dex `21/15/11/18/12/9`) and its rule was not derived — the only
+sub-item of the character record still open. Note also that the three
+`Air`/`Mist`/`Mud` elemental records carry word 1 = `0` with word 0 up to
+`255`, which independently rules out the alternative "word 1 is the
+current value" reading.
+
+**`+0x08` is the character's combat Rank — confirmed.** §7.5.1 recorded
+it only as "value averaged across the party and ×30'd in the to-hit
+adjustment; `2` for every shipped record". The party-sprite X-placement
+routine at file `0x1b456` resolves it: it switches on
+`party[i].+0x08` through a 4-entry jump table and writes the sprite's
+screen X, clamping any out-of-range value back to `0`:
+
+```
+0x1b4b8:  if (unsigned)rank >= 4 -> x = 0x8F, rank = 0     ; clamp
+0x1b4c2:  jump table at 0x1b4b0:
+            rank 0 -> x = 0x8F (143)
+            rank 1 -> x = 0x8A (138)
+            rank 2 -> x = 0x85 (133)
+            rank 3 -> x = 0x7B (123)
+0x1b4d2:  spriteX[i] = x
+```
+
+This is the manual's own combat-menu `Other → Front / Middle / Back`
+option (rule book p.10: *"Front… where he has the greatest chance to hit
+and be hit by melee weapons"*, *"Back… where he is the least likely to
+hit with, or be hit by, melee attacks"*), and it explains the to-hit term
+`(party[i].+0x08 − partyAverage(+0x08)) × 30` in §7.5's default branch:
+it is a *relative* position bonus, worth 30 points per rank step away
+from the party's mean. The shipped default of `2` for every character is
+the middle of the 0-3 range. **Which end of the range is "Front" was not
+independently pinned down** — the X coordinates decrease with rank, so
+rank 3 is the leftmost figure, but the party's screen side relative to
+the monsters was not traced.
+
+> **Correction to §7.5's branch label:** the branch it calls the
+> *"spellcaster" branch* (taken when the combat-menu field
+> `charRec.+0x6E` is `4` or `15`) reads `charRec.+0x48`, which is now
+> confirmed to be **Fire Bow**, and its die comes from
+> `pointValue[charRec.+0x86]` — the equipped **bow**'s point value
+> (`data-tables.md` §7). It is the **Fire (missile) branch**, matching the
+> manual's `Fire` combat-menu entry (*"lets the adventurer fire his
+> bow"*), not a spellcasting path. §7.5's operation sequence is unchanged;
+> only the branch's name and the operands' identities are corrected. This
+> also removes §7.5.2's "odd-looking reuse" note about `+0x48` — there is
+> no reuse: `+0x48` is Fire Bow and the missile branch is the one place a
+> Fire Bow skill belongs.
+
+**Confidence: confirmed** — every row of the field map above is a direct
+disassembly read with a matching on-screen label from the game's own
+template string, cross-checked against the roster printer's independent
+reads of the real 262-byte records, and every field decodes to plausible,
+mutually-consistent values across all nine shipped `gamesave.dat` records
+(six characters whose `+0x94` class field resolves to exactly the class
+name stored in their own `+0x00` name field, 6/6; all six `Origin` =
+`Scandor`, P3's setting; all `Status` = `Okay`; all body locations
+`Okay`; starting gold `0`-`768`).
+
 ## Open questions
 
 | Item | What's known | What's missing |
@@ -2096,4 +2313,4 @@ identified to test it against.
 | P1 combat field semantics (§7.1b/§7.2a/§7.3) | Five character-record fields now bound to exact `statIndex` values via §6.3(c)'s resolver table: `char.+0xC`→`7`, `+0xF6`→`56`, `+0xF8`→`57`, `+0xFA`→`58`, `+0xF2`→`163`. The monster-attacks-player mirror branch (§7.3) is now located and fully formula-confirmed, alongside the already-confirmed party-attacks-monster direction (§7.1b/§7.2a). `roundedHalf()` is now a fully confirmed exact algorithm (Newton's-method integer sqrt, §7.2a) | English names for the bound `statIndex` values; `monster.field_0x2E`/`0x14`/`0x38`/`0x16` (no `statIndex` binding possible — monsters aren't `GetStat`-addressable); the `+0x146`/`+0x138`/`+0x132` status-array semantics; the `0x43`(67) damage constant |
 | ~~P2 combat RNG call site (§7.4)~~ | **Resolved** — `JSR $FD40` at logical `0x8706` confirmed as the call site (immediately before the hit/miss compare, same placement as P1's `RollPercent()`); the raw generator (`$1AD22`) turned out to be a table-sum-and-rotate additive generator, not an LCG; the full to-hit and damage-magnitude formulas are now confirmed byte-identical in shape/offsets/constants to P1's | The monster-attacks-player mirror direction (P1's §7.3) — not traced for P2 |
 | ~~P3 to-hit/damage formula (§7.5/§7.5.1)~~ | **Resolved** — both to-hit branches, the hit/miss compare, the damage-magnitude formula (a single die roll against a per-party-member die-size array), and the damage-application function's location/behavior are all confirmed, via a corrected `HUNK_RELOC32`-based call-target-resolution technique (`target = rawOperand + 0x28`); the `$2Axx`/`$3Dxx` addresses turned out to be BSS runtime variables (a merged SAS/C `data+bss` hunk), not stored tables — root-caused and confirmed byte-exact against `gamesave.dat`'s live character records (§7.5.1) | Two narrower residual items carried forward to `TODO.md`: `scripting-p3-ramp-table-semantics` (per-ramp meaning of the one genuinely *stored* lookup table) and `scripting-p3-charrecord-field-names` (English names for the 262-byte character-record fields) |
-| P3 character-record field names + ramp table (§7.5.2) | The real SSI 1987 manual (`implementation-plan.md`'s addendum) let this be tested directly. **9 skill-pair names confirmed as real on-screen text** (found via the same reloc-resolved string-ID table as the race names, §4.1) and cross-checked 3 ways (manual, §5.1's independent 8-skill table, the character-sheet template string) — all agree on one order: Attack/Parry/Swimming/Listen/Find Trap/Disarm Trap/Find Item/Pick Lock/Fire Bow. The 6-attribute label order is now **confirmed** the same way (upgraded from *rendered*). The ramp table (`+0x0F10`) was tested byte-exact against the manual's HP/MP-by-class-and-level charts — **no match, refuted**, not merely untried. The manual's body-location hypothesis was tested against P1's `+0x146`/`+0x138`/`+0x132` — **structurally refuted** (single-value-per-character indexing, base-10 group/slot split, incompatible with 6 independent per-location states) | Binding the 9 confirmed names to the specific `+0x30`-`+0x53` pair offsets is a **strong hypothesis, not disassembly-confirmed** — the character-sheet draw routine's field-read loop wasn't isolated from `PhantasieIII`'s many other `$5174`/`$3D0A` xrefs this pass (candidate sites listed in §7.5.2, none yet disassembled). The `+0x0F10` ramp table's real role remains open (ruled out as HP/MP, not yet positively identified). No P3 analogue of P1's body-location-tested fields has been located to test the manual's body-location system against directly |
+| ~~P3 character-record field names + ramp table (§7.5.2)~~ | **Resolved 2026-08-10 (§7.5.3, `data-tables.md` §7).** The character-sheet draw routine was located at file `0x13b78` — via the sheet template string's own pointer-table slot (`0x1800`, a single `HUNK_RELOC32` hit), not via the `$5174`/`$3D0A` xref search that failed — giving a confirmed name for every character-record field, plus the P3 body-location array at `+0xF2` the previous pass had no candidate for. **§7.5.2's sequential skill-pair binding is refuted for 6 of 9 skills**; the corrected order is confirmed by two independent code paths. The `+0x0F10` "ramp table" is two 101-byte per-item stat tables (point value, attributes required), byte-exact against the rule book's pages 17-18 across 200/200 values. `+0x08` is the combat **Rank**. | Fire Bow's attribute-derived maximum (`+0x4A`) is the one field whose formula was not derived — the other eight are exactly `2 × governingAttribute + 30` (48/48 checks). Which end of the `+0x08` rank range the manual calls "Front" was not independently pinned down. |

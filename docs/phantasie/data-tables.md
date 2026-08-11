@@ -657,7 +657,108 @@ raw string-scan result byte-for-byte.
 in `src/assets/formats/exe-data.ts`, tested in
 `src/assets/formats/__tests__/exe-data.test.ts`.
 
-### 4.2 Race → sprite-bank-cell mapping — not located (open)
+### 4.2 Race → sprite-bank-cell mapping — LOCATED AND CONFIRMED
+
+> **Correction (2026-08-10, `game-re`):** this section previously read
+> "not located (open)", and the pipeline's working assumption was
+> `bankSpriteIndex = raceIndex` (an identity mapping). **Both are now
+> superseded.** The table exists, it is at file offset `0x299d8`
+> (hunk 1 `+0x2110`), it is **19 bytes** (not 18 words), and it is
+> emphatically **not** an identity mapping — 6 of the 18 races map to a
+> cell shared with another race, and several map to a *lower* cell than
+> their own index. The identity assumption would have drawn a Halfling as
+> a winged Pixie, a Lizard Man as an Undead, and a Gnoll as a Minotaur.
+> The three failed searches recorded below are preserved verbatim, and
+> the reason all three were structurally blind is stated after them.
+
+**Location: file `0x299d8`, hunk 1 `+0x2110`, 19 bytes, one byte per
+entry.** Confirmed by disassembling the party-sprite **cell extractor** at
+file `0x1b2da` — the routine that slices bank 0 into the runtime sprite
+array — rather than by searching for the table's own shape:
+
+```
+0x1b2f6:  for i = 0 .. 13:                 ; 7 party slots x 2 poses
+0x1b2fa:    slot = i >> 1
+0x1b2fc:    if raceByte[slot] < 0: continue          ; $29E0[slot], 0xFF = empty
+0x1b332:    v  = raceSpriteTable[raceByte[slot]]     ; lea $2110.l,a1 / move.b (a1,d2.l),d3
+0x1b340:    srcY = (v / 10) * 0x30                   ; divs #10, muls #48  -> cell row
+0x1b36c:    srcX = ((v % 10) + (i & 1)) * 4          ; swap (remainder), + pose, *4 bytes
+0x1b390:    extractCell(bank=$28FC, table=$2E06, cell=i, srcX, srcY, w=4, h=0x30,
+                        dstOffset=(i+1) * 0x308)
+```
+
+`srcX`'s unit is 4 bytes of one bitplane row = 32 pixels, `srcY`'s is
+pixel rows — i.e. exactly `graphics-formats.md` §6's confirmed 10 × 4 grid
+of 32 × 48 cells over bank 0 (`heros.cmp`). Note the row comes from
+`v / 10` and the column from `(v % 10) + pose`, so an idle/attack pair
+always stays on **one row**; every stored value is even with `v % 10 ≤ 8`,
+so this coincides with feeding `v + pose` through the generic grid formula.
+
+The stored values are therefore the reference source's
+`bankSpriteIndex * 2` exactly as §4.3 describes for the ST build — this is
+the Amiga counterpart of `PHANT_3.PRG+0x6C52`, stored one byte per entry
+instead of one word.
+
+| Race idx | Race | Stored `v` | `spriteIndex` (`v/2`) | Bank-0 cell (idle, attack) |
+|---|---|---|---|---|
+| 0 | Human | 0 | 0 | (0,0) (0,1) |
+| 1 | Dwarven | 2 | 1 | (0,2) (0,3) |
+| 2 | Elven | 4 | 2 | (0,4) (0,5) |
+| 3 | Gnome | 6 | 3 | (0,6) (0,7) |
+| 4 | Halfling | 6 | 3 | **shares Gnome's cell** |
+| 5 | Random | 0 | 0 | (menu entry, reuses Human) |
+| 6 | Gnoll | 14 | 7 | (1,4) (1,5) |
+| 7 | Goblin | 16 | 8 | (1,6) (1,7) |
+| 8 | Kobold | 16 | 8 | **shares Goblin's cell** |
+| 9 | Lizard Man | 10 | 5 | (1,0) (1,1) |
+| 10 | Minotaur | 12 | 6 | (1,2) (1,3) |
+| 11 | Ogre | 14 | 7 | **shares Gnoll's cell** |
+| 12 | Orc | 16 | 8 | **shares Goblin's cell** |
+| 13 | Pixie | 8 | 4 | (0,8) (0,9) |
+| 14 | Sprite | 8 | 4 | **shares Pixie's cell** |
+| 15 | Troll | 20 | 10 | (2,0) (2,1) |
+| 16 | Elemental | 22 | 11 | (2,2) (2,3) |
+| 17 | Undead | 18 | 9 | (1,8) (1,9) |
+| 18 | *(not a race)* | 24 | 12 | (2,4) (2,5) — dead-adventurer marker |
+
+**Verification — independent visual ground truth, 13/13.** Cropping the
+already-extracted `public/assets/phantasieiii/amiga/heros.png` at each
+distinct cell pair and reading them back renders, in table order:
+a human knight; a short stocky bearded axe-and-round-shield figure
+(Dwarven); a green-clad pointy-hatted archer (Elven); a small
+shield-bearer (Gnome/Halfling); a **winged** miniature figure
+(Pixie/Sprite); a green reptilian humanoid (Lizard Man); a **bull-headed
+horned** humanoid (Minotaur); a large brown hulking beast (Gnoll/Ogre); a
+blue-grey shield-bearing humanoid (Goblin/Kobold/Orc); a pale ghostly
+figure (Undead); a green humanoid (Troll); an amorphous rocky blob
+(Elemental); and a **gravestone with a flower** for entry 18. Every one
+matches the name the table assigns it, and every mismatch the identity
+mapping would have produced is visibly wrong.
+
+Entry 18 is not a race: the byte at `$29E6` (party slot 6's race byte) is
+set to `0x12` = 18 immediately before a call to the extractor at file
+`0x1ddec`/`0x1de02` (party-death handling), and the extractor's second
+loop then also fills the three "extra" cells 14-16 of the destination
+array. The **drawer** at file `0x1b6e6` maps race byte `0x10` (Elemental)
+to destination cells 14/15, `0x16` to 16 and `0x30` to 14 — runtime
+special-form markers outside the 0-18 race value space.
+
+**Why the three earlier searches could not find this table.** All three
+looked for the table *itself* (a distinctively-shaped 18-entry array) or
+for a caller of a *name*-side artefact. The real consumer is neither: it
+is a graphics routine that never touches a race name or a bank filename,
+and the table is a 19-byte run of small even integers sitting between two
+unrelated tables — invisible to any shape-based scan. The approach that
+worked was to find the field first (`charRec.+0xA8` = race index, from the
+roster line printer at file `0x129ec`, §7.1), follow that field into the
+per-slot byte array `$29E0`, and then disassemble `$29E0`'s consumers.
+
+**Confidence: confirmed** (code-traced + visual ground truth).
+Implemented as `readP3RaceSpriteCells()` in
+`src/assets/formats/exe-data.ts`, tested in
+`src/assets/formats/__tests__/exe-data.test.ts`.
+
+#### Superseded — the three searches that failed
 
 The reference source's ST-binary `bankSpriteIndex*2` table (§4.3) was
 searched for in the Amiga binary and **not found**. Two distinct
@@ -669,11 +770,22 @@ approaches were tried and both came back empty:
 | `HUNK_RELOC32` xref scan for code referencing the race-name pointer table's own base (`0x28e84`, hunk-1-relative `0x15BC`) | 9 call sites found (file offsets `0x12a40`, `0x12b44`, `0x12d26`, `0x12d8e`, `0x12dbe`, `0x12f2c`, `0x13132`, `0x13c34`, `0x2073e`) | All 9 are call sites into a generic "read string by ID" routine used for UI text throughout the game (`Fighter`/status names/town names all route through the same pointer table, §4.1) — not race-specific, so this doesn't isolate a caller that would also touch a parallel sprite-index table |
 | PC-relative xref scan (brute-force `p + s16(word_at(p)) == target` over the whole CODE hunk, the technique that this session's `graphics-formats.md` §3/§6 passes used successfully elsewhere on this exact binary) for callers of the 7 bank-filename strings' block (`heros.cmp`/`purple1.cmp`/.../`giant2.cmp`, file `0x444e`-`0x44db`) | 27 hits, scattered across the whole binary (`0x24c` through `0x93f8`) | No concentrated cluster resolving to one character-creation/race-select function — this is a shared filename block referenced generically (comparison/display), same shape of dead end as the numeric scan above, not a genuinely different result |
 
+> **Post-mortem on row 1 (2026-08-10):** the numeric scan's failure has a
+> sharper cause than "the search space is large". It required an
+> **18-entry array of *mostly-distinct*** small integers. The real table
+> is 19 entries and is heavily duplicated by design — `16` appears three
+> times, `14` twice, `6` twice, `8` twice, `0` twice — so it was excluded
+> by the scan's own distinctness filter, not merely lost in noise. Its
+> one reported hit, `0x287d8`, is also now identified: that is the
+> **item point-value table** (§7), whose first 21 bytes are the shields'
+> `0..20` ramp, which is why it looked like an ascending index run.
+
 Race sprites (`heros.cmp`, bank 0, 32×48, never giant — `graphics-formats.md`
-§6) are rendering correctly today using **race index directly as the
+§6) were rendering using **race index directly as the
 `spriteIndex`** fed into the confirmed bank/cell grid formula (i.e.
-`bankSpriteIndex = raceIndex`, an identity mapping) — this is an
-**unverified working hypothesis**, not a located table. It's structurally
+`bankSpriteIndex = raceIndex`, an identity mapping) — this was an
+**unverified working hypothesis**, not a located table, and it is now
+**refuted** by the table above. It was structurally
 plausible (bank 0 has 40 cells, 18 races × 2 poses = 36 fits with room to
 spare) but not independently confirmed against the Amiga binary the way
 the monster `spriteIndex` piecewise table now is (`graphics-formats.md`
@@ -872,9 +984,80 @@ level 14's `235`).
 > further available oracle (no source, no errata, no third-party
 > transcription to cross-check against), not a gap in the investigation.
 
-## 6. Phantasie III (Amiga) — item table (`inititem.dat`)
+### 5.3 The level-15 anomalies — closed as undecidable, with the error reading now positively evidenced
+
+**Manual checked, and it cannot arbitrate.** The SSI 1987 rule book
+contains exactly two per-class-per-level numeric charts — "Hit Points by
+Class and Level for Adventurers with 10 Constitution" (page 11) and
+"Maximum Magic Points at Different Levels by Class" (page 14). There is
+**no skill-progression chart at any level**; the manual's only treatment
+of skills is qualitative (page 7: *"Skills: … The nine skills include
+Attack, Parry, Swim, Listen, Spot Trap, Disarm Trap, Find Item, Pick
+Lock, and Fire Bow. The numbers list the percentage chance to perform a
+task…"*), plus per-skill prose in the dungeon and combat sections. The
+one place the manual does print per-class numbers, it uses a *different*
+class order (FIGHTER, RANGER, PRIEST, MONK, THIEF, WIZARD) from the
+binary's table order (Fighter, Thief, Priest, Ranger, Monk, Wizard), so
+there is not even an indirect cross-check available.
+
+**Two new pieces of positive evidence that this table contains genuine
+data-entry errors** — found by dumping all 8 × 6 × 15 bytes and reading
+the *interiors* of the rows, not only their last entries:
+
+1. **`Pick lock` / Thief, level 3 = `35`.** The row reads
+   `51, 53, 35, 56, 58, 60, 62, 64, 65, 67, 69, 71, 72, 74, 76` — a
+   strictly increasing +2/+1 ramp with one value that drops 18 and then
+   jumps 21. `55` is the only value consistent with its neighbours.
+   `55` → `35` is a single-keystroke slip, in the **middle** of a row, at
+   no tier boundary, where no "level-15 prestige tier" design reading is
+   even available.
+2. **`Spot item` / Wizard, level 13 = `8`.** The row reads
+   `0,0,0,0,0,4,4,4,8,8,12,12,8,20,24` — again a monotone ramp with one
+   interior value that goes backwards where `16` belongs.
+
+A third, structural, one was already on record and now reads differently:
+the **`Parry` array is objectively 89 bytes, not 90** (§5.1's confirmed
+bases give seven inter-table gaps of `0x5A` and exactly one of `0x59`).
+A `[6][15]` table cannot be 89 bytes. The natural cause is an unsized
+initializer (`char parry[] = { … }`) that was typed with one value
+missing — i.e. a *proven* omission in this same hand-entered data block,
+which is what makes the last byte double as `Swim`'s first.
+
+**Verdict: resolved as far as the available sources allow — the specific
+bytes remain formally undecidable, but "SSI data-entry error" is no
+longer an inference from tidiness alone.** It is now supported by (a) a
+proven missing initializer in the same block, (b) two interior typos that
+cannot be design, and (c) the inconsistent direction of the level-15
+anomalies themselves (within Ranger alone, Attack `235→25` and Parry
+`85→60` fall while Listen `44→144`, Spot trap `5→65`, Disarm `14→47` and
+Pick lock `6→13` jump). What cannot be established, and now cannot be
+established from *any* available source, is whether each individual
+level-15 byte is one of those errors or a deliberate cap value — the game
+reads the byte unconditionally either way (§5.2), and no chart, source or
+errata exists to arbitrate. Several of the values do have a suggestive
+shape (`245 → 25` is a dropped digit; `44 → 144` is a stray leading `1`),
+but a suggestive shape is not proof.
+
+**Confidence: closed — undecidable from available sources**, not open.
+Reopening would need a genuinely new oracle (an SSI design document, or
+a byte-diff against the Apple II / C64 / ST builds' own copies of these
+tables — the C64 `town.obj.prg` and Apple `TINFO.BIN` named in §5's
+provenance comment are not present in this project's data).
+
+## 6. Phantasie III (Amiga) — armoury stock table (`inititem.dat`)
 
 File: `data/phantasieiii/amiga/inititem.dat`, 3,328 bytes.
+
+> **Correction (2026-08-10, `game-re`) — the array orientation was
+> transposed, and the file is not an "item table" at all.** §6.1-§6.3
+> below (preserved verbatim) read this file as **181 records of 18 bytes**,
+> one record per item, with the 18 columns as unknown per-item fields.
+> The real layout, taken straight from the code that indexes it, is the
+> transpose: **18 records of 181 bytes, one record per armoury (shop),
+> each a flat `stock[itemId]` array over the 181-entry item name table.**
+> The two readings share the same `181 × 18 = 3,258` byte total, which is
+> why every byte-accounting check in §6.1-§6.3 passed while the semantics
+> stayed opaque. See §6.4 for the confirmed decode.
 
 **No reference source exists for this file** — none of the reference
 tool's C# files construct or parse `inititem.dat` (confirmed by exhaustive
@@ -1039,6 +1222,82 @@ find what reads individual fields out of this block during actual
 gameplay (e.g. a shop/vendor routine), which was not attempted this pass.
 See `TODO.md`'s `data-p3-inititem-fields` row.
 
+### 6.4 The confirmed decode — 18 armouries × 181 item-stock bytes
+
+The "next genuinely different approach" flagged at the end of §6.3 was
+taken: the routine that reads hunk 1 `+0x44BA` during gameplay was found
+and disassembled. It is the **armoury-stock builder at file `0x8b5a`**,
+reached from the "A) Armoury" town command, and its indexing settles the
+format outright:
+
+```
+0x8ba4:  for itemId = 1 .. 180:
+0x8baa:    d0  = $2856 * 0xB5              ; currentArmouryIndex * 181
+0x8bb2:    d0 += itemId
+0x8bb6:    qty = *(byte *)($44BA + d0)      ; stock[armoury][itemId]
+0x8bc6:    if qty <= 0: continue
+0x8bda:      forSale[n]      = itemId                       ; $35F8[n]
+0x8bfe:      price[n]        = itemPrice[itemId]
+0x8c04:                        * armouryMarkup[$2856] / 100 ; $3762[n]
+0x8c4e:      stockLeft[n]    = qty                          ; $38CC[n]
+0x8ca2:      pointValue[n]   = itemPointValue[itemId]       ; $3A36[n]  (itemId <= 100)
+0x8cc8:      attrRequired[n] = itemAttrRequired[itemId]     ; $3BA0[n]  (itemId <= 100)
+0x8ce8:  $285C = *(byte *)($44BA + $2856 * 0xB5)            ; row byte 0 = item count
+```
+
+| Offset | Size | Field | Notes |
+|--------|------|-------|-------|
+| `0x0000` | 181 | Armoury 0 stock row | byte 0 = number of distinct items stocked; bytes 1-180 = quantity of item id 1-180 |
+| `0x00B5` | 181 | Armoury 1 stock row | " |
+| … | | … | 18 rows total |
+| `0x0CBA` | 70 | Padding | `0x3A` (`:`) to the 128-byte block boundary; `3328 = 128 × 26` |
+
+**Verification: the row header is a self-check, and it holds 18/18.**
+Byte 0 of each row states how many distinct item ids that row stocks.
+Counting the nonzero bytes in each row independently reproduces it for
+every one of the 18 rows with **zero deviations** (armoury 1 declares 10
+and stocks 10; 2 → 13/13; 3 → 14/14; 4 → 15/15; 5 → 15/15; 6 → 8/8;
+7 → 9/9; 8 → 8/8; 9 → 11/11; 10 → 11/11; 11 → 4/4; 12 → 9/9; 13 → 10/10;
+14 → 7/7; and rows 0, 15, 16, 17 declare 0 and are entirely empty). The
+transposed reading has no equivalent invariant.
+
+Resolved against the confirmed 181-entry item name table (§3.1) the
+content is immediately legible and thematically coherent, e.g.
+
+```
+armoury  1 (10): Clothing x5, Robes x5, Leather x1, Knife x1, Club x1, Mace x1,
+                 Healing Potion 5 x5, Magic Potion 5 x5, Scroll IV x200, Scroll VIII x200
+armoury  5 (15): Clothing x5, Robes x5, Hard Leather x1, Self Bow x1, Club x5, Mace x1,
+                 Staff x1, Short Sword x1, Healing Potion 3 x200, Healing Potion 5 x5,
+                 Magic Potion 3 x200, Magic Potion 5 x5, Scroll XI x200, Scroll XII x200,
+                 Scroll XIV x1
+armoury 14  (7): Large Shield +3 x1, Leather x1, Leather +1 x1, Staff x1, Club +2 x1,
+                 Scroll XIV x200, Scroll XV x200
+```
+
+This retro-explains every unexplained observation in §6.3:
+
+- **The discretized value set `{1, 5, 200, 99, 77}`** is a set of *stock
+  quantities*, not an enum: `1` = a single unique piece, `5` = five in
+  stock, `200`/`99`/`77` = effectively unlimited consumables (scrolls and
+  potions). Under the transposed reading these looked like tier codes.
+- **The all-zero tail at "rows" 149-180** is the *item-id* range no
+  armoury stocks — gems, artefacts, quest items, `Wand of Nikademus`.
+  Correct: those are treasure, not merchandise. Likewise "rows" 1-9 (the
+  cheapest shields) are simply not stocked anywhere.
+- **The "18 columns = 18 races" coincidence** was never a coincidence in
+  the right direction: 18 is the **armoury count**, matching the 18-entry
+  markup table at hunk 1 `+0x1144` (§7) exactly.
+- **The all-zero "record 0"** is armoury row 0 (an unused/reserved
+  armoury index — the code sets `$2856 = 1` at startup, file `0x760e`),
+  not an empty-item sentinel.
+
+**Confidence: confirmed** — code-traced indexing, an 18/18 internal
+row-header invariant, and a coherent resolve against an independently
+confirmed name table. §6.1-§6.3's byte accounting (3,258 data + 70 pad)
+remains correct and unchanged; only the array orientation and the
+semantic label change.
+
 Noted briefly per task scope (not deep-dived):
 
 - **`gamesave.dat`** (11,812 bytes) begins with the literal ASCII string
@@ -1054,19 +1313,105 @@ Noted briefly per task scope (not deep-dived):
   binary blob (printer/serial/screen settings), unrelated to Phantasie's
   own data.
 
+## 7. Phantasie III (Amiga) — combat-equipment stats, prices, armoury markups
+
+Four stored tables in `PhantasieIII`'s DATA hunk, all found from the
+armoury-stock builder at file `0x8b5a` (§6.4) and the armoury row printer
+at file `0x11714`.
+
+| File offset | Hunk 1 | Size | Table | Index |
+|---|---|---|---|---|
+| `0x287d8` | `+0x0F10` | 101 B | **Point value** | item id `0`-`100` |
+| `0x2883d` | `+0x0F75` | 101 B | **Attributes required** | item id `0`-`100` |
+| `0x288a2` | `+0x0FDA` | 362 B (181 × `u16`) | **Base price, gold** | item id `0`-`180` |
+| `0x28a0c` | `+0x1144` | 36 B (18 × `u16`) | **Armoury price markup, %** | armoury `0`-`17` |
+
+> **Correction (2026-08-10, `game-re`) — supersedes `scripting-engine.md`
+> §7.5.1/§7.5.2's "202-byte lookup table of concatenated arithmetic
+> ramps" and its "experience-per-level curve" neighbour.** The 202 bytes
+> at `+0x0F10` are **not one table**: they are the two 101-byte per-item
+> tables above, laid end to end (`101 + 101 = 202`, exact). The apparent
+> "concatenated arithmetic ramps of varying slope" are just SSI's item
+> catalogue being grouped into ascending-quality runs (20 shields, 10+10
+> armours, 20 bows, 20+20 weapons) — each run's stats rise linearly, so
+> each run reads as a ramp. Both tables are indexed by **item id**, never
+> by class or level, which is why the HP/MP-chart hypothesis could never
+> have matched. The word table immediately after them at `+0x0FDA` is
+> likewise **not** an experience curve: it is the 181-entry item price
+> table, and its extent is byte-exact — `0x0FDA + 181 × 2 = 0x1144`,
+> precisely the start of the 18-entry armoury markup table.
+
+**Verification: byte-exact against the SSI 1987 rule book, 200/200
+values, 0 mismatches.** The manual's own "COMBAT EQUIPMENT" tables (rule
+book pages 17-18: *Shields*, *Armor*, *Bows*, *Melee Weapons*) print
+exactly these two columns per item — `POINT VALUE` and `STRENGTH
+REQUIRED` / `ATTRIBUTES REQUIRED` — for item numbers 1-100 in the same
+order as the game's own name table. Transcribing all 100 rows from the
+page images and diffing programmatically against the two byte tables
+gives **zero mismatches across all 200 values**.
+
+The manual's footnotes also state the requirement formula, and it matches
+the helper at file `0xce44` instruction for instruction:
+
+| Item id | Manual footnote | Code at `0xce44` |
+|---|---|---|
+| 1-40 (shields, armour) | "Strength required" | `capability = Strength` |
+| 41-60 (bows) | "based on Strength + Dexterity" | `capability = Str + Dex` |
+| 61-100 (melee) | "based on 2 x Strength + Dexterity" | `capability = 2·Str + Dex` |
+| 101+ (potions, scrolls) | not combat equipment | `capability = 0` |
+
+The armoury row printer (`0x11714`) prints `N/A` in place of the point
+value whenever `attributesRequired[item] == 0` or
+`capability < attributesRequired[item]` — the on-screen rendering of that
+rule. Its column header string is at file `0x11476`:
+`"Item:       Pt Val: Cost:"` — i.e. **"Pt Val"** is one column ("point
+value"), not two, which is what pins table `+0x0F10` to the manual's
+`POINT VALUE` column rather than table `+0x0F75`.
+
+**How the tables are used elsewhere:**
+
+- **Combat.** `scripting-engine.md` §7.5.1's per-party-member arrays index
+  the **point value** table with the character record's three equipment
+  slots: `$2A34[i] = pointValue[charRec.+0x6A]` (armour),
+  `$2A50[i] = pointValue[charRec.+0x6C]` (melee weapon, the damage die),
+  `$2A7A[i] = pointValue[charRec.+0x86] × 2 + 4` (bow). In the shipped
+  `gamesave.dat` those three fields read `22`/`64`/`41`-`44`, which resolve
+  to **Robes**, **Mace** and **Self Bow**/**Short Bow** — a coherent
+  starting loadout, confirming the slots.
+- **Pricing.** `chargedPrice = basePrice[item] × markup[armoury] / 100`.
+  The markups are `[100, 150, 145, 140, 130, 125, 200, 115, 200, 105,
+  100, 88, 95, 90, 123, 100, 100, 100]` — armoury 11 undercuts at 88%,
+  armouries 6 and 8 charge double.
+
+**Confidence: confirmed, byte-exact** (code-traced indexing + a 200/200
+first-party manual diff). Implemented as `readP3ItemStats()`,
+`readP3ItemPrices()` and `readP3ShopMarkups()` in
+`src/assets/formats/exe-data.ts`, tested in
+`src/assets/formats/__tests__/exe-data.test.ts`.
+
 ## 8. Open questions
 
 - ~~**P3 race table offsets for the Amiga `PhantasieIII` executable**~~ —
   **race name table resolved this pass** (§4.1): 18 names found via
   mixed-case string grep + a `HUNK_RELOC32` cross-reference to locate the
   pointer table addressing them (`0x28e84`), confirmed byte-exact and
-  implemented as `readP3RaceNames()`. **Still open**: the bank-sprite-index
-  table (§4.2) — two structural search approaches (anchorless numeric
-  stride scan; reloc xref from the name-pointer table's own base) both
-  came back empty; race sprites currently render using an unverified
-  "sprite index = race index" identity-mapping assumption. See `TODO.md`'s
-  `data-p3-race-sprite-index` row.
-- **P3 `inititem.dat` field semantics** — record stride/count remains
+  implemented as `readP3RaceNames()`. **The bank-sprite-index table is now
+  resolved too** (§4.2, 2026-08-10): 19 bytes at file `0x299d8`
+  (hunk 1 `+0x2110`), found by disassembling the party-sprite cell
+  extractor at `0x1b2da` rather than by searching for the table's own
+  shape, and confirmed against rendered `heros.cmp` cells 13/13. The
+  previous "sprite index = race index" identity assumption is **refuted**
+  — 6 of 18 races share a cell with another race. Closed.
+- ~~**P3 `inititem.dat` field semantics**~~ — **resolved (§6.4,
+  2026-08-10): the array orientation was transposed.** The file is
+  `stock[18 armouries][181 item ids]`, not 181 records of 18 fields;
+  byte 0 of each 181-byte row is that armoury's distinct-item count, which
+  reproduces the counted nonzero bytes 18/18 with zero deviations. The
+  §6.3 findings all retro-explain (the `{1,5,77,99,200}` value set is
+  stock quantities; the zero tail is the item-id range no shop stocks;
+  "18 columns" is the armoury count, matching the 18-entry markup table
+  in §7). Original wording preserved below.
+- *(superseded)* **P3 `inititem.dat` field semantics** — record stride/count remains
   confirmed (§6.2: exact `181×18=3,258`-byte match with the
   `gamesave.dat` load/save transfer length). This pass ran the full
   181-row correlation against the item name table (§6.3): retracted an
@@ -1097,11 +1442,14 @@ Noted briefly per task scope (not deep-dived):
   max of 15 with no special branch at 15 itself), so level 15 is a real,
   legitimately-reached game state, not a decode/indexing bug. One
   specific case (Parry/Wizard `→42`) was retracted — it's a table-boundary
-  byte shared with the Swim table, not independent Parry data. **Still
-  open**: whether the remaining anomalies (concentrated in Ranger, 6/8
-  skills) are an intentional per-class design choice or a data-entry
-  error in SSI's original table — not resolvable from code alone, since
-  the game reads the byte unconditionally regardless of value.
+  byte shared with the Swim table, not independent Parry data. **Now
+  closed as undecidable (§5.3, 2026-08-10)**: the SSI rule book has no
+  per-class skill chart at any level (only HP p.11 and MP p.14), so no
+  external oracle exists; and two *interior* (non-level-15) typos plus the
+  provably 89-byte `Parry` array establish that this data block genuinely
+  does contain data-entry errors — but not which of the level-15 bytes
+  are among them. Not reopenable without a new source (SSI design notes,
+  or the C64/Apple/ST builds' own copies of these tables).
 - ~~**Phantasie II (Atari ST) monster/race tables**~~ — **resolved.** All
   five §2 offsets confirmed byte-exact against the real `PHANT.PRG`
   (`data/phantasieii/atarist/extracted/disk1/PHANT.PRG`), and the sprite
