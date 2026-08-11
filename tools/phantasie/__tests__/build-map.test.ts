@@ -14,7 +14,7 @@ import {
   OUTDOOR_SECTION_WIDTH,
   SECTION_NUMBER_BY_BLOCK,
   WORLD_HEIGHT,
-  WORLD_WIDTH,
+  WORLD_WIDTH_P1,
   decodeMapsInt,
   decodeOutdoorSection,
   type OutdoorSection,
@@ -40,23 +40,29 @@ describe('outdoor file list (dungeon-format.md §8.3.1)', () => {
   });
 });
 
-describe('section placement (dungeon-format.md §8.3.2)', () => {
-  it('lays the sections out 4 wide at strides of 19 and 25', () => {
-    expect(sectionOrigin(1)).toEqual({ x: 0, y: 0 });
-    expect(sectionOrigin(4)).toEqual({ x: 57, y: 0 });
-    expect(sectionOrigin(5)).toEqual({ x: 0, y: 25 });
-    // The bottom band: 18 sits below 14, 19 below 15.
-    expect(sectionOrigin(18)).toEqual({ x: 19, y: 100 });
-    expect(sectionOrigin(19)).toEqual({ x: 38, y: 100 });
-    // Section 16 ends the eastern edge; the world's south edge belongs to the
-    // bottom band, and its south-east corner (section 20) ships no file.
+describe('section placement (dungeon-format.md §8.2.1/§8.3.2, axis-corrected 2026-08-11)', () => {
+  it('lays the sections out 5 wide east-west (from the east) at strides of 25/19', () => {
+    // Section 1 is the easternmost section in the north (mosaic slot 0).
+    expect(sectionOrigin(1)).toEqual({ x: 100, y: 0 });
+    expect(sectionOrigin(4)).toEqual({ x: 100, y: 57 });
+    // Section 5 is one mosaic column further west than section 1.
+    expect(sectionOrigin(5)).toEqual({ x: 75, y: 0 });
+    // The westernmost column (17-20, the walled-off Styx region): 18 sits
+    // north of 19, both hugging the world's west edge (x = 0).
+    expect(sectionOrigin(18)).toEqual({ x: 0, y: 19 });
+    expect(sectionOrigin(19)).toEqual({ x: 0, y: 38 });
+    // Section 16's south-west corner cell reaches the world's south edge —
+    // its own mosaic slot (south-east quadrant) has no further neighbour
+    // south, and section 20 (its western neighbour) ships no file.
     expect(sectionCellToWorld(16, OUTDOOR_SECTION_WIDTH - 1, OUTDOOR_SECTION_HEIGHT - 1)).toEqual({
-      x: WORLD_WIDTH - 1,
-      y: 100,
-    });
-    expect(sectionCellToWorld(19, OUTDOOR_SECTION_WIDTH - 1, OUTDOOR_SECTION_HEIGHT - 1)).toEqual({
-      x: 57,
+      x: 25,
       y: WORLD_HEIGHT - 1,
+    });
+    // Section 19's own cell (19, 25) lands on the world's west edge (x = 0)
+    // — consistent with the westernmost column being sections 17-20.
+    expect(sectionCellToWorld(19, OUTDOOR_SECTION_WIDTH - 1, OUTDOOR_SECTION_HEIGHT - 1)).toEqual({
+      x: 0,
+      y: 57,
     });
   });
 
@@ -129,7 +135,7 @@ describe('world POI table built from real bytes', () => {
     }
     expect(offGrid).toEqual([]);
     // Two POIs sit on column 19 — a seam the eastern neighbour overwrites.
-    expect(mismatched).toEqual(['s9 (19,10)', 's13 (19,8)']);
+    expect(mismatched).toEqual(['s13 (19,8)', 's9 (19,10)']);
   });
 
   it('gives the ten dungeon markers ids 1-10, one per section', () => {
@@ -158,12 +164,11 @@ describe('world POI table built from real bytes', () => {
     expect(poi!.type).toBe('text');
     expect(poi!.message).toEqual(['A MAGNIFICENT GATEWAY IS SET', 'INTO THE MOUNTAIN']);
     expect(poi!.label).toBe('A MAGNIFICENT GATEWAY IS SET');
-    // Section 2 starts one stride east of the origin.
-    expect([poi!.x, poi!.y]).toEqual([19 + 6, 4]);
+    expect([poi!.x, poi!.y]).toEqual([121, 25]);
   });
 
   it('sorts markers north-to-south so overlay draw order is stable', () => {
-    const keys = BUILT.pois.map((p) => p.y * WORLD_WIDTH + p.x);
+    const keys = BUILT.pois.map((p) => p.y * WORLD_WIDTH_P1 + p.x);
     expect(keys).toEqual([...keys].sort((a, b) => a - b));
   });
 });

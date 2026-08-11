@@ -13,7 +13,7 @@ import {
   TILE_TOWN,
   TILE_UNEXPLORED_FLAG,
   WORLD_HEIGHT,
-  WORLD_WIDTH,
+  WORLD_WIDTH_P1,
   assembleWorld,
   decodeMapsInt,
   decodeOutdoorSection,
@@ -230,16 +230,20 @@ describe('tile-code decomposition (dungeon-format.md §8.3.3)', () => {
   });
 });
 
-describe('world assembly (dungeon-format.md §8.3.2)', () => {
-  it('is 77 x 126 at strides of 19 and 25', () => {
-    expect(WORLD_WIDTH).toBe(4 * 19 + 1);
-    expect(WORLD_HEIGHT).toBe(5 * 25 + 1);
+describe('world assembly (dungeon-format.md §8.2.1/§8.3.2, axis-corrected 2026-08-11)', () => {
+  it('is 126 x 77 (east-west x north-south) at strides of 25 and 19', () => {
+    expect(WORLD_WIDTH_P1).toBe(4 * 25 + 26);
+    expect(WORLD_HEIGHT).toBe(3 * 19 + 20);
     const world = assembleWorld(decodeMapsInt(readData('maps.int')));
-    expect(world.cells.length).toBe(77 * 126);
+    expect(world.cells.length).toBe(126 * 77);
 
-    // The whole continent is framed by the impassable ocean class.
-    const topRow = Array.from(world.cells.subarray(0, WORLD_WIDTH));
-    expect(topRow.every((v) => tileClass(v) === tileClass(TILE_OCEAN))).toBe(true);
+    // The world's eastern edge (x = width-1, section 1's own fileRow-0
+    // column) is open ocean the whole way down — the strongest single
+    // edge invariant available, and specific to the corrected orientation:
+    // an axis-swapped assembly would put a different, non-uniform edge here.
+    const eastEdge: number[] = [];
+    for (let y = 0; y < world.height; y++) eastEdge.push(world.cells[y * world.width + world.width - 1]);
+    expect(eastEdge.every((v) => tileClass(v) === tileClass(TILE_OCEAN))).toBe(true);
   });
 
   it('agrees on terrain class across 98% of the shared seam cells', () => {

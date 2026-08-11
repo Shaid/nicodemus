@@ -30,11 +30,15 @@
  * grids back to back, no header, no footer, in ordinal filename order
  * (P1: 18 blocks / 9,360 B; P2: 17 blocks / 8,840 B).
  *
- * Sections tile into a 4-wide world grid (`newSection = section - 4*dRow -
- * dCol`; P1 `game+0x184BA`, P2 addr `0x66BA` — byte-identical arithmetic)
- * with adjacent sections **sharing one row and one column**, giving strides
- * of 19 and 25. P1's 18 sections fill a 4 x 5 mosaic (77 x 126 cells);
- * P2's 17 sections are scattered over a 4 x 8 mosaic (77 x 201 cells).
+ * Sections tile into a world grid 4 deep **north-south**
+ * (`newSection = section - 4*dRow - dCol`; P1 `game+0x184BA`, P2 addr
+ * `0x66BA` — byte-identical arithmetic) with adjacent sections **sharing
+ * one row and one column**, giving strides of 25 (east-west) and 19
+ * (north-south) — see `WORLD_SECTION_STRIDE_EW`'s doc comment for the full
+ * axis derivation (dungeon-format.md §8.2.1/§8.3.2's 2026-08-11
+ * correction; an earlier version of this file had the two axes swapped).
+ * P1's 18 sections fill a 5-wide x 4-tall mosaic (126 x 77 cells); P2's 17
+ * sections are scattered over an 8-wide x 4-tall mosaic (201 x 77 cells).
  */
 
 export const OUTDOOR_FILE_SIZE = 2500;
@@ -71,33 +75,64 @@ export const SECTION_NUMBER_BY_BLOCK: readonly number[] = [
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 19,
 ];
 
-/** World grid geometry, from `newSection = section - 4*dRow - dCol`. */
-export const WORLD_COLUMNS = 4;
-export const WORLD_ROWS = 5;
-/** Adjacent sections share one column / one row, so the strides are w-1 / h-1. */
-export const WORLD_SECTION_STRIDE_X = OUTDOOR_SECTION_WIDTH - 1; // 19
-export const WORLD_SECTION_STRIDE_Y = OUTDOOR_SECTION_HEIGHT - 1; // 25
-export const WORLD_WIDTH = WORLD_COLUMNS * WORLD_SECTION_STRIDE_X + 1; // 77
-export const WORLD_HEIGHT = WORLD_ROWS * WORLD_SECTION_STRIDE_Y + 1; // 126
+/**
+ * World-assembly geometry, from `newSection = section - 4*dRow - dCol`
+ * (`ChangeSection`, `game+0x184BA` / `PHANT.PRG` addr `0x66BA`, identical in
+ * both games).
+ *
+ * **Axis correction (dungeon-format.md §8.2.1/§8.3.2, 2026-08-11):** `dCol`
+ * steps a section by exactly ±1 and is **north-south**; `dRow` steps by ±4
+ * and is **east-west** — the opposite of this module's own earlier
+ * assumption. So within the flat section numbering, `(section-1) % 4` is
+ * the north-south position inside one east-west "file" of 4 sections, and
+ * `floor((section-1)/4)` is the east-west position, counting from the
+ * **east** (section 1 is the easternmost; higher section numbers run west).
+ * `ChangeSection`'s arrival-coordinate arms fix the sign: `section-4` is
+ * the eastern neighbour, `section+4` western, `section-1` northern,
+ * `section+1` southern.
+ *
+ * A section's own local grid is `OUTDOOR_SECTION_HEIGHT` (26) cells wide
+ * **east-west** and `OUTDOOR_SECTION_WIDTH` (20) cells tall **north-south**
+ * — those two constant names describe the *file's* row/column axes, not
+ * compass directions (`OUTDOOR_SECTION_HEIGHT` is the east-west extent).
+ * Adjacent sections share one edge, so the world strides are one less than
+ * each extent. The north-south mosaic count is hardcoded by the engine's
+ * `asl.w #2` (`*4`) and is therefore the same 4 for both games; only the
+ * east-west count differs per game (`OutdoorLayout.worldSectionsEW`).
+ */
+export const WORLD_SECTION_STRIDE_EW = OUTDOOR_SECTION_HEIGHT - 1; // 25
+export const WORLD_SECTION_STRIDE_NS = OUTDOOR_SECTION_WIDTH - 1; // 19
+export const WORLD_SECTIONS_NS = 4;
+export const WORLD_HEIGHT =
+  (WORLD_SECTIONS_NS - 1) * WORLD_SECTION_STRIDE_NS + OUTDOOR_SECTION_WIDTH; // 77
 
 /**
  * Phantasie II ships 17 `OUT*.DAT` files, and `MAPS.INT` (8,840 bytes) is
  * 17 x 520 in the same ordinal order. The numbers are sparse: the mosaic is
- * still 4 columns wide (`asl.w #2` at `PHANT.PRG` addr `0x66D0`), but only
- * 17 of its 32 slots ship a file. Every section edge that faces an absent
- * slot is pure ocean (class 10) in 29 of 30 cases — see §8.6.3.
+ * still 4 sections north-south (`asl.w #2` at `PHANT.PRG` addr `0x66D0`),
+ * but only 17 of its 32 slots ship a file. Every section edge that faces an
+ * absent slot is pure ocean (class 10) in 29 of 30 cases — see §8.6.3. The
+ * missing east-west strip (mosaic index 3, sections 13-16) splits the
+ * shipped sections into two separate landmasses, east and west — not a
+ * north/south split, per the axis correction above.
  */
 export const SECTION_NUMBER_BY_BLOCK_P2: readonly number[] = [
   1, 2, 3, 5, 6, 7, 8, 11, 12, 17, 18, 22, 26, 27, 28, 30, 31,
 ];
 export const WORLD_SECTION_COUNT_P2 = SECTION_NUMBER_BY_BLOCK_P2.length; // 17
 export const MAPS_INT_SIZE_P2 = WORLD_SECTION_COUNT_P2 * OUTDOOR_GRID_SIZE; // 8840
-export const WORLD_ROWS_P2 = 8;
-export const WORLD_HEIGHT_P2 = WORLD_ROWS_P2 * WORLD_SECTION_STRIDE_Y + 1; // 201
+export const WORLD_SECTIONS_EW_P2 = 8;
+export const WORLD_WIDTH_P2 =
+  (WORLD_SECTIONS_EW_P2 - 1) * WORLD_SECTION_STRIDE_EW + OUTDOOR_SECTION_HEIGHT; // 201
+
+export const WORLD_SECTIONS_EW_P1 = 5;
+export const WORLD_WIDTH_P1 =
+  (WORLD_SECTIONS_EW_P1 - 1) * WORLD_SECTION_STRIDE_EW + OUTDOOR_SECTION_HEIGHT; // 126
 
 /**
- * The two games differ only in the record size, the display-list offset and
- * the section roster; everything else in the format is byte-identical.
+ * The two games differ only in the record size, the display-list offset,
+ * the section roster and how far the roster extends east-west; everything
+ * else in the format is byte-identical.
  */
 export interface OutdoorLayout {
   /** Exact `out*.dat` record size. */
@@ -108,10 +143,10 @@ export interface OutdoorLayout {
   sectionNumberByBlock: readonly number[];
   /** Exact `maps.int` size (`sectionNumberByBlock.length * 520`). */
   mapsIntSize: number;
-  /** Mosaic rows the section numbers span. */
-  worldRows: number;
-  /** Assembled world height in cells. */
-  worldHeight: number;
+  /** Mosaic columns east-west the section numbers span (game-specific). */
+  worldSectionsEW: number;
+  /** Assembled world width in cells (east-west; north-south is the fixed `WORLD_HEIGHT`). */
+  worldWidth: number;
 }
 
 export const PHANTASIE1_OUTDOOR: OutdoorLayout = {
@@ -119,8 +154,8 @@ export const PHANTASIE1_OUTDOOR: OutdoorLayout = {
   displayListOffset: OUTDOOR_DISPLAY_LIST_OFFSET,
   sectionNumberByBlock: SECTION_NUMBER_BY_BLOCK,
   mapsIntSize: MAPS_INT_SIZE,
-  worldRows: WORLD_ROWS,
-  worldHeight: WORLD_HEIGHT,
+  worldSectionsEW: WORLD_SECTIONS_EW_P1,
+  worldWidth: WORLD_WIDTH_P1,
 };
 
 export const PHANTASIE2_OUTDOOR: OutdoorLayout = {
@@ -128,8 +163,8 @@ export const PHANTASIE2_OUTDOOR: OutdoorLayout = {
   displayListOffset: OUTDOOR_DISPLAY_LIST_OFFSET_P2,
   sectionNumberByBlock: SECTION_NUMBER_BY_BLOCK_P2,
   mapsIntSize: MAPS_INT_SIZE_P2,
-  worldRows: WORLD_ROWS_P2,
-  worldHeight: WORLD_HEIGHT_P2,
+  worldSectionsEW: WORLD_SECTIONS_EW_P2,
+  worldWidth: WORLD_WIDTH_P2,
 };
 
 /**
@@ -384,35 +419,46 @@ export interface AssembledWorld {
 }
 
 /**
- * Assemble sections into the world grid (P1: 77 x 126, P2: 77 x 201).
+ * Assemble sections into the north-up world grid (P1: 126 x 77,
+ * P2: 201 x 77 — width is east-west and varies per game; height is
+ * north-south and is always 77, since both games stack sections 4 deep
+ * north-south).
  *
  * `grids` is keyed by `maps.int` block index; the section number (and hence
- * the world slot) comes from the layout's `sectionNumberByBlock`. Adjacent
- * sections share one column / one row, so later sections overwrite the
- * shared edge. Tile codes are flag-stripped so pre-revealed sections are
- * comparable with the rest; 98.2% of P1's 552 shared seam cells (sections
- * 1-16) and 99.5% of P2's 440 then agree on terrain class.
+ * the world slot) comes from the layout's `sectionNumberByBlock`.
+ * `(section-1) % 4` is the north-south mosaic index (0 = north),
+ * `floor((section-1)/4)` the east-west index (0 = east — see
+ * `WORLD_SECTION_STRIDE_EW`'s doc comment). Within a section, file column
+ * `col` (0-19) is the north-south offset and file row `fileRow` (0-25)
+ * maps to the east-west offset as `25 - fileRow` (higher file row is
+ * further west). Adjacent sections share one edge, so later sections
+ * overwrite the shared cells. Tile codes are flag-stripped so pre-revealed
+ * sections are comparable with the rest; 98.2% of P1's 552 shared seam
+ * cells (sections 1-16) and 99.5% of P2's 440 then agree on terrain class.
  */
 export function assembleWorld(
   grids: readonly Uint8Array[],
   layout: OutdoorLayout = PHANTASIE1_OUTDOOR,
 ): AssembledWorld {
-  const { sectionNumberByBlock, worldHeight } = layout;
-  const cells = new Uint8Array(WORLD_WIDTH * worldHeight);
+  const { sectionNumberByBlock, worldSectionsEW, worldWidth } = layout;
+  const cells = new Uint8Array(worldWidth * WORLD_HEIGHT);
   for (let block = 0; block < grids.length && block < sectionNumberByBlock.length; block++) {
     const slot = sectionNumberByBlock[block] - 1;
-    const originX = (slot % WORLD_COLUMNS) * WORLD_SECTION_STRIDE_X;
-    const originY = Math.floor(slot / WORLD_COLUMNS) * WORLD_SECTION_STRIDE_Y;
+    const ewIndex = Math.floor(slot / WORLD_SECTIONS_NS);
+    const nsIndex = slot % WORLD_SECTIONS_NS;
+    const originX = (worldSectionsEW - 1 - ewIndex) * WORLD_SECTION_STRIDE_EW;
+    const originY = nsIndex * WORLD_SECTION_STRIDE_NS;
     const grid = grids[block];
-    for (let row = 0; row < OUTDOOR_SECTION_HEIGHT; row++) {
+    for (let fileRow = 0; fileRow < OUTDOOR_SECTION_HEIGHT; fileRow++) {
+      const localX = OUTDOOR_SECTION_HEIGHT - 1 - fileRow;
       for (let col = 0; col < OUTDOOR_SECTION_WIDTH; col++) {
-        cells[(originY + row) * WORLD_WIDTH + (originX + col)] = revealedTileCode(
-          grid[row * OUTDOOR_SECTION_WIDTH + col],
+        cells[(originY + col) * worldWidth + (originX + localX)] = revealedTileCode(
+          grid[fileRow * OUTDOOR_SECTION_WIDTH + col],
         );
       }
     }
   }
-  return { width: WORLD_WIDTH, height: worldHeight, cells };
+  return { width: worldWidth, height: WORLD_HEIGHT, cells };
 }
 
 // ---------------------------------------------------------------------------

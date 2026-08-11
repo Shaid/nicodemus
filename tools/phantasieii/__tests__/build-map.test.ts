@@ -12,8 +12,7 @@ import {
   OUTDOOR_SECTION_HEIGHT,
   OUTDOOR_SECTION_WIDTH,
   SECTION_NUMBER_BY_BLOCK_P2,
-  WORLD_HEIGHT_P2,
-  WORLD_WIDTH,
+  WORLD_WIDTH_P2,
   PHANTASIE2_OUTDOOR,
   decodeMapsInt,
   decodeOutdoorSection,
@@ -46,21 +45,22 @@ describe('outdoor file list (dungeon-format.md §8.6.1/§8.6.2)', () => {
   });
 });
 
-describe('section placement (dungeon-format.md §8.6.3 — 4-wide, 8-row mosaic)', () => {
-  it('lays the sections out 4 wide at the same 19/25 strides as P1', () => {
-    expect(sectionOrigin(1)).toEqual({ x: 0, y: 0 });
-    expect(sectionOrigin(2)).toEqual({ x: 19, y: 0 });
-    // Section 5 starts mosaic row 1 (row 3, sections 13-16, ships no file at
-    // all — the empty band between the two landmasses).
-    expect(sectionOrigin(5)).toEqual({ x: 0, y: 25 });
-    // Section 17 starts mosaic row 4, the second landmass.
-    expect(sectionOrigin(17)).toEqual({ x: 0, y: 100 });
-    // Section 31 sits at mosaic column 2 (slot 30, 30%4=2), not the world's
-    // east edge — no shipped P2 section reaches column 3 of the mosaic.
-    expect(sectionOrigin(31)).toEqual({ x: 38, y: 175 });
+describe('section placement (dungeon-format.md §8.2.1/§8.6.3, axis-corrected 2026-08-11 — 8-wide east-west, 4-tall north-south mosaic)', () => {
+  it('lays the sections out 8 wide east-west (from the east) at strides of 25/19', () => {
+    // Section 1 is the easternmost section in the north.
+    expect(sectionOrigin(1)).toEqual({ x: 175, y: 0 });
+    expect(sectionOrigin(2)).toEqual({ x: 175, y: 19 });
+    // Section 5 is one mosaic column further west than section 1.
+    expect(sectionOrigin(5)).toEqual({ x: 150, y: 0 });
+    // Section 17 starts the second (western) landmass — mosaic index 4 of 8,
+    // with index 3 (sections 13-16) entirely unshipped: the empty band
+    // splitting the two landmasses is east-west, not the north/south split
+    // an earlier, axis-mislabelled version of this test assumed.
+    expect(sectionOrigin(17)).toEqual({ x: 75, y: 0 });
+    expect(sectionOrigin(31)).toEqual({ x: 0, y: 38 });
     expect(sectionCellToWorld(31, OUTDOOR_SECTION_WIDTH - 1, OUTDOOR_SECTION_HEIGHT - 1)).toEqual({
-      x: 38 + OUTDOOR_SECTION_WIDTH - 1,
-      y: WORLD_HEIGHT_P2 - 1,
+      x: 0,
+      y: 57,
     });
   });
 
@@ -158,7 +158,7 @@ describe('world POI table built from real bytes', () => {
   });
 
   it('sorts markers north-to-south so overlay draw order is stable', () => {
-    const keys = BUILT.pois.map((p) => p.y * WORLD_WIDTH + p.x);
+    const keys = BUILT.pois.map((p) => p.y * WORLD_WIDTH_P2 + p.x);
     expect(keys).toEqual([...keys].sort((a, b) => a - b));
   });
 });

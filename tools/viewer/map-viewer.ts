@@ -1,26 +1,25 @@
 /**
- * World-map view for the asset viewer.
+ * World-map view for the asset viewer. Works for both Phantasie I (126 x 77
+ * cells) and Phantasie II (201 x 77) — the JSON `world-map.json` produced by
+ * `tools/phantasie/build-map.ts` / `tools/phantasieii/build-map.ts` carries
+ * each game's own mosaic geometry, so this component has no game-specific
+ * assumptions baked in beyond the shared engine's north-south mosaic depth.
  *
- * Renders the assembled Phantasie I overworld (77 x 126 cells, built by
- * `tools/phantasie/build-map.ts`) on a Canvas 2D surface with drag-to-pan,
- * wheel zoom toward the cursor, and toggleable overlay layers.
+ * The world x-axis is east-west, y is north-south (`x=0`/`y=0` is the
+ * north-west corner) — `assembleWorld()` in `src/assets/formats/outdoor.ts`
+ * already places every cell in this orientation (dungeon-format.md
+ * §8.2.1/§8.3.2's 2026-08-11 axis correction), so this view's grid and the
+ * baked `screens/world-map.png` picture (P1 only, so far) agree pixel-for-
+ * cell on orientation — no quarter-turn between them, unlike an earlier
+ * version of this file.
  *
  * The terrain byte is not a per-cell graphics index — the real game plots
  * the visible map from each section's own display list against the 16 x 16
  * area-fill patterns in the executable's icon bank, one per terrain class
- * (docs/phantasie/dungeon-format.md §8.2.4a). That bank is now decoded, and
- * `build-map.ts` bakes the true-to-hardware picture to
- * `screens/world-map.png` (1512 x 693) plus a `textures/terrain-icons.png`
- * strip of the twelve patterns.
- *
- * This *view* stays a flat-colour rendering of the gameplay grid on
- * purpose: it is the layer the party actually walks on (movement cost,
- * passability, fog, event dispatch), it needs per-cell hit-testing for the
- * POI overlay, and the grid's axes are the engine's, not the screen's — see
- * §8.2.1's 2026-08-11 correction, where `x` here is the north-south index
- * and `y` the east-west one, so this grid is a quarter-turn from the baked
- * picture. Each swatch below is now taken from its class's own real art,
- * and every class name is confirmed (§8.3.3a).
+ * (docs/phantasie/dungeon-format.md §8.2.4a). P1's bank is decoded; when
+ * `world-map.json` carries a `terrainIcons` strip (see `show()`), terrain
+ * cells are texture-filled from it. Otherwise (P2, until its own icon bank
+ * is found) each class falls back to its flat `TILE_CLASS_STYLES` colour.
  */
 import { setHidden } from './shared.ts';
 
@@ -29,9 +28,19 @@ export interface WorldMapData {
   height: number;
   sectionWidth: number;
   sectionHeight: number;
-  sectionStrideX: number;
-  sectionStrideY: number;
+  /** East-west stride between adjacent sections' origins. */
+  sectionStrideEW: number;
+  /** North-south stride between adjacent sections' origins. */
+  sectionStrideNS: number;
+  /** Mosaic columns east-west the section numbers span (game-specific). */
+  sectionsEW: number;
+  /** Mosaic rows north-south — always 4, the engine's own hardcoded depth. */
+  sectionsNS: number;
   sections: number[];
+  /** English name per terrain class (`tile / 10`), confirmed dungeon-format.md §8.3.3a. */
+  terrainClassNames?: string[];
+  /** `<assetBase>/textures/terrain-icons.png`-relative strip of one 16x16 fill pattern per class, in class order. */
+  terrainIcons?: string;
   /** Row-major revealed tile codes, `cell[x,y]` at `y * width + x`. */
   cells: number[];
 }
@@ -118,6 +127,13 @@ export class WorldMapViewer {
   private poiByCell = new Map<number, WorldPoi>();
   /** 1 where some shipped section wrote the cell — see `buildCoverage()`. */
   private covered: Uint8Array = new Uint8Array(0);
+  /**
+   * One repeating `CanvasPattern` per terrain class, cropped from
+   * `world-map.json`'s `terrainIcons` strip (P1 only, until P2's own icon
+   * bank is found). `null` while loading or when no strip is available —
+   * `drawTerrain()` falls back to `TILE_CLASS_STYLES`'s flat colour then.
+   */
+  private terrainPatterns: (CanvasPattern | null)[] = [];
 
   private zoom = 1;
   private offsetX = 0;
@@ -187,6 +203,47 @@ export class WorldMapViewer {
     this.buildLegend();
     this.bindStrip();
     this.fit();
+
+    this.terrainPatterns = [];
+    if (map.terrainIcons) void this.loadTerrainPatterns(assetBase, map.terrainIcons);
+  }
+
+  /**
+   * Crop each class's 16x16 icon out of the strip into its own canvas, then
+   * build a `CanvasPattern` per class scaled so one repeat covers exactly
+   * one world cell (`CELL` px at zoom 1) — `drawTerrain()`'s existing
+   * equal-colour-run merge works unchanged with a pattern as `fillStyle`.
+   */
+  private async loadTerrainPatterns(assetBase: string, iconsPath: string): Promise<void> {
+    const img = new Image();
+    const loaded = new Promise<void>((res, rej) => {
+      img.onload = () => res();
+      img.onerror = () => rej(new Error('terrain icon strip failed to load'));
+    });
+    img.src = `${assetBase}/${iconsPath}`;
+    try {
+      await loaded;
+    } catch (err) {
+      console.warn('terrain icons unavailable, falling back to flat colours:', err);
+      return;
+    }
+    if (this.map?.terrainIcons !== iconsPath) return; // a newer show() started
+
+    const iconSize = img.height; // strip is one row, iconSize x iconSize per class
+    const count = Math.floor(img.width / iconSize);
+    const patterns: (CanvasPattern | null)[] = [];
+    for (let i = 0; i < count; i++) {
+      const cell = document.createElement('canvas');
+      cell.width = iconSize;
+      cell.height = iconSize;
+      const cellCtx = cell.getContext('2d')!;
+      cellCtx.drawImage(img, i * iconSize, 0, iconSize, iconSize, 0, 0, iconSize, iconSize);
+      const pattern = this.ctx?.createPattern(cell, 'repeat') ?? null;
+      pattern?.setTransform(new DOMMatrix().scale(CELL / iconSize));
+      patterns.push(pattern);
+    }
+    this.terrainPatterns = patterns;
+    this.draw();
   }
 
   hide(): void {
@@ -196,6 +253,7 @@ export class WorldMapViewer {
     this.map = null;
     this.pois = [];
     this.poiByCell.clear();
+    this.terrainPatterns = [];
   }
 
   /** Human-readable summary for the viewer toolbar. */
@@ -244,22 +302,37 @@ export class WorldMapViewer {
   }
 
   /**
-   * The world grid has 4 x 5 section slots but only 18 ship a file: slots 17
-   * and 20 are addressable but empty (dungeon-format.md §8.3.2). Those cells
-   * come out of `assembleWorld()` as byte 0, which is indistinguishable from
-   * a real class-0 land tile — so mark them and draw nothing there rather
-   * than 950 cells of phantom grassland.
+   * A section's mosaic origin in world cells — `(section-1) % sectionsNS` is
+   * the north-south index (0 = north), `floor((section-1)/sectionsNS)` the
+   * east-west index counted from the **east** (dungeon-format.md
+   * §8.2.1/§8.3.2's 2026-08-11 axis correction — `sectionsEW` varies per
+   * game, `sectionsNS` is always the engine's hardcoded 4).
+   */
+  private sectionOrigin(map: WorldMapData, section: number): { x: number; y: number } {
+    const slot = section - 1;
+    const ewIndex = Math.floor(slot / map.sectionsNS);
+    const nsIndex = slot % map.sectionsNS;
+    return {
+      x: (map.sectionsEW - 1 - ewIndex) * map.sectionStrideEW,
+      y: nsIndex * map.sectionStrideNS,
+    };
+  }
+
+  /**
+   * The world grid has `sectionsEW * sectionsNS` section slots but only some
+   * ship a file (e.g. P1: 18 of 20; P2: 17 of 32 — dungeon-format.md
+   * §8.3.2/§8.6.3). Those cells come out of `assembleWorld()` as byte 0,
+   * which is indistinguishable from a real class-0 land tile — so mark them
+   * and draw nothing there rather than phantom grassland.
    */
   private buildCoverage(map: WorldMapData): void {
     this.covered = new Uint8Array(map.width * map.height);
     for (const section of map.sections) {
-      const slot = section - 1;
-      const ox = (slot % 4) * map.sectionStrideX;
-      const oy = Math.floor(slot / 4) * map.sectionStrideY;
-      for (let row = 0; row < map.sectionHeight; row++) {
+      const { x: ox, y: oy } = this.sectionOrigin(map, section);
+      for (let row = 0; row < map.sectionWidth; row++) {
         const y = oy + row;
         if (y >= map.height) continue;
-        this.covered.fill(1, y * map.width + ox, y * map.width + ox + map.sectionWidth);
+        this.covered.fill(1, y * map.width + ox, y * map.width + ox + map.sectionHeight);
       }
     }
   }
@@ -384,21 +457,21 @@ export class WorldMapViewer {
     // drawn left-to-right and rows top-to-bottom, so the overrun is painted
     // over by whatever comes next.
     const bleed = 1 / this.zoom;
+    // -1 = uncovered (no fill), otherwise a terrain class index.
+    const NONE = -1;
 
     for (let y = y0; y < y1; y++) {
       let runStart = x0;
-      let runColor = '';
+      let runClass = NONE;
       for (let x = x0; x <= x1; x++) {
         const i = y * map.width + x;
-        const color =
-          x < x1 && this.covered[i]
-            ? (TILE_CLASS_STYLES[tileClassOf(map.cells[i])]?.color ?? UNKNOWN_CLASS_COLOR)
-            : '';
-        if (color === runColor) continue;
-        // Merge equal-colour runs into one fillRect: whole ocean rows would
-        // otherwise cost 77 fills each.
-        if (runColor !== '' && x > runStart) {
-          ctx.fillStyle = runColor;
+        const cls = x < x1 && this.covered[i] ? tileClassOf(map.cells[i]) : NONE;
+        if (cls === runClass) continue;
+        // Merge equal-class runs into one fillRect: whole ocean rows would
+        // otherwise cost 77 fills each. A texture pattern tiles correctly
+        // across a wide fillRect the same way a flat colour does.
+        if (runClass !== NONE && x > runStart) {
+          ctx.fillStyle = this.terrainPatterns[runClass] ?? TILE_CLASS_STYLES[runClass]?.color ?? UNKNOWN_CLASS_COLOR;
           ctx.fillRect(
             runStart * CELL,
             y * CELL,
@@ -407,7 +480,7 @@ export class WorldMapViewer {
           );
         }
         runStart = x;
-        runColor = color;
+        runClass = cls;
       }
     }
   }
@@ -415,20 +488,18 @@ export class WorldMapViewer {
   private drawSections(ctx: CanvasRenderingContext2D, map: WorldMapData): void {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
     ctx.lineWidth = 1 / this.zoom;
-    for (let i = 0; i < map.sections.length; i++) {
-      const slot = map.sections[i] - 1;
-      const ox = (slot % 4) * map.sectionStrideX;
-      const oy = Math.floor(slot / 4) * map.sectionStrideY;
+    for (const section of map.sections) {
+      const { x: ox, y: oy } = this.sectionOrigin(map, section);
       ctx.strokeRect(
         ox * CELL,
         oy * CELL,
-        map.sectionWidth * CELL,
         map.sectionHeight * CELL,
+        map.sectionWidth * CELL,
       );
       if (this.zoom * CELL >= LABEL_MIN_CELL_PX) {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
         ctx.font = `${10 / this.zoom}px monospace`;
-        ctx.fillText(`§${map.sections[i]}`, ox * CELL + 2 / this.zoom, oy * CELL + 11 / this.zoom);
+        ctx.fillText(`§${section}`, ox * CELL + 2 / this.zoom, oy * CELL + 11 / this.zoom);
       }
     }
   }

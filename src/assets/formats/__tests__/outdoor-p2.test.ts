@@ -15,8 +15,8 @@ import {
   TILE_CLASS_DUNGEON,
   TILE_OCEAN,
   TILE_TOWN,
-  WORLD_HEIGHT_P2,
-  WORLD_WIDTH,
+  WORLD_HEIGHT,
+  WORLD_WIDTH_P2,
   assembleWorld,
   decodeMapsInt,
   decodeOutdoorSection,
@@ -206,17 +206,17 @@ describe('POI records (dungeon-format.md §8.6.4)', () => {
   });
 });
 
-describe('world assembly (dungeon-format.md §8.6.3)', () => {
-  it('is 77 x 201 — four columns wide, eight mosaic rows tall', () => {
-    expect(WORLD_WIDTH).toBe(4 * 19 + 1);
-    expect(WORLD_HEIGHT_P2).toBe(8 * 25 + 1);
+describe('world assembly (dungeon-format.md §8.6.3, axis-corrected 2026-08-11)', () => {
+  it('is 201 x 77 (east-west x north-south) — eight mosaic columns wide, four rows deep', () => {
+    expect(WORLD_WIDTH_P2).toBe(7 * 25 + 26);
+    expect(WORLD_HEIGHT).toBe(3 * 19 + 20);
     const world = assembleWorld(
       decodeMapsInt(readDisk1('MAPS.INT'), PHANTASIE2_OUTDOOR),
       PHANTASIE2_OUTDOOR,
     );
-    expect(world.width).toBe(77);
-    expect(world.height).toBe(201);
-    expect(world.cells.length).toBe(77 * 201);
+    expect(world.width).toBe(201);
+    expect(world.height).toBe(77);
+    expect(world.cells.length).toBe(201 * 77);
   });
 
   it('agrees on terrain class across 99% of the 440 shared seam cells', () => {

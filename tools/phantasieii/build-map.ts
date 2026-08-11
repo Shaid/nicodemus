@@ -1,11 +1,11 @@
 /**
  * Phantasie II world-map build step: assemble the 17 outdoor sections into
- * the 77 x 201 overworld grid and emit it, plus a point-of-interest marker
+ * the 201 x 77 overworld grid and emit it, plus a point-of-interest marker
  * list, as browser-friendly JSON for the asset viewer.
  *
  * See docs/phantasie/dungeon-format.md §8.6 (the P2 `OUT*.DAT` layout,
  * `MAPS.INT`, and how the sparse 17-section mosaic tiles into two separate
- * landmasses). All decoding is done by `src/assets/formats/outdoor.ts`; this
+ * landmasses, east and west). All decoding is done by `src/assets/formats/outdoor.ts`; this
  * module places section-local data into world coordinates and serialises it
  * — the exact same shape as `tools/phantasie/build-map.ts`'s P1 step, just
  * parameterised by `PHANTASIE2_OUTDOOR` instead of the P1 default.
@@ -31,9 +31,10 @@ import {
   SECTION_NUMBER_BY_BLOCK_P2,
   TILE_CLASS_DUNGEON,
   TILE_TOWN,
-  WORLD_COLUMNS,
-  WORLD_SECTION_STRIDE_X,
-  WORLD_SECTION_STRIDE_Y,
+  WORLD_SECTIONS_NS,
+  WORLD_SECTIONS_EW_P2,
+  WORLD_SECTION_STRIDE_EW,
+  WORLD_SECTION_STRIDE_NS,
   EVENT_VARIANT_BUMP,
   EVENT_VARIANT_NONE,
   EVENT_VARIANT_TEXT,
@@ -96,9 +97,9 @@ export interface WorldPoi {
   col: number;
   /** Section-local row 0-25, file order (row 0 = north). */
   row: number;
-  /** World column 0-76. */
+  /** World column 0-200, east-west, column 0 = west. */
   x: number;
-  /** World row 0-200, row 0 = north. */
+  /** World row 0-76, north-south, row 0 = north. */
   y: number;
   type: WorldPoiType;
   /** Revealed (fog-flag-stripped) tile code the record sits on. */
@@ -118,16 +119,28 @@ export interface WorldMapOutput {
   pois: WorldPoi[];
 }
 
-/** North-west corner of a section in world cells — identical arithmetic to P1's (both games are 4 sections wide). */
+/**
+ * North-west corner of a section in world cells — identical arithmetic to
+ * P1's, parameterised by P2's own east-west section count (both games are
+ * 4 sections deep north-south; see dungeon-format.md §8.2.1/§8.3.2's
+ * 2026-08-11 axis correction).
+ */
 export function sectionOrigin(section: number): { x: number; y: number } {
   const slot = section - 1;
+  const ewIndex = Math.floor(slot / WORLD_SECTIONS_NS);
+  const nsIndex = slot % WORLD_SECTIONS_NS;
   return {
-    x: (slot % WORLD_COLUMNS) * WORLD_SECTION_STRIDE_X,
-    y: Math.floor(slot / WORLD_COLUMNS) * WORLD_SECTION_STRIDE_Y,
+    x: (WORLD_SECTIONS_EW_P2 - 1 - ewIndex) * WORLD_SECTION_STRIDE_EW,
+    y: nsIndex * WORLD_SECTION_STRIDE_NS,
   };
 }
 
-/** Place a section-local (col, row) onto the assembled world grid. */
+/**
+ * Place a section-local (col, row) onto the assembled world grid. `row` is
+ * the file's east-west axis (`fileRow`) and maps to world `x` as
+ * `25 - fileRow`; `col` is the north-south axis and maps directly to
+ * world `y`.
+ */
 export function sectionCellToWorld(
   section: number,
   col: number,
@@ -145,7 +158,7 @@ export function sectionCellToWorld(
     );
   }
   const origin = sectionOrigin(section);
-  return { x: origin.x + col, y: origin.y + row };
+  return { x: origin.x + (OUTDOOR_SECTION_HEIGHT - 1 - row), y: origin.y + col };
 }
 
 /** Classify a POI by the tile it sits on — same dispatch order as P1 (dungeon-format.md §8.6.4). */
@@ -279,8 +292,10 @@ export function buildWorldMap(dataDir: string, outDir: string): ManifestEntry[] 
       height: world.height,
       sectionWidth: OUTDOOR_SECTION_WIDTH,
       sectionHeight: OUTDOOR_SECTION_HEIGHT,
-      sectionStrideX: WORLD_SECTION_STRIDE_X,
-      sectionStrideY: WORLD_SECTION_STRIDE_Y,
+      sectionStrideEW: WORLD_SECTION_STRIDE_EW,
+      sectionStrideNS: WORLD_SECTION_STRIDE_NS,
+      sectionsEW: WORLD_SECTIONS_EW_P2,
+      sectionsNS: WORLD_SECTIONS_NS,
       sections: SECTION_NUMBER_BY_BLOCK_P2,
       cells: Array.from(world.cells),
     },

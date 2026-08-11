@@ -1375,6 +1375,34 @@ giving an assembled world of `4·19 + 1 = 77` cells wide by `8·25 + 1 = 201`
 cells tall. Note the empty band at mosaic row 3 (sections 13-16): the world
 is two separate landmasses, upper (sections 1-12) and lower (17-31).
 
+> **Correction (2026-08-11) — the mosaic is 8 wide × 4 tall, not 4 × 8, and
+> the landmass split is east-west, not upper/lower.** Identical premise to
+> P1's own §8.2.1/§8.3.2 correction, and it applies here unchanged because
+> this routine is instruction-for-instruction P1's: `dRow` (the `4·` term)
+> is the **east-west** delta and `dCol` (the `±1` term) is **north-south**
+> — not the reverse this section originally assumed. So `(section-1) % 4`
+> is the north-south mosaic index (0 = north) and `floor((section-1)/4)`
+> the east-west index, counted from the **east** (section 1 is the
+> easternmost). P2 ships sections up to 31, past P1's 20-slot range, so the
+> full mosaic (west at the left, north at the top, parenthesised slots ship
+> no file) is:
+>
+> ```
+> (29)(25)(21)  17(13) (9)   5   1
+>   30  26  22  18(14)(10)   6   2
+>   31  27(23)(19)(15)  11   7   3
+> (32)  28(24)(20)(16)  12   8 (4)
+> ```
+>
+> Mosaic index 3 (sections 13-16, all absent) is a missing **east-west**
+> column, splitting the shipped sections into two landmasses **east and
+> west** — not upper and lower. The assembled world is `7·25 + 26 = 201`
+> cells wide (east-west) by `3·19 + 20 = 77` cells tall (north-south) — the
+> same two numbers as before, roles exchanged, which is why the seam and
+> edge-ocean statistics below are unaffected (they compare section `k`
+> against `k±1` and `k±4` either way, structurally blind to which label is
+> which).
+
 **Data-side confirmation of the overlap.** Taking every mosaic-adjacent pair
 among the 17 present sections and comparing the shared edge (a section's
 column 19 against its right neighbour's column 0; its row 25 against its
