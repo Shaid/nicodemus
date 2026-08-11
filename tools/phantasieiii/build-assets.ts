@@ -18,6 +18,7 @@ import {
   isP3SpriteBankFile,
 } from '../../src/assets/formats/sprite-bank.ts';
 import { buildWorldMap } from './build-map.ts';
+import { buildCastleMaps } from './build-castle-maps.ts';
 import { buildMusicAssets } from './build-music.ts';
 // getGameConfig is dynamically imported inside main() (CLI-only) to avoid a
 // static circular import — game-config.ts imports buildAssets from this
@@ -155,9 +156,10 @@ export function buildAssets(config: PlatformConfig, dataDir: string): void {
   const cmpEntries = buildCmpAssets(graphicsDir, outDir);
   const setEntries = buildSetAssets(graphicsDir, outDir);
   const mapEntries = buildWorldMap(dataDir, outDir);
+  const castleMapEntries = buildCastleMaps(dataDir, outDir);
   const musicEntries = buildMusicAssets(dataDir, outDir);
 
-  const entries = [...cmpEntries, ...setEntries, ...mapEntries, ...musicEntries];
+  const entries = [...cmpEntries, ...setEntries, ...mapEntries, ...castleMapEntries, ...musicEntries];
   upsertManifest(outDir, entries);
 
   console.log(`Wrote ${entries.length} asset(s) to ${outDir}`);

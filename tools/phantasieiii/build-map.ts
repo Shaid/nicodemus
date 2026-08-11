@@ -43,6 +43,7 @@ import {
   SET_TILE_WIDTH,
   decodeSet,
   renderSetTileSheet,
+  renderTileGrid,
   setTileIndexForMapValue,
   type SetFile,
 } from '../../src/assets/formats/set.ts';
@@ -117,14 +118,28 @@ export function buildWorldPois(set: SetFile): WorldPoi[] {
  * plainly different (Meadows vs Forest, Mountains vs A bridge). Classes the
  * shipped map never uses get no entry (`null`), so the legend cannot invent
  * a swatch for terrain that is not there.
+ *
+ * `cells`/`classify` default to the overworld's own array and classifier so
+ * every existing call keeps working unchanged; `build-castle-maps.ts` passes
+ * a plane's own grid and (for the Netherworld) its re-banded classifier,
+ * since the overworld's `phantasy.set` array never uses the castle/
+ * Netherworld-only value bands and would otherwise leave those classes with
+ * no colour at all.
  */
-export function terrainClassColors(set: SetFile): (string | null)[] {
+export function terrainClassColors(
+  set: SetFile,
+  cells: ArrayLike<number> = set.mapArray,
+  classify: (value: number) => number = p3TerrainClass,
+): (string | null)[] {
   const sums = P3_TERRAIN_NAMES.map(() => ({ r: 0, g: 0, b: 0, n: 0 }));
   const cellsPerValue = new Map<number, number>();
-  for (const value of set.mapArray) cellsPerValue.set(value, (cellsPerValue.get(value) ?? 0) + 1);
+  for (let i = 0; i < cells.length; i++) {
+    const value = cells[i];
+    cellsPerValue.set(value, (cellsPerValue.get(value) ?? 0) + 1);
+  }
 
   for (const [value, weight] of cellsPerValue) {
-    const cls = p3TerrainClass(value);
+    const cls = classify(value);
     if (cls === P3_TERRAIN_UNCLASSIFIED) continue;
     const tile = setTileIndexForMapValue(value, set.tiles.count);
     const base = tile * SET_TILE_WIDTH * SET_TILE_HEIGHT;
@@ -160,22 +175,7 @@ function rgbToHex(color: RGB): string {
  * blitter at hunk-0 addr `0x3834` does, just for every cell at once.
  */
 export function renderWorldImage(set: SetFile): { width: number; height: number; pixels: Uint8Array } {
-  const width = set.mapWidth * SET_TILE_WIDTH;
-  const height = set.mapHeight * SET_TILE_HEIGHT;
-  const pixels = new Uint8Array(width * height);
-  for (let y = 0; y < set.mapHeight; y++) {
-    for (let x = 0; x < set.mapWidth; x++) {
-      const tile = setTileIndexForMapValue(set.mapArray[y * set.mapWidth + x], set.tiles.count);
-      for (let row = 0; row < SET_TILE_HEIGHT; row++) {
-        const src = (tile * SET_TILE_HEIGHT + row) * SET_TILE_WIDTH;
-        pixels.set(
-          set.tiles.indices.subarray(src, src + SET_TILE_WIDTH),
-          (y * SET_TILE_HEIGHT + row) * width + x * SET_TILE_WIDTH,
-        );
-      }
-    }
-  }
-  return { width, height, pixels };
+  return renderTileGrid(set.tiles, set.mapArray, set.mapWidth, set.mapHeight);
 }
 
 /**

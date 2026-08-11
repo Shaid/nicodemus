@@ -195,6 +195,40 @@ export function setTileIndexForMapValue(value: number, tileCount = SET_TILE_COUN
 }
 
 /**
+ * Blit a grid of tile-index cells — any width/height, not just the
+ * overworld's 50 x 75 — into one flat image. The same per-cell blit the
+ * game's own tile blitter (hunk-0 addr `0x3834`) does, just for a whole
+ * grid at once. Shared by the overworld renderer
+ * (`tools/phantasieiii/build-map.ts`) and the castle/Netherworld plane
+ * renderer (`tools/phantasieiii/build-castle-maps.ts`), which index the
+ * same tile bank a `PLNn` file's cells reference (`pln.ts`'s module
+ * comment has the byte-exact proof it's the same bank).
+ */
+export function renderTileGrid(
+  tiles: SetTileBank,
+  cells: ArrayLike<number>,
+  gridWidth: number,
+  gridHeight: number,
+): { width: number; height: number; pixels: Uint8Array } {
+  const width = gridWidth * tiles.tileWidth;
+  const height = gridHeight * tiles.tileHeight;
+  const pixels = new Uint8Array(width * height);
+  for (let y = 0; y < gridHeight; y++) {
+    for (let x = 0; x < gridWidth; x++) {
+      const tile = setTileIndexForMapValue(cells[y * gridWidth + x], tiles.count);
+      for (let row = 0; row < tiles.tileHeight; row++) {
+        const src = (tile * tiles.tileHeight + row) * tiles.tileWidth;
+        pixels.set(
+          tiles.indices.subarray(src, src + tiles.tileWidth),
+          (y * tiles.tileHeight + row) * width + x * tiles.tileWidth,
+        );
+      }
+    }
+  }
+  return { width, height, pixels };
+}
+
+/**
  * Lay the tile bank out as a single sheet image, `columns` tiles per row —
  * the form the pipeline bakes to PNG and the viewer blits cells out of.
  */

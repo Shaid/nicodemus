@@ -2792,6 +2792,132 @@ Two further observations, at their own confidence levels:
 | P1/P2 `tile = class*10 + variant` | Does not fit 2026-08-11 | Chops the contiguous runs across class boundaries; `pln4`'s `0xF2`-`0xF9` minus the 120 fog offset exceeds the documented 0-119 range |
 | `re-codebreaker` escalation | Stood down 2026-08-11 | Solved by the overworld trace (§9.0.5) before it reported — its map-switch routine handed over the 9 × 9 and 31 × 16 grid dimensions, which matched the two padding-derived content lengths immediately |
 
+#### 9.0.3.6 Pipeline wiring, the shared tile bank, and "is there a fourth map?" — confirmed (2026-08-11)
+
+> This section closes the two items `docs/phantasie/TODO.md`'s
+> `world-p3-castle-netherworld-maps` row left open: whether `PLN1`/`PLN2`/
+> `PLN4`'s cell bytes index `phantasy.set`'s own 250-tile bank or a separate
+> one, and whether a fourth non-overworld map exists beyond the user-recalled
+> "three" (Castle of Light, Castle of Dark, Netherworld).
+
+**Same tile bank — confirmed, not merely plausible.** The earlier "$295C is
+a different buffer" phrasing was true but incomplete: `$295C` is a different
+buffer for the *raw grid bytes* than the overworld's own `$2964`, but that
+is not the same question as which *tile art* those bytes are blitted
+through. The tile-art bank pointer lives at hunk-1 `$290C`, and a raw byte
+search for its absolute-long operand (`0000290C`) across the whole
+137,352-byte CODE hunk finds exactly **5** references — and only **one** is
+a write:
+
+```
+0x7408  move.l  d0,$290c.l     ; the ONLY store to $290C in the whole binary
+```
+
+found inside a one-time boot-time buffer-allocation sequence (`jsr $5CC.l`,
+the bump allocator, called once per fixed buffer at addr `0x73C0`-`0x7420`
+with size `0x80E8` = 32,984 bytes for this one), alongside every other fixed
+buffer the game ever uses (`$2948`, `$2960`, `$295C`, `$2964`, `$294C`, each
+its own `pea size; jsr $5CC.l; move.l d0,addr` triplet). The remaining four
+references are all reads: `graphics-formats.md` §5.4's `.set` loader, which
+fills `$290C` with `Graphics/phantasy.set`'s 32,000-byte picture region
+exactly once (`Read(fh, *(void **)$290C, 0x7D00)`), and the two tile
+blitters — `LoadTile` (addr `0x3834`, plain blit, `adda.l $290c.l,a3` at
+`0x385E`) and its masked-overlay sibling for the party-marker cell (addr
+`0x378A`, `adda.l $290c.l,a3` at `0x37AC`). A second raw scan for
+`jsr $3834.l` / `jsr $378A.l` finds **exactly one caller of each**, both
+inside the single 9×9 viewport blitter at addr `0x9B82` — the same routine
+`§9.0.5.2` already established handles the overworld, reused unchanged for
+every active map (`$2908`/`$2806`/`$2808` are generic globals the
+map-switch routine repoints per map id; there is no second, castle-specific
+viewport routine anywhere in the binary).
+
+So: `$290C` is written **once, ever**, and always from `phantasy.set`, and
+its only two consumers are called from the one shared viewport blitter. A
+castle/Netherworld cell byte therefore resolves through the *exact same*
+250-tile bank the overworld uses — there is no separate castle/Netherworld
+art asset, decoded or undecoded. Implemented in
+`src/assets/formats/pln.ts` (module comment carries this same evidence) and
+`src/assets/formats/set.ts`'s new `renderTileGrid`, shared by both the
+overworld and plane renderers.
+
+**No fourth non-overworld map exists — confirmed by exhaustive census, not
+absence of a lead.** The map-switch routine's own dispatch
+(`and.w #3,d0` on `$28C2` at addr `0x1EB48`) would *structurally* also
+accept map ids 3, 5, 6, 7... (any value sharing 1's or 2's low 2 bits),
+routing them into the same castle-interior arm and attempting to load
+`"D/PLN3"`/`"D/PLN5"`/etc. Whether that ever happens depends entirely on
+whether any code assigns `$28C2` such a value. It doesn't: a raw byte
+census of every `move.w #imm,$28c2.l` (encoding `33FC imm16 000028C2`) and
+`clr.w $28c2.l` (encoding `4279 000028C2`) instruction across the whole CODE
+hunk finds **32** references to `$28C2`, of which every *write* — 7
+`clr.w`s and 3 immediate `move.w`s, at seven distinct call sites spanning
+the overworld-return path (`0x76FA`), a warp/cheat-adjacent routine at
+`0xB18C`-`0xB1EA`, `EnterDungeon()`'s post-dungeon return (`0xFA94`,
+`0x1E1C0`), `LocateSpecial()`'s own dungeon-entry handling (`0x1BEBA`-
+`0x1BEEC`), and the map-switch routine itself (`0x1EB2C`-`0x1F228`) — writes
+only **{0, 1, 2, 4}**. `3` never appears as a write anywhere, which is why
+`D/PLN3` alone stays a stray 2-byte flag file (§9.0.3): it isn't merely
+undecoded, its map id is provably never reachable. This settles the user's
+"there might be a fourth, it's been a while" as most likely a recollection
+of the same three (Light, Dark, Netherworld) rather than a real fourth
+plane — see `src/assets/formats/__tests__/p3-planes.test.ts`'s exhaustive
+census test for the reproducible check.
+
+**The two computed name-table-index arms are now both resolved** (§9.0.5.5
+flagged one of these, "`14 + $28C2`", as "not disentangled"; there is
+actually a second one with the same shape):
+
+- **Town index — the shared castle-arrival arm**, `(4, 1)`, addr
+  `0x9D9E`-`0x9DAE`: `d0 = $28C2; d0 += 14; $2830 = d0`. For `$28C2 == 1`
+  (Light) this is town index **15**; for `$28C2 == 2` (Dark), **16** — both
+  confirmed byte-exact against the 18-entry town table at hunk-1 `0x1684`
+  (`towns[15] == "Light"`, `towns[16] == "Dark"`). The Netherworld's own
+  arrival square is a *different* coordinate (`(7, 3)`, addr `0x9CEE`-
+  `0x9CFE`) with a **literal** index **17** (`"Death"`) rather than reusing
+  this formula — `14 + 4` would be 18, one past the 18-entry table's end,
+  which is exactly why the Netherworld needed its own dedicated arm.
+- **Dungeon index — the shared castle dungeon-entrance arm**, `(6, 7)` when
+  `$28C2 == 1` or `(2, 7)` when `$28C2 == 2`, addr `0x9DCA`-`0x9DDA`:
+  `d0 = $28C2; d0 += 9; $2830 = d0`. For `$28C2 == 1`, dungeon index **10**
+  (`"The Castle of Light"`); for `$28C2 == 2`, index **11**
+  (`"The Castle of Dark"`) — both confirmed byte-exact against the 12-entry
+  dungeon table at hunk-1 `0x16FC`, and their `D/DNG?.DAT` files confirmed
+  against the dungeon-letter table at hunk-1 `0x22AC` (index 10 → `F` →
+  `D/DNGF.DAT`; index 11 → `G` → `D/DNGG.DAT`). The Netherworld's dungeon
+  marker `(6, 10)` likewise uses a literal index **9** (`"A dark fortress"`
+  → letter `I` → `D/DNGI.DAT`).
+
+**Pipeline.** `tools/phantasieiii/build-castle-maps.ts` (new) decodes all
+three files via `decodePln()`, classifies cells through `p3TerrainClass`
+(castles) or the new `p3NetherworldTerrainClass` (Netherworld's re-banding,
+gated on `$28C3` bit 2, hunk-0 `0xA5FA`-`0xA674` — four arms: `61`-`77` →
+Black path, `78`-`82` → Mist, `83`-`87` → Steam, `88`-`241` → Lava,
+overriding the standard chain since it has no early exit), and emits the
+same `WorldMapData`/`WorldPoi` JSON shape the overworld already ships
+(`world-p3-map-pipeline` in `docs/phantasie/TODO.md`), reusing the
+overworld's already-baked `textures/terrain-tiles.png` rather than
+re-emitting it (same bank, proven above). Wired into
+`tools/phantasieiii/build-assets.ts` as three new `type: 'map'` manifest
+entries — `castle-of-light`, `castle-of-dark`, `netherworld`. No change was
+needed in `tools/viewer/map-viewer.ts`: it was already format-agnostic
+enough to render a 9×9 or 31×16 grid with no mosaic correctly.
+
+**Verification:** real pipeline rebuild (`Castle of Light: 9×9 cells, 2
+POIs`, `Castle of Dark: 9×9 cells, 2 POIs`, `the Netherworld: 31×16 cells, 2
+POIs`), 100% cell classification for all three real files against their
+respective classifiers with 0 unclassified non-marker cells, the two
+castles' identical per-row occupied-cell counts re-confirmed
+programmatically, 31 new real-byte tests across
+`src/assets/formats/__tests__/pln.test.ts`,
+`src/assets/formats/__tests__/p3-planes.test.ts` and
+`tools/phantasieiii/__tests__/build-castle-maps.test.ts`, and Playwright
+screenshots of all three new assets in the live viewer showing coherent
+terrain art (the Netherworld's lava/black-path river network; both castles'
+identical floor-plan silhouette in their own terrain colour) with correctly
+labelled POI markers and legends — plus a toggle-and-screenshot regression
+check confirming the pre-existing P1 "Phantasie III art" skin feature still
+works unchanged.
+
 ### 9.0.4 `D/S1`-`S20` loader — read length and the `S6` outlier — confirmed
 
 The scroll loader at addr `0x1F6DC` bounds its argument to `0x79`-`0x8C`

@@ -160,9 +160,11 @@ const CAPTIONED_POI_TYPES = new Set<WorldPoiType>(['town', 'dungeon', 'inn']);
  * art or anything like it; the mapping below is a same-name-or-closest
  * match chosen by eye, not derived from any format fact. Classes with no
  * reasonable P3 counterpart (Town, Dungeon, and P2's Dark Void/Molten
- * Lava, whose own tile values are only reachable from the *castle/
- * Netherworld* maps this project hasn't decoded yet) are left unmapped and
- * fall back to native rendering even with the skin on.
+ * Lava, whose closest P3 values live on the castle/Netherworld planes'
+ * value bands — decoded since dungeon-format.md §9.0.3.4/§9.0.3.6, but not
+ * wired into this lookup, a deliberate scope choice rather than a
+ * limitation) are left unmapped and fall back to native rendering even with
+ * the skin on.
  *
  * Values are representative tile indices from the middle of each class's
  * confirmed value band (`P3_TERRAIN_BANDS` in `src/assets/formats/
