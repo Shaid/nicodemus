@@ -1,0 +1,21 @@
+{
+  "name": "m1",
+  "readLength": 659,
+  "fileSize": 768,
+  "trackLengths": [
+    253,
+    202,
+    204
+  ],
+  "noteCounts": [
+    118,
+    96,
+    97
+  ],
+  "seconds": 51.217,
+  "waveforms": [
+    "triangle",
+    "triangle",
+    "triangle"
+  ]
+}

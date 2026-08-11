@@ -1,0 +1,90 @@
+{
+  "width": 192,
+  "height": 16,
+  "frames": [
+    {
+      "name": "class-0-grassland",
+      "x": 0,
+      "y": 0,
+      "w": 16,
+      "h": 16
+    },
+    {
+      "name": "class-1-forest",
+      "x": 16,
+      "y": 0,
+      "w": 16,
+      "h": 16
+    },
+    {
+      "name": "class-2-hills",
+      "x": 32,
+      "y": 0,
+      "w": 16,
+      "h": 16
+    },
+    {
+      "name": "class-3-mountains",
+      "x": 48,
+      "y": 0,
+      "w": 16,
+      "h": 16
+    },
+    {
+      "name": "class-4-town",
+      "x": 64,
+      "y": 0,
+      "w": 16,
+      "h": 16
+    },
+    {
+      "name": "class-5-dungeon",
+      "x": 80,
+      "y": 0,
+      "w": 16,
+      "h": 16
+    },
+    {
+      "name": "class-6-path",
+      "x": 96,
+      "y": 0,
+      "w": 16,
+      "h": 16
+    },
+    {
+      "name": "class-7-dark-void",
+      "x": 112,
+      "y": 0,
+      "w": 16,
+      "h": 16
+    },
+    {
+      "name": "class-8-molten-lava",
+      "x": 128,
+      "y": 0,
+      "w": 16,
+      "h": 16
+    },
+    {
+      "name": "class-9-desert",
+      "x": 144,
+      "y": 0,
+      "w": 16,
+      "h": 16
+    },
+    {
+      "name": "class-10-ocean",
+      "x": 160,
+      "y": 0,
+      "w": 16,
+      "h": 16
+    },
+    {
+      "name": "class-11-mist",
+      "x": 176,
+      "y": 0,
+      "w": 16,
+      "h": 16
+    }
+  ]
+}

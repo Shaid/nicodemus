@@ -1,0 +1,21 @@
+{
+  "pois": [
+    {
+      "x": 4,
+      "y": 1,
+      "type": "town",
+      "tile": 58,
+      "index": 16,
+      "label": "Dark"
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "type": "dungeon",
+      "tile": 55,
+      "index": 11,
+      "label": "The Castle of Dark",
+      "file": "D/DNGG.DAT"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "pois": [
+    {
+      "x": 7,
+      "y": 3,
+      "type": "town",
+      "tile": 57,
+      "index": 17,
+      "label": "Death"
+    },
+    {
+      "x": 6,
+      "y": 10,
+      "type": "dungeon",
+      "tile": 60,
+      "index": 9,
+      "label": "A dark fortress",
+      "file": "D/DNGI.DAT"
+    }
+  ]
+}

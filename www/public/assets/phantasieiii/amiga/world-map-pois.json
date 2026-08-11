@@ -1,0 +1,252 @@
+{
+  "pois": [
+    {
+      "x": 44,
+      "y": 5,
+      "type": "town",
+      "tile": 34,
+      "index": 11,
+      "label": "Flagler"
+    },
+    {
+      "x": 25,
+      "y": 8,
+      "type": "dungeon",
+      "tile": 44,
+      "index": 2,
+      "label": "Many men guard tent here",
+      "file": "D/DNGH.DAT"
+    },
+    {
+      "x": 8,
+      "y": 9,
+      "type": "town",
+      "tile": 36,
+      "index": 13,
+      "label": "Scanport"
+    },
+    {
+      "x": 46,
+      "y": 9,
+      "type": "dungeon",
+      "tile": 43,
+      "index": 1,
+      "label": "A very small straw hut",
+      "file": "D/DNGJ.DAT"
+    },
+    {
+      "x": 22,
+      "y": 12,
+      "type": "town",
+      "tile": 35,
+      "index": 12,
+      "label": "Lansing"
+    },
+    {
+      "x": 24,
+      "y": 20,
+      "type": "inn",
+      "tile": 47,
+      "index": 1,
+      "label": "The Mystic Inn"
+    },
+    {
+      "x": 2,
+      "y": 21,
+      "type": "inn",
+      "tile": 52,
+      "index": 6,
+      "label": "The Desert Inn"
+    },
+    {
+      "x": 46,
+      "y": 21,
+      "type": "inn",
+      "tile": 48,
+      "index": 2,
+      "label": "The Portal Inn"
+    },
+    {
+      "x": 15,
+      "y": 22,
+      "type": "town",
+      "tile": 37,
+      "index": 14,
+      "label": "Sciattica"
+    },
+    {
+      "x": 14,
+      "y": 24,
+      "type": "inn",
+      "tile": 51,
+      "index": 5,
+      "label": "The Kanpai Inn"
+    },
+    {
+      "x": 25,
+      "y": 27,
+      "type": "town",
+      "tile": 38,
+      "index": 8,
+      "label": "Asmith"
+    },
+    {
+      "x": 24,
+      "y": 32,
+      "type": "inn",
+      "tile": 50,
+      "index": 4,
+      "label": "The Jolly Inn"
+    },
+    {
+      "x": 43,
+      "y": 34,
+      "type": "inn",
+      "tile": 49,
+      "index": 3,
+      "label": "The Crown Inn"
+    },
+    {
+      "x": 2,
+      "y": 35,
+      "type": "dungeon",
+      "tile": 46,
+      "index": 6,
+      "label": "The Dwarven burial grounds",
+      "file": "D/DNGC.DAT"
+    },
+    {
+      "x": 5,
+      "y": 35,
+      "type": "town",
+      "tile": 27,
+      "index": 3,
+      "label": "Pendleton"
+    },
+    {
+      "x": 48,
+      "y": 36,
+      "type": "dungeon",
+      "tile": 42,
+      "index": 3,
+      "label": "A large crystal building",
+      "file": "D/DNGE.DAT"
+    },
+    {
+      "x": 24,
+      "y": 37,
+      "type": "town",
+      "tile": 25,
+      "index": 1,
+      "label": "Pendragon"
+    },
+    {
+      "x": 36,
+      "y": 38,
+      "type": "dungeon",
+      "tile": 41,
+      "index": 4,
+      "label": "A large cavern starts here",
+      "file": "D/DNGD.DAT"
+    },
+    {
+      "x": 15,
+      "y": 39,
+      "type": "town",
+      "tile": 26,
+      "index": 2,
+      "label": "Sandy Shores"
+    },
+    {
+      "x": 25,
+      "y": 39,
+      "type": "dungeon",
+      "tile": 45,
+      "index": 5,
+      "label": "The Pendragon town archives",
+      "file": "D/DNGA.DAT"
+    },
+    {
+      "x": 35,
+      "y": 42,
+      "type": "town",
+      "tile": 28,
+      "index": 4,
+      "label": "Rocky Hills"
+    },
+    {
+      "x": 22,
+      "y": 50,
+      "type": "inn",
+      "tile": 50,
+      "index": 7,
+      "label": "The Royal Inn"
+    },
+    {
+      "x": 5,
+      "y": 51,
+      "type": "town",
+      "tile": 32,
+      "index": 9,
+      "label": "Sierion"
+    },
+    {
+      "x": 43,
+      "y": 52,
+      "type": "town",
+      "tile": 29,
+      "index": 5,
+      "label": "Deltor"
+    },
+    {
+      "x": 2,
+      "y": 65,
+      "type": "inn",
+      "tile": 54,
+      "index": 8,
+      "label": "The Deadly Inn"
+    },
+    {
+      "x": 22,
+      "y": 65,
+      "type": "town",
+      "tile": 31,
+      "index": 6,
+      "label": "Tirith"
+    },
+    {
+      "x": 7,
+      "y": 66,
+      "type": "dungeon",
+      "tile": 39,
+      "index": 8,
+      "label": "A cave smelling of sulphur",
+      "file": "D/DNGK.DAT"
+    },
+    {
+      "x": 44,
+      "y": 66,
+      "type": "town",
+      "tile": 33,
+      "index": 10,
+      "label": "Xanador"
+    },
+    {
+      "x": 28,
+      "y": 67,
+      "type": "dungeon",
+      "tile": 40,
+      "index": 7,
+      "label": "A giant wooden building",
+      "file": "D/DNGB.DAT"
+    },
+    {
+      "x": 11,
+      "y": 69,
+      "type": "town",
+      "tile": 30,
+      "index": 7,
+      "label": "Tierrin"
+    }
+  ]
+}

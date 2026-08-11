@@ -82,5 +82,47 @@
     "sprites": 0,
     "hasPalette": true,
     "png": "phantasy.png"
+  },
+  {
+    "name": "world-map",
+    "type": "map",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": "screens/world-map.png"
+  },
+  {
+    "name": "m0",
+    "type": "music",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
+  },
+  {
+    "name": "m1",
+    "type": "music",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
+  },
+  {
+    "name": "castle-of-light",
+    "type": "map",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": "screens/castle-of-light.png"
+  },
+  {
+    "name": "castle-of-dark",
+    "type": "map",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": "screens/castle-of-dark.png"
+  },
+  {
+    "name": "netherworld",
+    "type": "map",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": "screens/netherworld.png"
   }
 ]

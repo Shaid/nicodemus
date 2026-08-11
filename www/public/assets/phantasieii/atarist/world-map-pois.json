@@ -1,0 +1,986 @@
+{
+  "pois": [
+    {
+      "section": 17,
+      "col": 5,
+      "row": 14,
+      "x": 86,
+      "y": 5,
+      "type": "town",
+      "tile": 40,
+      "index": 8,
+      "param": 0,
+      "label": "Town 8"
+    },
+    {
+      "section": 17,
+      "col": 5,
+      "row": 6,
+      "x": 94,
+      "y": 5,
+      "type": "text",
+      "tile": 76,
+      "index": 0,
+      "param": 0,
+      "label": "THERE IS A LARGE CAVE ENTRANC…",
+      "message": [
+        "THERE IS A LARGE CAVE ENTRANCE HERE"
+      ]
+    },
+    {
+      "section": 17,
+      "col": 5,
+      "row": 5,
+      "x": 95,
+      "y": 5,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 5,
+      "param": 16,
+      "label": "Dungeon 5"
+    },
+    {
+      "section": 17,
+      "col": 6,
+      "row": 5,
+      "x": 95,
+      "y": 6,
+      "type": "other",
+      "tile": 72,
+      "index": 0,
+      "param": 0,
+      "label": "POI 0"
+    },
+    {
+      "section": 5,
+      "col": 7,
+      "row": 20,
+      "x": 155,
+      "y": 7,
+      "type": "text",
+      "tile": 96,
+      "index": 0,
+      "param": 0,
+      "label": "'THE SMUGGLER INN'",
+      "message": [
+        "'THE SMUGGLER INN'"
+      ]
+    },
+    {
+      "section": 1,
+      "col": 7,
+      "row": 15,
+      "x": 185,
+      "y": 7,
+      "type": "text",
+      "tile": 66,
+      "index": 0,
+      "param": 0,
+      "label": "'THE OASIS'",
+      "message": [
+        "'THE OASIS'"
+      ]
+    },
+    {
+      "section": 5,
+      "col": 8,
+      "row": 21,
+      "x": 154,
+      "y": 8,
+      "type": "text",
+      "tile": 96,
+      "index": 0,
+      "param": 0,
+      "label": "'THE SMUGGLER INN'",
+      "message": [
+        "'THE SMUGGLER INN'"
+      ]
+    },
+    {
+      "section": 5,
+      "col": 8,
+      "row": 19,
+      "x": 156,
+      "y": 8,
+      "type": "text",
+      "tile": 96,
+      "index": 0,
+      "param": 0,
+      "label": "'THE SMUGGLER INN'",
+      "message": [
+        "'THE SMUGGLER INN'"
+      ]
+    },
+    {
+      "section": 5,
+      "col": 9,
+      "row": 20,
+      "x": 155,
+      "y": 9,
+      "type": "text",
+      "tile": 106,
+      "index": 0,
+      "param": 0,
+      "label": "'THE SMUGGLER INN'",
+      "message": [
+        "'THE SMUGGLER INN'"
+      ]
+    },
+    {
+      "section": 5,
+      "col": 10,
+      "row": 22,
+      "x": 153,
+      "y": 10,
+      "type": "bump",
+      "tile": 97,
+      "index": 73,
+      "param": 0,
+      "label": "Event 73"
+    },
+    {
+      "section": 1,
+      "col": 16,
+      "row": 15,
+      "x": 185,
+      "y": 16,
+      "type": "town",
+      "tile": 40,
+      "index": 2,
+      "param": 0,
+      "label": "Town 2"
+    },
+    {
+      "section": 2,
+      "col": 0,
+      "row": 12,
+      "x": 188,
+      "y": 19,
+      "type": "text",
+      "tile": 66,
+      "index": 0,
+      "param": 0,
+      "label": "'THE ALBATROSS'",
+      "message": [
+        "'THE ALBATROSS'"
+      ]
+    },
+    {
+      "section": 2,
+      "col": 1,
+      "row": 15,
+      "x": 185,
+      "y": 20,
+      "type": "text",
+      "tile": 6,
+      "index": 1,
+      "param": 0,
+      "label": "THERE IS A SMALL ENCLOSED TOW…",
+      "message": [
+        "THERE IS A SMALL ENCLOSED TOWN HERE"
+      ]
+    },
+    {
+      "section": 26,
+      "col": 2,
+      "row": 0,
+      "x": 50,
+      "y": 21,
+      "type": "text",
+      "tile": 106,
+      "index": 10,
+      "param": 0,
+      "label": "YOUR PARTY GOES THROUGH A STR…",
+      "message": [
+        "YOUR PARTY GOES THROUGH A STRANGE",
+        "INTERDIMENSIONAL VORTEX"
+      ]
+    },
+    {
+      "section": 18,
+      "col": 2,
+      "row": 19,
+      "x": 81,
+      "y": 21,
+      "type": "town",
+      "tile": 40,
+      "index": 7,
+      "param": 0,
+      "label": "Town 7"
+    },
+    {
+      "section": 2,
+      "col": 2,
+      "row": 16,
+      "x": 184,
+      "y": 21,
+      "type": "text",
+      "tile": 6,
+      "index": 1,
+      "param": 0,
+      "label": "THERE IS A SMALL ENCLOSED TOW…",
+      "message": [
+        "THERE IS A SMALL ENCLOSED TOWN HERE"
+      ]
+    },
+    {
+      "section": 2,
+      "col": 2,
+      "row": 15,
+      "x": 185,
+      "y": 21,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 1,
+      "param": 15,
+      "label": "Dungeon 1"
+    },
+    {
+      "section": 2,
+      "col": 2,
+      "row": 14,
+      "x": 186,
+      "y": 21,
+      "type": "text",
+      "tile": 6,
+      "index": 1,
+      "param": 0,
+      "label": "THERE IS A SMALL ENCLOSED TOW…",
+      "message": [
+        "THERE IS A SMALL ENCLOSED TOWN HERE"
+      ]
+    },
+    {
+      "section": 2,
+      "col": 3,
+      "row": 9,
+      "x": 191,
+      "y": 22,
+      "type": "town",
+      "tile": 40,
+      "index": 1,
+      "param": 0,
+      "label": "Town 1"
+    },
+    {
+      "section": 30,
+      "col": 5,
+      "row": 10,
+      "x": 15,
+      "y": 24,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 8,
+      "param": 19,
+      "label": "Dungeon 8"
+    },
+    {
+      "section": 30,
+      "col": 6,
+      "row": 10,
+      "x": 15,
+      "y": 25,
+      "type": "text",
+      "tile": 86,
+      "index": 0,
+      "param": 0,
+      "label": "HERE IS A LARGE OPEN FORTRESS",
+      "message": [
+        "HERE IS A LARGE OPEN FORTRESS"
+      ]
+    },
+    {
+      "section": 26,
+      "col": 8,
+      "row": 25,
+      "x": 25,
+      "y": 27,
+      "type": "text",
+      "tile": 106,
+      "index": 10,
+      "param": 0,
+      "label": "YOUR PARTY GOES THROUGH A STR…",
+      "message": [
+        "YOUR PARTY GOES THROUGH A STRANGE",
+        "INTERDIMENSIONAL VORTEX"
+      ]
+    },
+    {
+      "section": 6,
+      "col": 8,
+      "row": 19,
+      "x": 156,
+      "y": 27,
+      "type": "town",
+      "tile": 40,
+      "index": 3,
+      "param": 0,
+      "label": "Town 3"
+    },
+    {
+      "section": 30,
+      "col": 10,
+      "row": 4,
+      "x": 21,
+      "y": 29,
+      "type": "text",
+      "tile": 46,
+      "index": 11,
+      "param": 0,
+      "label": "HERE IS A TEMPLE WITH",
+      "message": [
+        "HERE IS A TEMPLE WITH",
+        "'83' INSCRIBED ON ONE OF THE WALLS"
+      ]
+    },
+    {
+      "section": 2,
+      "col": 10,
+      "row": 5,
+      "x": 195,
+      "y": 29,
+      "type": "bump",
+      "tile": 97,
+      "index": 72,
+      "param": 0,
+      "label": "Event 72"
+    },
+    {
+      "section": 18,
+      "col": 14,
+      "row": 7,
+      "x": 93,
+      "y": 33,
+      "type": "text",
+      "tile": 116,
+      "index": 10,
+      "param": 0,
+      "label": "THERE IS A SMALL",
+      "message": [
+        "THERE IS A SMALL",
+        "BLOODSTAINED TEMPLE HERE"
+      ]
+    },
+    {
+      "section": 6,
+      "col": 14,
+      "row": 22,
+      "x": 153,
+      "y": 33,
+      "type": "text",
+      "tile": 6,
+      "index": 20,
+      "param": 0,
+      "label": "THERE IS A SMALL STONE CASTLE",
+      "message": [
+        "THERE IS A SMALL STONE CASTLE",
+        "SET ON THE EDGE OF THE WATER,",
+        "BUT THERE IS LITTLE ACTIVITY."
+      ]
+    },
+    {
+      "section": 6,
+      "col": 15,
+      "row": 23,
+      "x": 152,
+      "y": 34,
+      "type": "text",
+      "tile": 106,
+      "index": 20,
+      "param": 0,
+      "label": "THERE IS A SMALL STONE CASTLE",
+      "message": [
+        "THERE IS A SMALL STONE CASTLE",
+        "SET ON THE EDGE OF THE WATER,",
+        "BUT THERE IS LITTLE ACTIVITY."
+      ]
+    },
+    {
+      "section": 6,
+      "col": 15,
+      "row": 22,
+      "x": 153,
+      "y": 34,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 2,
+      "param": 17,
+      "label": "Dungeon 2"
+    },
+    {
+      "section": 6,
+      "col": 15,
+      "row": 21,
+      "x": 154,
+      "y": 34,
+      "type": "text",
+      "tile": 6,
+      "index": 20,
+      "param": 0,
+      "label": "THERE IS A SMALL STONE CASTLE",
+      "message": [
+        "THERE IS A SMALL STONE CASTLE",
+        "SET ON THE EDGE OF THE WATER,",
+        "BUT THERE IS LITTLE ACTIVITY."
+      ]
+    },
+    {
+      "section": 22,
+      "col": 16,
+      "row": 22,
+      "x": 53,
+      "y": 35,
+      "type": "text",
+      "tile": 116,
+      "index": 0,
+      "param": 0,
+      "label": "THERE IS A SMALL CAVE ENTRANC…",
+      "message": [
+        "THERE IS A SMALL CAVE ENTRANCE HERE"
+      ]
+    },
+    {
+      "section": 6,
+      "col": 16,
+      "row": 22,
+      "x": 153,
+      "y": 35,
+      "type": "text",
+      "tile": 6,
+      "index": 20,
+      "param": 0,
+      "label": "THERE IS A SMALL STONE CASTLE",
+      "message": [
+        "THERE IS A SMALL STONE CASTLE",
+        "SET ON THE EDGE OF THE WATER,",
+        "BUT THERE IS LITTLE ACTIVITY."
+      ]
+    },
+    {
+      "section": 22,
+      "col": 17,
+      "row": 22,
+      "x": 53,
+      "y": 36,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 3,
+      "param": 3,
+      "label": "Dungeon 3"
+    },
+    {
+      "section": 22,
+      "col": 17,
+      "row": 21,
+      "x": 54,
+      "y": 36,
+      "type": "text",
+      "tile": 116,
+      "index": 0,
+      "param": 0,
+      "label": "THERE IS A SMALL CAVE ENTRANC…",
+      "message": [
+        "THERE IS A SMALL CAVE ENTRANCE HERE"
+      ]
+    },
+    {
+      "section": 7,
+      "col": 5,
+      "row": 9,
+      "x": 166,
+      "y": 43,
+      "type": "text",
+      "tile": 66,
+      "index": 0,
+      "param": 0,
+      "label": "'THE MOUNTAIN VIEW INN'",
+      "message": [
+        "'THE MOUNTAIN VIEW INN'"
+      ]
+    },
+    {
+      "section": 27,
+      "col": 7,
+      "row": 12,
+      "x": 38,
+      "y": 45,
+      "type": "town",
+      "tile": 40,
+      "index": 9,
+      "param": 0,
+      "label": "Town 9"
+    },
+    {
+      "section": 3,
+      "col": 7,
+      "row": 10,
+      "x": 190,
+      "y": 45,
+      "type": "text",
+      "tile": 6,
+      "index": 0,
+      "param": 0,
+      "label": "'THE PURPLE GNOME'",
+      "message": [
+        "'THE PURPLE GNOME'"
+      ]
+    },
+    {
+      "section": 3,
+      "col": 8,
+      "row": 11,
+      "x": 189,
+      "y": 46,
+      "type": "text",
+      "tile": 6,
+      "index": 0,
+      "param": 0,
+      "label": "'THE PURPLE GNOME'",
+      "message": [
+        "'THE PURPLE GNOME'"
+      ]
+    },
+    {
+      "section": 3,
+      "col": 8,
+      "row": 9,
+      "x": 191,
+      "y": 46,
+      "type": "text",
+      "tile": 6,
+      "index": 0,
+      "param": 0,
+      "label": "'THE PURPLE GNOME'",
+      "message": [
+        "'THE PURPLE GNOME'"
+      ]
+    },
+    {
+      "section": 3,
+      "col": 9,
+      "row": 18,
+      "x": 182,
+      "y": 47,
+      "type": "text",
+      "tile": 6,
+      "index": 1,
+      "param": 0,
+      "label": "THERE IS A LARGE PALACE HERE",
+      "message": [
+        "THERE IS A LARGE PALACE HERE"
+      ]
+    },
+    {
+      "section": 3,
+      "col": 9,
+      "row": 10,
+      "x": 190,
+      "y": 47,
+      "type": "text",
+      "tile": 6,
+      "index": 0,
+      "param": 0,
+      "label": "'THE PURPLE GNOME'",
+      "message": [
+        "'THE PURPLE GNOME'"
+      ]
+    },
+    {
+      "section": 11,
+      "col": 10,
+      "row": 8,
+      "x": 142,
+      "y": 48,
+      "type": "text",
+      "tile": 66,
+      "index": 0,
+      "param": 0,
+      "label": "'THE SALTY TAVERN'",
+      "message": [
+        "'THE SALTY TAVERN'"
+      ]
+    },
+    {
+      "section": 3,
+      "col": 10,
+      "row": 19,
+      "x": 181,
+      "y": 48,
+      "type": "text",
+      "tile": 6,
+      "index": 1,
+      "param": 0,
+      "label": "THERE IS A LARGE PALACE HERE",
+      "message": [
+        "THERE IS A LARGE PALACE HERE"
+      ]
+    },
+    {
+      "section": 3,
+      "col": 10,
+      "row": 18,
+      "x": 182,
+      "y": 48,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 6,
+      "param": 16,
+      "label": "Dungeon 6"
+    },
+    {
+      "section": 7,
+      "col": 14,
+      "row": 16,
+      "x": 159,
+      "y": 52,
+      "type": "town",
+      "tile": 40,
+      "index": 5,
+      "param": 0,
+      "label": "Town 5"
+    },
+    {
+      "section": 3,
+      "col": 15,
+      "row": 16,
+      "x": 184,
+      "y": 53,
+      "type": "town",
+      "tile": 40,
+      "index": 4,
+      "param": 0,
+      "label": "Town 4"
+    },
+    {
+      "section": 28,
+      "col": 2,
+      "row": 21,
+      "x": 29,
+      "y": 59,
+      "type": "town",
+      "tile": 40,
+      "index": 10,
+      "param": 0,
+      "label": "Town 10"
+    },
+    {
+      "section": 8,
+      "col": 4,
+      "row": 11,
+      "x": 164,
+      "y": 61,
+      "type": "text",
+      "tile": 66,
+      "index": 0,
+      "param": 0,
+      "label": "'THE BLACK ELF TAVERN'",
+      "message": [
+        "'THE BLACK ELF TAVERN'"
+      ]
+    },
+    {
+      "section": 12,
+      "col": 5,
+      "row": 16,
+      "x": 134,
+      "y": 62,
+      "type": "text",
+      "tile": 46,
+      "index": 0,
+      "param": 0,
+      "label": "HERE ARE THE RUINS OF AN ANCI…",
+      "message": [
+        "HERE ARE THE RUINS OF AN ANCIENT CITY"
+      ]
+    },
+    {
+      "section": 12,
+      "col": 5,
+      "row": 15,
+      "x": 135,
+      "y": 62,
+      "type": "text",
+      "tile": 46,
+      "index": 0,
+      "param": 0,
+      "label": "HERE ARE THE RUINS OF AN ANCI…",
+      "message": [
+        "HERE ARE THE RUINS OF AN ANCIENT CITY"
+      ]
+    },
+    {
+      "section": 12,
+      "col": 5,
+      "row": 14,
+      "x": 136,
+      "y": 62,
+      "type": "text",
+      "tile": 46,
+      "index": 0,
+      "param": 0,
+      "label": "HERE ARE THE RUINS OF AN ANCI…",
+      "message": [
+        "HERE ARE THE RUINS OF AN ANCIENT CITY"
+      ]
+    },
+    {
+      "section": 28,
+      "col": 6,
+      "row": 20,
+      "x": 30,
+      "y": 63,
+      "type": "text",
+      "tile": 76,
+      "index": 0,
+      "param": 0,
+      "label": "THERE IS A SMALL TEMPLE HERE",
+      "message": [
+        "THERE IS A SMALL TEMPLE HERE"
+      ]
+    },
+    {
+      "section": 12,
+      "col": 6,
+      "row": 14,
+      "x": 136,
+      "y": 63,
+      "type": "text",
+      "tile": 46,
+      "index": 0,
+      "param": 0,
+      "label": "HERE ARE THE RUINS OF AN ANCI…",
+      "message": [
+        "HERE ARE THE RUINS OF AN ANCIENT CITY"
+      ]
+    },
+    {
+      "section": 12,
+      "col": 9,
+      "row": 21,
+      "x": 129,
+      "y": 66,
+      "type": "text",
+      "tile": 16,
+      "index": 1,
+      "param": 0,
+      "label": "THERE IS A SMALL STRAW HUT HE…",
+      "message": [
+        "THERE IS A SMALL STRAW HUT HERE"
+      ]
+    },
+    {
+      "section": 12,
+      "col": 10,
+      "row": 22,
+      "x": 128,
+      "y": 67,
+      "type": "text",
+      "tile": 16,
+      "index": 1,
+      "param": 0,
+      "label": "THERE IS A SMALL STRAW HUT HE…",
+      "message": [
+        "THERE IS A SMALL STRAW HUT HERE"
+      ]
+    },
+    {
+      "section": 12,
+      "col": 10,
+      "row": 21,
+      "x": 129,
+      "y": 67,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 4,
+      "param": 16,
+      "label": "Dungeon 4"
+    },
+    {
+      "section": 28,
+      "col": 11,
+      "row": 9,
+      "x": 41,
+      "y": 68,
+      "type": "text",
+      "tile": 116,
+      "index": 11,
+      "param": 0,
+      "label": "HERE IS AN ENOURMOUS BLACK CA…",
+      "message": [
+        "HERE IS AN ENOURMOUS BLACK CASTLE",
+        "MILES IN EACH DIMENSION"
+      ]
+    },
+    {
+      "section": 28,
+      "col": 11,
+      "row": 5,
+      "x": 45,
+      "y": 68,
+      "type": "text",
+      "tile": 116,
+      "index": 11,
+      "param": 0,
+      "label": "HERE IS AN ENOURMOUS BLACK CA…",
+      "message": [
+        "HERE IS AN ENOURMOUS BLACK CASTLE",
+        "MILES IN EACH DIMENSION"
+      ]
+    },
+    {
+      "section": 12,
+      "col": 11,
+      "row": 4,
+      "x": 146,
+      "y": 68,
+      "type": "town",
+      "tile": 40,
+      "index": 6,
+      "param": 0,
+      "label": "Town 6"
+    },
+    {
+      "section": 28,
+      "col": 12,
+      "row": 8,
+      "x": 42,
+      "y": 69,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 7,
+      "param": 3,
+      "label": "Dungeon 7"
+    },
+    {
+      "section": 28,
+      "col": 12,
+      "row": 7,
+      "x": 43,
+      "y": 69,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 7,
+      "param": 16,
+      "label": "Dungeon 7"
+    },
+    {
+      "section": 28,
+      "col": 12,
+      "row": 6,
+      "x": 44,
+      "y": 69,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 7,
+      "param": 29,
+      "label": "Dungeon 7"
+    },
+    {
+      "section": 12,
+      "col": 12,
+      "row": 17,
+      "x": 133,
+      "y": 69,
+      "type": "text",
+      "tile": 46,
+      "index": 2,
+      "param": 0,
+      "label": "HERE IS AN OLD DECAYING LIGHT…",
+      "message": [
+        "HERE IS AN OLD DECAYING LIGHTHOUSE"
+      ]
+    },
+    {
+      "section": 28,
+      "col": 13,
+      "row": 8,
+      "x": 42,
+      "y": 70,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 7,
+      "param": 0,
+      "label": "Dungeon 7"
+    },
+    {
+      "section": 28,
+      "col": 13,
+      "row": 6,
+      "x": 44,
+      "y": 70,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 7,
+      "param": 32,
+      "label": "Dungeon 7"
+    },
+    {
+      "section": 28,
+      "col": 14,
+      "row": 8,
+      "x": 42,
+      "y": 71,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 7,
+      "param": 3,
+      "label": "Dungeon 7"
+    },
+    {
+      "section": 28,
+      "col": 14,
+      "row": 7,
+      "x": 43,
+      "y": 71,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 7,
+      "param": 16,
+      "label": "Dungeon 7"
+    },
+    {
+      "section": 28,
+      "col": 14,
+      "row": 6,
+      "x": 44,
+      "y": 71,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 7,
+      "param": 29,
+      "label": "Dungeon 7"
+    },
+    {
+      "section": 28,
+      "col": 15,
+      "row": 9,
+      "x": 41,
+      "y": 72,
+      "type": "text",
+      "tile": 116,
+      "index": 11,
+      "param": 0,
+      "label": "HERE IS AN ENOURMOUS BLACK CA…",
+      "message": [
+        "HERE IS AN ENOURMOUS BLACK CASTLE",
+        "MILES IN EACH DIMENSION"
+      ]
+    },
+    {
+      "section": 28,
+      "col": 15,
+      "row": 5,
+      "x": 45,
+      "y": 72,
+      "type": "text",
+      "tile": 116,
+      "index": 11,
+      "param": 0,
+      "label": "HERE IS AN ENOURMOUS BLACK CA…",
+      "message": [
+        "HERE IS AN ENOURMOUS BLACK CASTLE",
+        "MILES IN EACH DIMENSION"
+      ]
+    }
+  ]
+}

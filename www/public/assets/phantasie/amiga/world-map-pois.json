@@ -1,0 +1,1429 @@
+{
+  "pois": [
+    {
+      "section": 5,
+      "col": 5,
+      "row": 5,
+      "x": 95,
+      "y": 5,
+      "type": "town",
+      "tile": 40,
+      "index": 2,
+      "param": 0,
+      "label": "PINEVILLE"
+    },
+    {
+      "section": 1,
+      "col": 5,
+      "row": 5,
+      "x": 120,
+      "y": 5,
+      "type": "text",
+      "tile": 16,
+      "index": 6,
+      "param": 0,
+      "label": "THERE IS A SMALL TEMPLE HERE",
+      "message": [
+        "THERE IS A SMALL TEMPLE HERE"
+      ]
+    },
+    {
+      "section": 1,
+      "col": 7,
+      "row": 16,
+      "x": 109,
+      "y": 7,
+      "type": "text",
+      "tile": 26,
+      "index": 14,
+      "param": 0,
+      "label": "YOU ARE NEAR A SMALL DOOR SET",
+      "message": [
+        "YOU ARE NEAR A SMALL DOOR SET",
+        "INTO THE HILLSIDE"
+      ]
+    },
+    {
+      "section": 9,
+      "col": 8,
+      "row": 11,
+      "x": 64,
+      "y": 8,
+      "type": "town",
+      "tile": 40,
+      "index": 3,
+      "param": 0,
+      "label": "GREENVILLE"
+    },
+    {
+      "section": 5,
+      "col": 8,
+      "row": 5,
+      "x": 95,
+      "y": 8,
+      "type": "text",
+      "tile": 66,
+      "index": 20,
+      "param": 0,
+      "label": "A SIGN READS: PELNOR 270 MILE…",
+      "message": [
+        "A SIGN READS: PELNOR 270 MILES EAST,",
+        "PINEVILLE 30 MILES NORTH,",
+        "'THE CONLEY INN' 170 MILES WEST"
+      ]
+    },
+    {
+      "section": 1,
+      "col": 8,
+      "row": 17,
+      "x": 108,
+      "y": 8,
+      "type": "text",
+      "tile": 26,
+      "index": 14,
+      "param": 0,
+      "label": "YOU ARE NEAR A SMALL DOOR SET",
+      "message": [
+        "YOU ARE NEAR A SMALL DOOR SET",
+        "INTO THE HILLSIDE"
+      ]
+    },
+    {
+      "section": 1,
+      "col": 8,
+      "row": 16,
+      "x": 109,
+      "y": 8,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 1,
+      "param": 20,
+      "label": "Dungeon 1"
+    },
+    {
+      "section": 1,
+      "col": 8,
+      "row": 15,
+      "x": 110,
+      "y": 8,
+      "type": "text",
+      "tile": 26,
+      "index": 14,
+      "param": 0,
+      "label": "YOU ARE NEAR A SMALL DOOR SET",
+      "message": [
+        "YOU ARE NEAR A SMALL DOOR SET",
+        "INTO THE HILLSIDE"
+      ]
+    },
+    {
+      "section": 9,
+      "col": 9,
+      "row": 5,
+      "x": 70,
+      "y": 9,
+      "type": "silent",
+      "tile": 68,
+      "index": 78,
+      "param": 0,
+      "label": "Marker 78"
+    },
+    {
+      "section": 5,
+      "col": 9,
+      "row": 21,
+      "x": 79,
+      "y": 9,
+      "type": "text",
+      "tile": 66,
+      "index": 3,
+      "param": 0,
+      "label": "TO THE SOUTH LIES 'THE CONLEY…",
+      "message": [
+        "TO THE SOUTH LIES 'THE CONLEY INN'"
+      ]
+    },
+    {
+      "section": 1,
+      "col": 9,
+      "row": 16,
+      "x": 109,
+      "y": 9,
+      "type": "text",
+      "tile": 26,
+      "index": 14,
+      "param": 0,
+      "label": "YOU ARE NEAR A SMALL DOOR SET",
+      "message": [
+        "YOU ARE NEAR A SMALL DOOR SET",
+        "INTO THE HILLSIDE"
+      ]
+    },
+    {
+      "section": 5,
+      "col": 12,
+      "row": 9,
+      "x": 91,
+      "y": 12,
+      "type": "text",
+      "tile": 6,
+      "index": 4,
+      "param": 0,
+      "label": "YOU ARE NEAR A STRANGE BUBBLI…",
+      "message": [
+        "YOU ARE NEAR A STRANGE BUBBLING POOL"
+      ]
+    },
+    {
+      "section": 9,
+      "col": 13,
+      "row": 12,
+      "x": 63,
+      "y": 13,
+      "type": "text",
+      "tile": 16,
+      "index": 0,
+      "param": 0,
+      "label": "HERE IS A DARK, FOREBODING CA…",
+      "message": [
+        "HERE IS A DARK, FOREBODING CAVE"
+      ]
+    },
+    {
+      "section": 5,
+      "col": 13,
+      "row": 10,
+      "x": 90,
+      "y": 13,
+      "type": "text",
+      "tile": 6,
+      "index": 4,
+      "param": 0,
+      "label": "YOU ARE NEAR A STRANGE BUBBLI…",
+      "message": [
+        "YOU ARE NEAR A STRANGE BUBBLING POOL"
+      ]
+    },
+    {
+      "section": 5,
+      "col": 13,
+      "row": 8,
+      "x": 92,
+      "y": 13,
+      "type": "text",
+      "tile": 6,
+      "index": 4,
+      "param": 0,
+      "label": "YOU ARE NEAR A STRANGE BUBBLI…",
+      "message": [
+        "YOU ARE NEAR A STRANGE BUBBLING POOL"
+      ]
+    },
+    {
+      "section": 1,
+      "col": 13,
+      "row": 17,
+      "x": 108,
+      "y": 13,
+      "type": "text",
+      "tile": 66,
+      "index": 10,
+      "param": 0,
+      "label": "TO THE WEST IS A BUILDING CAL…",
+      "message": [
+        "TO THE WEST IS A BUILDING CALLED",
+        "'THE RED PONY INN'"
+      ]
+    },
+    {
+      "section": 13,
+      "col": 14,
+      "row": 22,
+      "x": 28,
+      "y": 14,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 4,
+      "param": 15,
+      "label": "Dungeon 4"
+    },
+    {
+      "section": 9,
+      "col": 14,
+      "row": 13,
+      "x": 62,
+      "y": 14,
+      "type": "text",
+      "tile": 6,
+      "index": 0,
+      "param": 0,
+      "label": "HERE IS A DARK, FOREBODING CA…",
+      "message": [
+        "HERE IS A DARK, FOREBODING CAVE"
+      ]
+    },
+    {
+      "section": 9,
+      "col": 14,
+      "row": 12,
+      "x": 63,
+      "y": 14,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 3,
+      "param": 8,
+      "label": "Dungeon 3"
+    },
+    {
+      "section": 9,
+      "col": 14,
+      "row": 11,
+      "x": 64,
+      "y": 14,
+      "type": "text",
+      "tile": 16,
+      "index": 0,
+      "param": 0,
+      "label": "HERE IS A DARK, FOREBODING CA…",
+      "message": [
+        "HERE IS A DARK, FOREBODING CAVE"
+      ]
+    },
+    {
+      "section": 5,
+      "col": 14,
+      "row": 9,
+      "x": 91,
+      "y": 14,
+      "type": "text",
+      "tile": 6,
+      "index": 4,
+      "param": 0,
+      "label": "YOU ARE NEAR A STRANGE BUBBLI…",
+      "message": [
+        "YOU ARE NEAR A STRANGE BUBBLING POOL"
+      ]
+    },
+    {
+      "section": 13,
+      "col": 15,
+      "row": 22,
+      "x": 28,
+      "y": 15,
+      "type": "text",
+      "tile": 66,
+      "index": 0,
+      "param": 0,
+      "label": "A LARGE WALLED CITY LIES TO T…",
+      "message": [
+        "A LARGE WALLED CITY LIES TO THE NORTH"
+      ]
+    },
+    {
+      "section": 9,
+      "col": 15,
+      "row": 12,
+      "x": 63,
+      "y": 15,
+      "type": "text",
+      "tile": 6,
+      "index": 0,
+      "param": 0,
+      "label": "HERE IS A DARK, FOREBODING CA…",
+      "message": [
+        "HERE IS A DARK, FOREBODING CAVE"
+      ]
+    },
+    {
+      "section": 5,
+      "col": 15,
+      "row": 17,
+      "x": 83,
+      "y": 15,
+      "type": "text",
+      "tile": 6,
+      "index": 5,
+      "param": 0,
+      "label": "THERE IS A SMALL CATHEDRAL HE…",
+      "message": [
+        "THERE IS A SMALL CATHEDRAL HERE"
+      ]
+    },
+    {
+      "section": 1,
+      "col": 15,
+      "row": 12,
+      "x": 113,
+      "y": 15,
+      "type": "text",
+      "tile": 66,
+      "index": 12,
+      "param": 0,
+      "label": "YOU ARE ON A PATH,",
+      "message": [
+        "YOU ARE ON A PATH,",
+        "TO THE EAST LIES A SMALL TOWN"
+      ]
+    },
+    {
+      "section": 1,
+      "col": 15,
+      "row": 11,
+      "x": 114,
+      "y": 15,
+      "type": "town",
+      "tile": 40,
+      "index": 1,
+      "param": 0,
+      "label": "PELNOR"
+    },
+    {
+      "section": 5,
+      "col": 16,
+      "row": 18,
+      "x": 82,
+      "y": 16,
+      "type": "text",
+      "tile": 6,
+      "index": 5,
+      "param": 0,
+      "label": "THERE IS A SMALL CATHEDRAL HE…",
+      "message": [
+        "THERE IS A SMALL CATHEDRAL HERE"
+      ]
+    },
+    {
+      "section": 5,
+      "col": 16,
+      "row": 17,
+      "x": 83,
+      "y": 16,
+      "type": "dungeon",
+      "tile": 51,
+      "index": 2,
+      "param": 14,
+      "label": "Dungeon 2"
+    },
+    {
+      "section": 5,
+      "col": 16,
+      "row": 16,
+      "x": 84,
+      "y": 16,
+      "type": "text",
+      "tile": 6,
+      "index": 5,
+      "param": 0,
+      "label": "THERE IS A SMALL CATHEDRAL HE…",
+      "message": [
+        "THERE IS A SMALL CATHEDRAL HERE"
+      ]
+    },
+    {
+      "section": 9,
+      "col": 17,
+      "row": 10,
+      "x": 65,
+      "y": 17,
+      "type": "text",
+      "tile": 66,
+      "index": 1,
+      "param": 0,
+      "label": "'THE GREEN DRAGON INN'",
+      "message": [
+        "'THE GREEN DRAGON INN'"
+      ]
+    },
+    {
+      "section": 9,
+      "col": 18,
+      "row": 24,
+      "x": 51,
+      "y": 18,
+      "type": "silent",
+      "tile": 68,
+      "index": 78,
+      "param": 17,
+      "label": "Marker 78"
+    },
+    {
+      "section": 14,
+      "col": 0,
+      "row": 13,
+      "x": 37,
+      "y": 19,
+      "type": "text",
+      "tile": 6,
+      "index": 10,
+      "param": 0,
+      "label": "A GREAT STAR HAS BEEN CONSTRU…",
+      "message": [
+        "A GREAT STAR HAS BEEN CONSTRUCTED",
+        "OF WOOD ON THE BEACH TO THE SOUTH"
+      ]
+    },
+    {
+      "section": 13,
+      "col": 19,
+      "row": 8,
+      "x": 42,
+      "y": 19,
+      "type": "other",
+      "tile": 41,
+      "index": 5,
+      "param": 0,
+      "label": "POI 5"
+    },
+    {
+      "section": 9,
+      "col": 19,
+      "row": 10,
+      "x": 65,
+      "y": 19,
+      "type": "silent",
+      "tile": 68,
+      "index": 78,
+      "param": 0,
+      "label": "Marker 78"
+    },
+    {
+      "section": 14,
+      "col": 1,
+      "row": 13,
+      "x": 37,
+      "y": 20,
+      "type": "text",
+      "tile": 6,
+      "index": 10,
+      "param": 0,
+      "label": "A GREAT STAR HAS BEEN CONSTRU…",
+      "message": [
+        "A GREAT STAR HAS BEEN CONSTRUCTED",
+        "OF WOOD ON THE BEACH TO THE SOUTH"
+      ]
+    },
+    {
+      "section": 18,
+      "col": 4,
+      "row": 15,
+      "x": 10,
+      "y": 23,
+      "type": "text",
+      "tile": 66,
+      "index": 20,
+      "param": 0,
+      "label": "YOU ARE IN THE ASTRAL PLANE,",
+      "message": [
+        "YOU ARE IN THE ASTRAL PLANE,",
+        "SURROUNDED BY A BRILLANT LIGHT",
+        "NEARBY IS A MAGNIFICENT GOLDEN CITY"
+      ]
+    },
+    {
+      "section": 18,
+      "col": 5,
+      "row": 16,
+      "x": 9,
+      "y": 24,
+      "type": "text",
+      "tile": 66,
+      "index": 20,
+      "param": 0,
+      "label": "YOU ARE IN THE ASTRAL PLANE,",
+      "message": [
+        "YOU ARE IN THE ASTRAL PLANE,",
+        "SURROUNDED BY A BRILLANT LIGHT",
+        "NEARBY IS A MAGNIFICENT GOLDEN CITY"
+      ]
+    },
+    {
+      "section": 18,
+      "col": 5,
+      "row": 15,
+      "x": 10,
+      "y": 24,
+      "type": "town",
+      "tile": 40,
+      "index": 99,
+      "param": 0,
+      "label": "OLYMPIA"
+    },
+    {
+      "section": 18,
+      "col": 5,
+      "row": 14,
+      "x": 11,
+      "y": 24,
+      "type": "text",
+      "tile": 66,
+      "index": 20,
+      "param": 0,
+      "label": "YOU ARE IN THE ASTRAL PLANE,",
+      "message": [
+        "YOU ARE IN THE ASTRAL PLANE,",
+        "SURROUNDED BY A BRILLANT LIGHT",
+        "NEARBY IS A MAGNIFICENT GOLDEN CITY"
+      ]
+    },
+    {
+      "section": 10,
+      "col": 5,
+      "row": 10,
+      "x": 65,
+      "y": 24,
+      "type": "town",
+      "tile": 40,
+      "index": 4,
+      "param": 0,
+      "label": "HALFLINGOR"
+    },
+    {
+      "section": 18,
+      "col": 6,
+      "row": 15,
+      "x": 10,
+      "y": 25,
+      "type": "text",
+      "tile": 66,
+      "index": 20,
+      "param": 0,
+      "label": "YOU ARE IN THE ASTRAL PLANE,",
+      "message": [
+        "YOU ARE IN THE ASTRAL PLANE,",
+        "SURROUNDED BY A BRILLANT LIGHT",
+        "NEARBY IS A MAGNIFICENT GOLDEN CITY"
+      ]
+    },
+    {
+      "section": 2,
+      "col": 6,
+      "row": 4,
+      "x": 121,
+      "y": 25,
+      "type": "text",
+      "tile": 36,
+      "index": 10,
+      "param": 0,
+      "label": "A MAGNIFICENT GATEWAY IS SET",
+      "message": [
+        "A MAGNIFICENT GATEWAY IS SET",
+        "INTO THE MOUNTAIN"
+      ]
+    },
+    {
+      "section": 2,
+      "col": 7,
+      "row": 5,
+      "x": 120,
+      "y": 26,
+      "type": "text",
+      "tile": 36,
+      "index": 10,
+      "param": 0,
+      "label": "A MAGNIFICENT GATEWAY IS SET",
+      "message": [
+        "A MAGNIFICENT GATEWAY IS SET",
+        "INTO THE MOUNTAIN"
+      ]
+    },
+    {
+      "section": 2,
+      "col": 7,
+      "row": 4,
+      "x": 121,
+      "y": 26,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 9,
+      "param": 15,
+      "label": "Dungeon 9"
+    },
+    {
+      "section": 2,
+      "col": 8,
+      "row": 4,
+      "x": 121,
+      "y": 27,
+      "type": "text",
+      "tile": 36,
+      "index": 10,
+      "param": 0,
+      "label": "A MAGNIFICENT GATEWAY IS SET",
+      "message": [
+        "A MAGNIFICENT GATEWAY IS SET",
+        "INTO THE MOUNTAIN"
+      ]
+    },
+    {
+      "section": 18,
+      "col": 10,
+      "row": 20,
+      "x": 5,
+      "y": 29,
+      "type": "bump",
+      "tile": 67,
+      "index": 64,
+      "param": 0,
+      "label": "Event 64"
+    },
+    {
+      "section": 18,
+      "col": 10,
+      "row": 15,
+      "x": 10,
+      "y": 29,
+      "type": "bump",
+      "tile": 67,
+      "index": 79,
+      "param": 0,
+      "label": "Event 79"
+    },
+    {
+      "section": 18,
+      "col": 10,
+      "row": 10,
+      "x": 15,
+      "y": 29,
+      "type": "bump",
+      "tile": 67,
+      "index": 78,
+      "param": 0,
+      "label": "Event 78"
+    },
+    {
+      "section": 18,
+      "col": 10,
+      "row": 5,
+      "x": 20,
+      "y": 29,
+      "type": "bump",
+      "tile": 67,
+      "index": 73,
+      "param": 0,
+      "label": "Event 73"
+    },
+    {
+      "section": 10,
+      "col": 11,
+      "row": 13,
+      "x": 62,
+      "y": 30,
+      "type": "text",
+      "tile": 36,
+      "index": 10,
+      "param": 0,
+      "label": "NEAR THE RIVER SITS",
+      "message": [
+        "NEAR THE RIVER SITS",
+        "A SMALL BUT ELEGANT CASTLE"
+      ]
+    },
+    {
+      "section": 10,
+      "col": 12,
+      "row": 14,
+      "x": 61,
+      "y": 31,
+      "type": "text",
+      "tile": 36,
+      "index": 10,
+      "param": 0,
+      "label": "NEAR THE RIVER SITS",
+      "message": [
+        "NEAR THE RIVER SITS",
+        "A SMALL BUT ELEGANT CASTLE"
+      ]
+    },
+    {
+      "section": 10,
+      "col": 12,
+      "row": 13,
+      "x": 62,
+      "y": 31,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 5,
+      "param": 16,
+      "label": "Dungeon 5"
+    },
+    {
+      "section": 10,
+      "col": 12,
+      "row": 12,
+      "x": 63,
+      "y": 31,
+      "type": "text",
+      "tile": 36,
+      "index": 10,
+      "param": 0,
+      "label": "NEAR THE RIVER SITS",
+      "message": [
+        "NEAR THE RIVER SITS",
+        "A SMALL BUT ELEGANT CASTLE"
+      ]
+    },
+    {
+      "section": 10,
+      "col": 13,
+      "row": 13,
+      "x": 62,
+      "y": 32,
+      "type": "text",
+      "tile": 36,
+      "index": 10,
+      "param": 0,
+      "label": "NEAR THE RIVER SITS",
+      "message": [
+        "NEAR THE RIVER SITS",
+        "A SMALL BUT ELEGANT CASTLE"
+      ]
+    },
+    {
+      "section": 18,
+      "col": 15,
+      "row": 20,
+      "x": 5,
+      "y": 34,
+      "type": "bump",
+      "tile": 67,
+      "index": 66,
+      "param": 0,
+      "label": "Event 66"
+    },
+    {
+      "section": 18,
+      "col": 15,
+      "row": 15,
+      "x": 10,
+      "y": 34,
+      "type": "bump",
+      "tile": 67,
+      "index": 77,
+      "param": 0,
+      "label": "Event 77"
+    },
+    {
+      "section": 18,
+      "col": 15,
+      "row": 10,
+      "x": 15,
+      "y": 34,
+      "type": "bump",
+      "tile": 67,
+      "index": 73,
+      "param": 0,
+      "label": "Event 73"
+    },
+    {
+      "section": 18,
+      "col": 15,
+      "row": 5,
+      "x": 20,
+      "y": 34,
+      "type": "bump",
+      "tile": 67,
+      "index": 68,
+      "param": 0,
+      "label": "Event 68"
+    },
+    {
+      "section": 10,
+      "col": 17,
+      "row": 10,
+      "x": 65,
+      "y": 36,
+      "type": "text",
+      "tile": 6,
+      "index": 2,
+      "param": 0,
+      "label": "'THE GREENLEAF INN'",
+      "message": [
+        "'THE GREENLEAF INN'"
+      ]
+    },
+    {
+      "section": 15,
+      "col": 3,
+      "row": 18,
+      "x": 32,
+      "y": 41,
+      "type": "text",
+      "tile": 36,
+      "index": 0,
+      "param": 0,
+      "label": "'THE SILVER STAR'",
+      "message": [
+        "'THE SILVER STAR'"
+      ]
+    },
+    {
+      "section": 19,
+      "col": 5,
+      "row": 14,
+      "x": 11,
+      "y": 43,
+      "type": "text",
+      "tile": 106,
+      "index": 10,
+      "param": 0,
+      "label": "THE BOATMAN CHARON TAKES YOU",
+      "message": [
+        "THE BOATMAN CHARON TAKES YOU",
+        "ACROSS THE RIVER STYX"
+      ]
+    },
+    {
+      "section": 19,
+      "col": 6,
+      "row": 14,
+      "x": 11,
+      "y": 44,
+      "type": "text",
+      "tile": 66,
+      "index": 14,
+      "param": 0,
+      "label": "YOU ARE IN PART OF THE PLANE …",
+      "message": [
+        "YOU ARE IN PART OF THE PLANE OF OLYMPUS",
+        "THE GROUND IS COVERED WITH A DENSE MIST"
+      ]
+    },
+    {
+      "section": 19,
+      "col": 9,
+      "row": 5,
+      "x": 20,
+      "y": 47,
+      "type": "text",
+      "tile": 66,
+      "index": 12,
+      "param": 0,
+      "label": "THERE IS A LARGE WHITE CASTLE",
+      "message": [
+        "THERE IS A LARGE WHITE CASTLE",
+        "FLOATING HERE"
+      ]
+    },
+    {
+      "section": 11,
+      "col": 9,
+      "row": 19,
+      "x": 56,
+      "y": 47,
+      "type": "town",
+      "tile": 40,
+      "index": 6,
+      "param": 0,
+      "label": "SPLITWATER"
+    },
+    {
+      "section": 19,
+      "col": 10,
+      "row": 6,
+      "x": 19,
+      "y": 48,
+      "type": "text",
+      "tile": 66,
+      "index": 12,
+      "param": 0,
+      "label": "THERE IS A LARGE WHITE CASTLE",
+      "message": [
+        "THERE IS A LARGE WHITE CASTLE",
+        "FLOATING HERE"
+      ]
+    },
+    {
+      "section": 19,
+      "col": 10,
+      "row": 5,
+      "x": 20,
+      "y": 48,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 10,
+      "param": 16,
+      "label": "Dungeon 10"
+    },
+    {
+      "section": 19,
+      "col": 10,
+      "row": 4,
+      "x": 21,
+      "y": 48,
+      "type": "text",
+      "tile": 66,
+      "index": 12,
+      "param": 0,
+      "label": "THERE IS A LARGE WHITE CASTLE",
+      "message": [
+        "THERE IS A LARGE WHITE CASTLE",
+        "FLOATING HERE"
+      ]
+    },
+    {
+      "section": 7,
+      "col": 10,
+      "row": 21,
+      "x": 79,
+      "y": 48,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 8,
+      "param": 10,
+      "label": "Dungeon 8"
+    },
+    {
+      "section": 7,
+      "col": 10,
+      "row": 20,
+      "x": 80,
+      "y": 48,
+      "type": "text",
+      "tile": 6,
+      "index": 0,
+      "param": 0,
+      "label": "THERE IS A LARGE FORTIFIED TE…",
+      "message": [
+        "THERE IS A LARGE FORTIFIED TEMPLE HERE"
+      ]
+    },
+    {
+      "section": 19,
+      "col": 11,
+      "row": 5,
+      "x": 20,
+      "y": 49,
+      "type": "text",
+      "tile": 66,
+      "index": 12,
+      "param": 0,
+      "label": "THERE IS A LARGE WHITE CASTLE",
+      "message": [
+        "THERE IS A LARGE WHITE CASTLE",
+        "FLOATING HERE"
+      ]
+    },
+    {
+      "section": 11,
+      "col": 15,
+      "row": 7,
+      "x": 68,
+      "y": 53,
+      "type": "text",
+      "tile": 66,
+      "index": 0,
+      "param": 0,
+      "label": "'THE EAGLE'",
+      "message": [
+        "'THE EAGLE'"
+      ]
+    },
+    {
+      "section": 3,
+      "col": 15,
+      "row": 4,
+      "x": 121,
+      "y": 53,
+      "type": "town",
+      "tile": 40,
+      "index": 11,
+      "param": 0,
+      "label": "STARVILLE"
+    },
+    {
+      "section": 15,
+      "col": 16,
+      "row": 20,
+      "x": 30,
+      "y": 54,
+      "type": "text",
+      "tile": 26,
+      "index": 1,
+      "param": 0,
+      "label": "THERE IS A LARGE STONE CASTLE…",
+      "message": [
+        "THERE IS A LARGE STONE CASTLE HERE"
+      ]
+    },
+    {
+      "section": 7,
+      "col": 16,
+      "row": 8,
+      "x": 92,
+      "y": 54,
+      "type": "text",
+      "tile": 16,
+      "index": 1,
+      "param": 0,
+      "label": "'THE STAR'",
+      "message": [
+        "'THE STAR'"
+      ]
+    },
+    {
+      "section": 15,
+      "col": 17,
+      "row": 20,
+      "x": 30,
+      "y": 55,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 6,
+      "param": 20,
+      "label": "Dungeon 6"
+    },
+    {
+      "section": 15,
+      "col": 17,
+      "row": 19,
+      "x": 31,
+      "y": 55,
+      "type": "text",
+      "tile": 6,
+      "index": 1,
+      "param": 0,
+      "label": "THERE IS A LARGE STONE CASTLE…",
+      "message": [
+        "THERE IS A LARGE STONE CASTLE HERE"
+      ]
+    },
+    {
+      "section": 15,
+      "col": 18,
+      "row": 20,
+      "x": 30,
+      "y": 56,
+      "type": "text",
+      "tile": 6,
+      "index": 1,
+      "param": 0,
+      "label": "THERE IS A LARGE STONE CASTLE…",
+      "message": [
+        "THERE IS A LARGE STONE CASTLE HERE"
+      ]
+    },
+    {
+      "section": 4,
+      "col": 1,
+      "row": 19,
+      "x": 106,
+      "y": 58,
+      "type": "text",
+      "tile": 66,
+      "index": 2,
+      "param": 0,
+      "label": "'THE GOLDEN UNICORN'",
+      "message": [
+        "'THE GOLDEN UNICORN'"
+      ]
+    },
+    {
+      "section": 16,
+      "col": 3,
+      "row": 7,
+      "x": 43,
+      "y": 60,
+      "type": "text",
+      "tile": 26,
+      "index": 0,
+      "param": 0,
+      "label": "'THE LONELY INN'",
+      "message": [
+        "'THE LONELY INN'"
+      ]
+    },
+    {
+      "section": 16,
+      "col": 4,
+      "row": 8,
+      "x": 42,
+      "y": 61,
+      "type": "text",
+      "tile": 6,
+      "index": 0,
+      "param": 0,
+      "label": "'THE LONELY INN'",
+      "message": [
+        "'THE LONELY INN'"
+      ]
+    },
+    {
+      "section": 16,
+      "col": 4,
+      "row": 6,
+      "x": 44,
+      "y": 61,
+      "type": "text",
+      "tile": 16,
+      "index": 0,
+      "param": 0,
+      "label": "'THE LONELY INN'",
+      "message": [
+        "'THE LONELY INN'"
+      ]
+    },
+    {
+      "section": 16,
+      "col": 5,
+      "row": 7,
+      "x": 43,
+      "y": 62,
+      "type": "text",
+      "tile": 6,
+      "index": 0,
+      "param": 0,
+      "label": "'THE LONELY INN'",
+      "message": [
+        "'THE LONELY INN'"
+      ]
+    },
+    {
+      "section": 12,
+      "col": 5,
+      "row": 4,
+      "x": 71,
+      "y": 62,
+      "type": "town",
+      "tile": 40,
+      "index": 7,
+      "param": 0,
+      "label": "TROLLPORT"
+    },
+    {
+      "section": 8,
+      "col": 9,
+      "row": 19,
+      "x": 81,
+      "y": 66,
+      "type": "text",
+      "tile": 66,
+      "index": 0,
+      "param": 0,
+      "label": "'THE STONE PLOW INN'",
+      "message": [
+        "'THE STONE PLOW INN'"
+      ]
+    },
+    {
+      "section": 16,
+      "col": 11,
+      "row": 19,
+      "x": 31,
+      "y": 68,
+      "type": "bump",
+      "tile": 7,
+      "index": 54,
+      "param": 0,
+      "label": "Event 54"
+    },
+    {
+      "section": 16,
+      "col": 13,
+      "row": 18,
+      "x": 32,
+      "y": 70,
+      "type": "bump",
+      "tile": 7,
+      "index": 42,
+      "param": 0,
+      "label": "Event 42"
+    },
+    {
+      "section": 12,
+      "col": 13,
+      "row": 13,
+      "x": 62,
+      "y": 70,
+      "type": "text",
+      "tile": 16,
+      "index": 0,
+      "param": 0,
+      "label": "YOU ARE NEAR A STRANGE BUBBLI…",
+      "message": [
+        "YOU ARE NEAR A STRANGE BUBBLING POOL"
+      ]
+    },
+    {
+      "section": 16,
+      "col": 14,
+      "row": 20,
+      "x": 30,
+      "y": 71,
+      "type": "bump",
+      "tile": 87,
+      "index": 54,
+      "param": 0,
+      "label": "Event 54"
+    },
+    {
+      "section": 16,
+      "col": 14,
+      "row": 17,
+      "x": 33,
+      "y": 71,
+      "type": "bump",
+      "tile": 7,
+      "index": 42,
+      "param": 0,
+      "label": "Event 42"
+    },
+    {
+      "section": 12,
+      "col": 14,
+      "row": 14,
+      "x": 61,
+      "y": 71,
+      "type": "other",
+      "tile": 100,
+      "index": 0,
+      "param": 0,
+      "label": "POI 0"
+    },
+    {
+      "section": 12,
+      "col": 14,
+      "row": 12,
+      "x": 63,
+      "y": 71,
+      "type": "text",
+      "tile": 16,
+      "index": 0,
+      "param": 0,
+      "label": "YOU ARE NEAR A STRANGE BUBBLI…",
+      "message": [
+        "YOU ARE NEAR A STRANGE BUBBLING POOL"
+      ]
+    },
+    {
+      "section": 16,
+      "col": 15,
+      "row": 21,
+      "x": 29,
+      "y": 72,
+      "type": "silent",
+      "tile": 88,
+      "index": 42,
+      "param": 0,
+      "label": "Marker 42"
+    },
+    {
+      "section": 16,
+      "col": 15,
+      "row": 18,
+      "x": 32,
+      "y": 72,
+      "type": "bump",
+      "tile": 7,
+      "index": 54,
+      "param": 0,
+      "label": "Event 54"
+    },
+    {
+      "section": 12,
+      "col": 15,
+      "row": 13,
+      "x": 62,
+      "y": 72,
+      "type": "text",
+      "tile": 16,
+      "index": 0,
+      "param": 0,
+      "label": "YOU ARE NEAR A STRANGE BUBBLI…",
+      "message": [
+        "YOU ARE NEAR A STRANGE BUBBLING POOL"
+      ]
+    },
+    {
+      "section": 8,
+      "col": 15,
+      "row": 7,
+      "x": 93,
+      "y": 72,
+      "type": "town",
+      "tile": 40,
+      "index": 10,
+      "param": 0,
+      "label": "NORTHFORD"
+    },
+    {
+      "section": 16,
+      "col": 16,
+      "row": 20,
+      "x": 30,
+      "y": 73,
+      "type": "bump",
+      "tile": 87,
+      "index": 54,
+      "param": 0,
+      "label": "Event 54"
+    },
+    {
+      "section": 16,
+      "col": 17,
+      "row": 19,
+      "x": 31,
+      "y": 74,
+      "type": "bump",
+      "tile": 87,
+      "index": 42,
+      "param": 0,
+      "label": "Event 42"
+    },
+    {
+      "section": 16,
+      "col": 17,
+      "row": 7,
+      "x": 43,
+      "y": 74,
+      "type": "town",
+      "tile": 40,
+      "index": 9,
+      "param": 0,
+      "label": "DRAGONOR"
+    },
+    {
+      "section": 4,
+      "col": 17,
+      "row": 12,
+      "x": 113,
+      "y": 74,
+      "type": "text",
+      "tile": 86,
+      "index": 10,
+      "param": 0,
+      "label": "A STRANGE STAIRWAY LEADS",
+      "message": [
+        "A STRANGE STAIRWAY LEADS",
+        "INTO THE GROUND"
+      ]
+    },
+    {
+      "section": 4,
+      "col": 18,
+      "row": 12,
+      "x": 113,
+      "y": 75,
+      "type": "dungeon",
+      "tile": 50,
+      "index": 7,
+      "param": 15,
+      "label": "Dungeon 7"
+    },
+    {
+      "section": 4,
+      "col": 18,
+      "row": 11,
+      "x": 114,
+      "y": 75,
+      "type": "text",
+      "tile": 86,
+      "index": 10,
+      "param": 0,
+      "label": "A STRANGE STAIRWAY LEADS",
+      "message": [
+        "A STRANGE STAIRWAY LEADS",
+        "INTO THE GROUND"
+      ]
+    }
+  ]
+}

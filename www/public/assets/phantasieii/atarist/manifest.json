@@ -58,5 +58,12 @@
     "sprites": 0,
     "hasPalette": true,
     "png": "crowd.png"
+  },
+  {
+    "name": "world-map",
+    "type": "map",
+    "sprites": 0,
+    "hasPalette": true,
+    "png": "screens/world-map.png"
   }
 ]

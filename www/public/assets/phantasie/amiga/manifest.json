@@ -58,5 +58,12 @@
     "sprites": 16,
     "hasPalette": true,
     "png": "party2.png"
+  },
+  {
+    "name": "world-map",
+    "type": "map",
+    "sprites": 0,
+    "hasPalette": true,
+    "png": "screens/world-map.png"
   }
 ]
