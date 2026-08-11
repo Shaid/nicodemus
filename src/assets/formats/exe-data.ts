@@ -24,7 +24,7 @@
  * useful primitive for any future code that needs that.
  */
 
-import { r32 } from '@seer-project/core';
+import { r16, r32 } from '@seer-project/core';
 import { readCString } from './ascii-strings.ts';
 import { decodePalette16, type RGB } from './palette.ts';
 
@@ -483,4 +483,109 @@ export function readP3RaceNames(exe: Uint8Array): string[] {
     names.push(readCString(exe, P3_HUNK0_DATA_START + ptr));
   }
   return names;
+}
+
+/**
+ * Per-race sprite-cell index table (data-tables.md §4.2), 19 bytes at file
+ * offset `0x299d8` (hunk 1 `+0x2110`). Each entry is `bankSpriteIndex * 2`
+ * — i.e. the *even* (idle-pose) cell index into bank 0 (`heros.cmp`,
+ * 32x48, 10x4 grid); the attacking pose is the cell immediately to its
+ * right, `value + 1`.
+ *
+ * Located by disassembling the party-sprite cell extractor at file
+ * `0x1b2da`, which computes, for party slot `s` and pose `p`:
+ * `v = table[raceValue[s]]; srcY = (v / 10) * 48; srcX = ((v % 10) + p) *
+ * 32`. Note the row is taken from `v / 10` and the column from
+ * `(v % 10) + p` — the pose pair always stays on one row, so it is *not*
+ * simply `(v + p)` fed through the generic grid formula (all stored values
+ * are even and `v % 10 <= 8`, so the two agree in practice).
+ *
+ * Indices 0-17 are the 18 `readP3RaceNames()` entries; index 18 is a
+ * non-race "dead adventurer" marker (cell 24 renders as a gravestone).
+ * This is emphatically **not** an identity mapping: several races share a
+ * cell (Gnome/Halfling, Pixie/Sprite, Goblin/Kobold/Orc, Gnoll/Ogre).
+ */
+const P3_RACE_SPRITE_INDEX_TABLE_OFFSET = 0x299d8;
+const P3_RACE_SPRITE_INDEX_COUNT = 19;
+
+export function readP3RaceSpriteCells(exe: Uint8Array): number[] {
+  const cells: number[] = [];
+  for (let i = 0; i < P3_RACE_SPRITE_INDEX_COUNT; i++) {
+    cells.push(exe[P3_RACE_SPRITE_INDEX_TABLE_OFFSET + i]);
+  }
+  return cells;
+}
+
+/** One combat-equipment row: the manual's "Point Value" and "Attributes Required". */
+export interface P3ItemStats {
+  /** Point value — the item's combat rating (armour value / weapon damage die). */
+  pointValue: number;
+  /**
+   * Attribute requirement. Compared against `Strength` (ids 1-40),
+   * `Strength + Dexterity` (ids 41-60, bows) or `2 x Strength + Dexterity`
+   * (ids 61-100, melee weapons); an item the character cannot meet shows
+   * as `N/A` in the armoury listing.
+   */
+  attributesRequired: number;
+}
+
+/**
+ * Per-item combat-equipment stats (data-tables.md §7), two parallel 101-byte
+ * byte tables at file `0x287d8` (hunk 1 `+0x0f10`, point value) and
+ * `0x2883d` (`+0x0f75`, attribute requirement), both indexed by item id
+ * `0..100`. Item 0 is the empty-slot placeholder; ids 101+ (potions,
+ * scrolls, valuables) are not combat equipment and carry no row.
+ *
+ * Verified byte-exact against the SSI 1987 rule book's own Shields / Armor /
+ * Bows / Melee Weapons tables (pages 17-18): 200/200 values, 0 mismatches.
+ */
+const P3_ITEM_POINT_VALUE_TABLE_OFFSET = 0x287d8;
+const P3_ITEM_ATTR_REQ_TABLE_OFFSET = 0x2883d;
+const P3_ITEM_STATS_COUNT = 101;
+
+export function readP3ItemStats(exe: Uint8Array): P3ItemStats[] {
+  const stats: P3ItemStats[] = [];
+  for (let i = 0; i < P3_ITEM_STATS_COUNT; i++) {
+    stats.push({
+      pointValue: exe[P3_ITEM_POINT_VALUE_TABLE_OFFSET + i],
+      attributesRequired: exe[P3_ITEM_ATTR_REQ_TABLE_OFFSET + i],
+    });
+  }
+  return stats;
+}
+
+/**
+ * Base (pre-markup) item prices in gold (data-tables.md §7), 181 big-endian
+ * words at file `0x288a2` (hunk 1 `+0x0fda`), indexed by item id. The
+ * armoury charges `basePrice * shopMarkup[shop] / 100`, using
+ * `readP3ShopMarkups()`.
+ *
+ * The table's extent is byte-exact: `0x0fda + 181 * 2 = 0x1144`, precisely
+ * where the 18-entry shop markup table begins.
+ */
+const P3_ITEM_PRICE_TABLE_OFFSET = 0x288a2;
+const P3_ITEM_PRICE_COUNT = 181;
+
+export function readP3ItemPrices(exe: Uint8Array): number[] {
+  const prices: number[] = [];
+  for (let i = 0; i < P3_ITEM_PRICE_COUNT; i++) {
+    prices.push(r16(exe, P3_ITEM_PRICE_TABLE_OFFSET + i * 2, 'be'));
+  }
+  return prices;
+}
+
+/**
+ * Per-armoury price markup, as a percentage (data-tables.md §7): 18
+ * big-endian words at file `0x28a0c` (hunk 1 `+0x1144`), indexed by the
+ * same armoury index that indexes `inititem.dat`'s 181-byte stock rows.
+ */
+const P3_SHOP_MARKUP_TABLE_OFFSET = 0x28a0c;
+const P3_SHOP_COUNT = 18;
+
+export function readP3ShopMarkups(exe: Uint8Array): number[] {
+  const markups: number[] = [];
+  for (let i = 0; i < P3_SHOP_COUNT; i++) {
+    markups.push(r16(exe, P3_SHOP_MARKUP_TABLE_OFFSET + i * 2, 'be'));
+  }
+  return markups;
 }

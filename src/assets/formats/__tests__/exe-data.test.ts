@@ -16,6 +16,10 @@ import {
   readP3ItemNames,
   readP3SpellNames,
   readP3RaceNames,
+  readP3RaceSpriteCells,
+  readP3ItemStats,
+  readP3ItemPrices,
+  readP3ShopMarkups,
 } from '../exe-data.ts';
 
 const GAME_PATH = resolve('data/phantasie/amiga/game');
@@ -300,6 +304,70 @@ describe('readP3RaceNames — data-tables.md §4', () => {
       'Troll',
       'Elemental',
       'Undead',
+    ]);
+  });
+});
+
+describe('readP3RaceSpriteCells — data-tables.md §4.2', () => {
+  it('reads the 19-byte race -> bank-0 cell table located at 0x299d8', () => {
+    const exe = new Uint8Array(readFileSync(P3_EXE_PATH));
+    // Values are `bankSpriteIndex * 2`; index 18 is the non-race gravestone
+    // marker. Several races deliberately share a cell.
+    expect(readP3RaceSpriteCells(exe)).toEqual([
+      0, 2, 4, 6, 6, 0, 14, 16, 16, 10, 12, 14, 16, 8, 8, 20, 22, 18, 24,
+    ]);
+  });
+
+  it('is not the identity mapping the pipeline previously assumed', () => {
+    const exe = new Uint8Array(readFileSync(P3_EXE_PATH));
+    const cells = readP3RaceSpriteCells(exe);
+    // Halfling (4) shares Gnome's cell; Lizard Man (9) is cell 10, not 18.
+    expect(cells[4]).toBe(cells[3]);
+    expect(cells[13]).toBe(cells[14]); // Pixie / Sprite
+    expect(cells[9]).not.toBe(9 * 2);
+  });
+
+  it('keeps every cell (and its attack pose) inside bank 0\'s 10x4 grid', () => {
+    const exe = new Uint8Array(readFileSync(P3_EXE_PATH));
+    for (const v of readP3RaceSpriteCells(exe)) {
+      expect(v % 2).toBe(0); // stored as bankSpriteIndex * 2
+      expect(v % 10).toBeLessThanOrEqual(8); // pose pair stays on one row
+      expect(v + 1).toBeLessThan(40);
+    }
+  });
+});
+
+describe('readP3ItemStats / readP3ItemPrices / readP3ShopMarkups — data-tables.md §7', () => {
+  it('matches the SSI rule book item tables at the group boundaries', () => {
+    const exe = new Uint8Array(readFileSync(P3_EXE_PATH));
+    const stats = readP3ItemStats(exe);
+    expect(stats).toHaveLength(101);
+    expect(stats[0]).toEqual({ pointValue: 0, attributesRequired: 0 });
+    expect(stats[1]).toEqual({ pointValue: 1, attributesRequired: 1 }); // Glove
+    expect(stats[20]).toEqual({ pointValue: 20, attributesRequired: 20 }); // God Shield
+    expect(stats[21]).toEqual({ pointValue: 1, attributesRequired: 2 }); // Clothing
+    expect(stats[31]).toEqual({ pointValue: 2, attributesRequired: 0 }); // Cloth +1
+    expect(stats[41]).toEqual({ pointValue: 1, attributesRequired: 0 }); // Self Bow
+    expect(stats[60]).toEqual({ pointValue: 20, attributesRequired: 38 }); // God Bow
+    expect(stats[61]).toEqual({ pointValue: 1, attributesRequired: 3 }); // Knife
+    expect(stats[62]).toEqual({ pointValue: 2, attributesRequired: 6 }); // Dagger
+    expect(stats[100]).toEqual({ pointValue: 25, attributesRequired: 60 }); // God Sword
+  });
+
+  it('reads a 181-entry price table that ends exactly where the shop table begins', () => {
+    const exe = new Uint8Array(readFileSync(P3_EXE_PATH));
+    const prices = readP3ItemPrices(exe);
+    expect(prices).toHaveLength(181);
+    expect(prices[0]).toBe(0);
+    expect(prices[1]).toBe(1); // Glove
+    expect(prices[100]).toBe(12401); // God Sword
+    expect(prices[180]).toBe(13006); // Wand of Nikademus
+  });
+
+  it('reads the 18 per-armoury markup percentages', () => {
+    const exe = new Uint8Array(readFileSync(P3_EXE_PATH));
+    expect(readP3ShopMarkups(exe)).toEqual([
+      100, 150, 145, 140, 130, 125, 200, 115, 200, 105, 100, 88, 95, 90, 123, 100, 100, 100,
     ]);
   });
 });
