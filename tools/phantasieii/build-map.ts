@@ -12,18 +12,24 @@
  *
  * Output (under `public/assets/phantasieii/atarist/`):
  *
- * | File               | Contents                                          |
- * |--------------------|---------------------------------------------------|
- * | `world-map.json`   | `{ width, height, cells }` — flat revealed codes   |
- * | `world-map-pois.json` | `{ pois }` — world-coordinate markers + messages |
+ * | File                          | Contents                                 |
+ * |-------------------------------|------------------------------------------|
+ * | `world-map.json`              | `{ width, height, cells }` — revealed codes |
+ * | `world-map-pois.json`         | `{ pois }` — world markers + messages     |
+ * | `screens/world-map.png`       | the composited overworld picture          |
+ * | `textures/terrain-icons.png`  | the twelve 16 x 16 fill patterns          |
  *
- * No tile image is baked, same reasoning as P1: the terrain byte is not a
- * rendering index, and no icon bank has been decoded for P2 either.
+ * The terrain art is real: the per-section display list's `iconIndex` **is**
+ * the terrain class (§8.6.8a, 8,752/8,801 cells), so each pixel of the
+ * baked picture is that class's 16 x 16 VDI `vsf_udpat` fill pattern from
+ * `PHANT.PRG`'s icon bank at file `0x21DF2`.
  */
 import { existsSync, readFileSync, mkdirSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { writeJson, findFileCI } from '@seer-project/pipeline';
+import { writeJson, findFileCI, writePNG } from '@seer-project/pipeline';
+import { indicesToRGBA } from '../../src/assets/formats/palette.ts';
+import { readP2OutdoorPalette } from '../../src/assets/formats/exe-data.ts';
 import {
   OUTDOOR_SECTION_HEIGHT,
   OUTDOOR_SECTION_WIDTH,
@@ -38,10 +44,23 @@ import {
   EVENT_VARIANT_BUMP,
   EVENT_VARIANT_NONE,
   EVENT_VARIANT_TEXT,
+  OUTDOOR_CELL_WIDTH,
+  OUTDOOR_CELL_HEIGHT,
+  OUTDOOR_ICON_BANK_OFFSET_P2,
+  OUTDOOR_ICON_COUNT,
+  OUTDOOR_ICON_WIDTH,
+  OUTDOOR_ICON_HEIGHT,
+  OUTDOOR_MAP_ORIGIN_X,
+  OUTDOOR_MAP_ORIGIN_Y,
+  OUTDOOR_MAP_WIDTH,
+  OUTDOOR_MAP_HEIGHT,
+  TERRAIN_CLASS_NAMES_P2,
   assembleWorld,
   decodeMapsInt,
+  decodeOutdoorIconBank,
   decodeOutdoorSection,
   poiMessage,
+  rasteriseOutdoorSection,
   revealedTileCode,
   tileAt,
   tileClass,
@@ -250,6 +269,93 @@ export function buildWorldFromSections(
 }
 
 /**
+ * World-image geometry. P2's sections tile 8 wide (east-west) x 4 tall
+ * (north-south) sharing one cell at each seam (dungeon-format.md §8.6.3),
+ * and each cell is drawn 12 x 9 pixels (`PHANT.PRG` addr `0x5764` stores
+ * the same four words P1's `game+0x173B0` does), so the assembled overworld
+ * picture is `201 * 12` x `77 * 9` = 2412 x 693.
+ */
+export const WORLD_MOSAIC_COLUMNS_P2 = WORLD_SECTIONS_EW_P2; // 8
+export const WORLD_MOSAIC_ROWS_P2 = WORLD_SECTIONS_NS; // 4
+export const WORLD_IMAGE_WIDTH_P2 =
+  ((WORLD_MOSAIC_COLUMNS_P2 - 1) * WORLD_SECTION_STRIDE_EW + OUTDOOR_SECTION_HEIGHT) *
+  OUTDOOR_CELL_WIDTH; // 2412
+export const WORLD_IMAGE_HEIGHT_P2 =
+  ((WORLD_MOSAIC_ROWS_P2 - 1) * WORLD_SECTION_STRIDE_NS + OUTDOOR_SECTION_WIDTH) *
+  OUTDOOR_CELL_HEIGHT; // 693
+
+/**
+ * North-west pixel corner of a section's map rectangle in the world image —
+ * `sectionOrigin()` in cells, scaled by the 12 x 9 cell size.
+ */
+export function sectionImageOrigin(section: number): { x: number; y: number } {
+  const origin = sectionOrigin(section);
+  return { x: origin.x * OUTDOOR_CELL_WIDTH, y: origin.y * OUTDOOR_CELL_HEIGHT };
+}
+
+/**
+ * Composite every section's display list into one world-sized raster of
+ * terrain-class indices, then paint it with the 16 x 16 VDI fill patterns
+ * from the icon bank (dungeon-format.md §8.6.8). Returns palette indices.
+ */
+export function renderWorldImage(
+  sections: readonly { section: number; decoded: OutdoorSection }[],
+  icons: readonly Uint8Array[],
+): { width: number; height: number; pixels: Uint8Array } {
+  const width = WORLD_IMAGE_WIDTH_P2;
+  const height = WORLD_IMAGE_HEIGHT_P2;
+  const classes = new Int16Array(width * height).fill(-1);
+
+  for (const { section, decoded } of sections) {
+    // `drawPerimeter: false` — P2 turns the VDI fill perimeter off
+    // (`vsf_perimeter(handle, 0)` at addr `0x52F4`), unlike P1's `AreaEnd`.
+    const raster = rasteriseOutdoorSection(decoded, undefined, undefined, false);
+    const origin = sectionImageOrigin(section);
+    for (let sy = 0; sy < OUTDOOR_MAP_HEIGHT; sy++) {
+      const dy = origin.y + sy;
+      if (dy < 0 || dy >= height) continue;
+      for (let sx = 0; sx < OUTDOOR_MAP_WIDTH; sx++) {
+        const dx = origin.x + sx;
+        if (dx < 0 || dx >= width) continue;
+        const v =
+          raster.icons[(OUTDOOR_MAP_ORIGIN_Y + sy) * raster.width + (OUTDOOR_MAP_ORIGIN_X + sx)];
+        if (v >= 0) classes[dy * width + dx] = v;
+      }
+    }
+  }
+
+  const pixels = new Uint8Array(width * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const cls = classes[y * width + x];
+      if (cls < 0 || cls >= icons.length) continue;
+      pixels[y * width + x] =
+        icons[cls][(y % OUTDOOR_ICON_HEIGHT) * OUTDOOR_ICON_WIDTH + (x % OUTDOOR_ICON_WIDTH)];
+    }
+  }
+  return { width, height, pixels };
+}
+
+/** Lay the twelve 16 x 16 icons out as a single 192 x 16 strip. */
+export function renderIconStrip(icons: readonly Uint8Array[]): {
+  width: number;
+  height: number;
+  pixels: Uint8Array;
+} {
+  const width = OUTDOOR_ICON_COUNT * OUTDOOR_ICON_WIDTH;
+  const height = OUTDOOR_ICON_HEIGHT;
+  const pixels = new Uint8Array(width * height);
+  for (let i = 0; i < icons.length && i < OUTDOOR_ICON_COUNT; i++) {
+    for (let y = 0; y < OUTDOOR_ICON_HEIGHT; y++) {
+      for (let x = 0; x < OUTDOOR_ICON_WIDTH; x++) {
+        pixels[y * width + i * OUTDOOR_ICON_WIDTH + x] = icons[i][y * OUTDOOR_ICON_WIDTH + x];
+      }
+    }
+  }
+  return { width, height, pixels };
+}
+
+/**
  * Read the real files and emit the two JSON artefacts. Returns the manifest
  * entries to merge into `manifest.json` (empty if the data is missing).
  *
@@ -285,6 +391,56 @@ export function buildWorldMap(dataDir: string, outDir: string): ManifestEntry[] 
   const { world, pois } = buildWorldFromSections(sections, grids);
 
   mkdirSync(outDir, { recursive: true });
+
+  // Real terrain art: the icon bank and its palette both live in
+  // `PHANT.PRG` (dungeon-format.md §8.6.8). Without the executable we still
+  // emit the gameplay grid and POIs, just no picture.
+  const exePath = resolveP2File(dataDir, 'PHANT.PRG');
+  let worldPng = '';
+  let iconsPng = '';
+  if (exePath) {
+    const exe = new Uint8Array(readFileSync(exePath));
+    const palette = readP2OutdoorPalette(exe);
+    const icons = decodeOutdoorIconBank(exe, OUTDOOR_ICON_BANK_OFFSET_P2);
+
+    const image = renderWorldImage(sections, icons);
+    mkdirSync(resolve(outDir, 'screens'), { recursive: true });
+    writePNG(
+      resolve(outDir, `screens/${WORLD_MAP_ASSET_NAME}.png`),
+      indicesToRGBA(image.pixels, palette),
+      image.width,
+      image.height,
+    );
+    worldPng = `screens/${WORLD_MAP_ASSET_NAME}.png`;
+
+    const strip = renderIconStrip(icons);
+    mkdirSync(resolve(outDir, 'textures'), { recursive: true });
+    writePNG(
+      resolve(outDir, 'textures/terrain-icons.png'),
+      indicesToRGBA(strip.pixels, palette),
+      strip.width,
+      strip.height,
+    );
+    iconsPng = 'textures/terrain-icons.png';
+    writeJson(resolve(outDir, 'textures/terrain-icons.json'), {
+      width: strip.width,
+      height: strip.height,
+      frames: TERRAIN_CLASS_NAMES_P2.map((name, i) => ({
+        name: `class-${i}-${name.toLowerCase().replace(/\s+/g, '-')}`,
+        x: i * OUTDOOR_ICON_WIDTH,
+        y: 0,
+        w: OUTDOOR_ICON_WIDTH,
+        h: OUTDOOR_ICON_HEIGHT,
+      })),
+    });
+    console.log(
+      `  Terrain art: ${image.width}×${image.height} world picture + ` +
+        `${OUTDOOR_ICON_COUNT} 16×16 fill patterns`,
+    );
+  } else {
+    console.warn('  ⚠ PHANT.PRG not found — no terrain art rendered');
+  }
+
   writeJson(
     resolve(outDir, `${WORLD_MAP_ASSET_NAME}.json`),
     {
@@ -297,6 +453,17 @@ export function buildWorldMap(dataDir: string, outDir: string): ManifestEntry[] 
       sectionsEW: WORLD_SECTIONS_EW_P2,
       sectionsNS: WORLD_SECTIONS_NS,
       sections: SECTION_NUMBER_BY_BLOCK_P2,
+      terrainClassNames: TERRAIN_CLASS_NAMES_P2,
+      cellWidth: OUTDOOR_CELL_WIDTH,
+      cellHeight: OUTDOOR_CELL_HEIGHT,
+      ...(iconsPng ? { terrainIcons: iconsPng } : {}),
+      ...(worldPng
+        ? {
+            image: worldPng,
+            imageWidth: WORLD_IMAGE_WIDTH_P2,
+            imageHeight: WORLD_IMAGE_HEIGHT_P2,
+          }
+        : {}),
       cells: Array.from(world.cells),
     },
     false,
@@ -312,8 +479,8 @@ export function buildWorldMap(dataDir: string, outDir: string): ManifestEntry[] 
       name: WORLD_MAP_ASSET_NAME,
       type: 'map',
       sprites: 0,
-      hasPalette: false,
-      png: '',
+      hasPalette: true,
+      png: worldPng,
     },
   ];
 }

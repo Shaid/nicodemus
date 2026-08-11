@@ -147,7 +147,82 @@ export interface OutdoorLayout {
   worldSectionsEW: number;
   /** Assembled world width in cells (east-west; north-south is the fixed `WORLD_HEIGHT`). */
   worldWidth: number;
+  /**
+   * Byte offset of the twelve-entry terrain icon bank **within that game's
+   * own executable** (`game` for P1, `PHANT.PRG` for P2). Both are
+   * `iconIndex * 128 + base`, plane-major 16 x 16 x 4bpp — see §8.2.4a /
+   * §8.6.8.
+   */
+  iconBankOffset: number;
+  /** English name per terrain class, indexed by class (0-11). */
+  terrainClassNames: readonly string[];
 }
+
+/**
+ * The outdoor terrain-icon bank in the Phantasie I `game` executable:
+ * DATA hunk 69 `+0x294`, i.e. file offset `0x196BC`. The display list's
+ * `iconIndex` is scaled by 128 (`asl.l #7` at `game+0x1713C`) and added to
+ * this base.
+ */
+export const OUTDOOR_ICON_BANK_OFFSET = 0x196bc;
+
+/**
+ * The same bank in Phantasie II's `PHANT.PRG`: address `0x21DD6`, i.e. file
+ * offset `0x21DF2` (GEMDOS 28-byte header). The group draw routine at addr
+ * `0x545A` does `ext.l d0; asl.l #7; add.l #$21DD6` and hands the result to
+ * VDI `vsf_udpat(handle, pattern, 4)` — see dungeon-format.md §8.6.8.
+ *
+ * Nine of the twelve entries are **byte-identical** to P1's bank at exactly
+ * the offsets this base predicts, which is what confirms base, stride,
+ * ordering and plane layout all at once.
+ */
+export const OUTDOOR_ICON_BANK_OFFSET_P2 = 0x21df2;
+
+/**
+ * English names for Phantasie I's twelve terrain classes
+ * (dungeon-format.md §8.3.3a). Confirmed from three agreeing oracles: the
+ * class's own rendered icon, the movement-cost ramp at `game+0x18022`, and
+ * the Phantasie I rulebook's terrain key. Classes 4 and 5 have no icon —
+ * they are drawn as the town/inn and dungeon markers instead
+ * (`game+0x1702C`).
+ */
+export const TERRAIN_CLASS_NAMES: readonly string[] = [
+  'Grassland',
+  'Forest',
+  'Hills',
+  'Mountains',
+  'Town',
+  'Dungeon',
+  'Path',
+  'Mist',
+  'Desert',
+  'Desert',
+  'Ocean',
+  'Lake',
+];
+
+/**
+ * Phantasie II's twelve classes (dungeon-format.md §8.6.8a). Classes
+ * 0-6, 9 and 10 keep P1's names because their bank entries are
+ * byte-identical and P2's movement-cost ramp (addr `0x6110`) is
+ * instruction-for-instruction P1's. Classes 7, 8 and 11 are P2's three
+ * **new** terrains, which the shared rulebook's "NEW TERRAIN FEATURES"
+ * section names as exactly Molten Lava, Mist and Dark Voids.
+ */
+export const TERRAIN_CLASS_NAMES_P2: readonly string[] = [
+  'Grassland',
+  'Forest',
+  'Hills',
+  'Mountains',
+  'Town',
+  'Dungeon',
+  'Path',
+  'Dark Void',
+  'Molten Lava',
+  'Desert',
+  'Ocean',
+  'Mist',
+];
 
 export const PHANTASIE1_OUTDOOR: OutdoorLayout = {
   fileSize: OUTDOOR_FILE_SIZE,
@@ -156,6 +231,8 @@ export const PHANTASIE1_OUTDOOR: OutdoorLayout = {
   mapsIntSize: MAPS_INT_SIZE,
   worldSectionsEW: WORLD_SECTIONS_EW_P1,
   worldWidth: WORLD_WIDTH_P1,
+  iconBankOffset: OUTDOOR_ICON_BANK_OFFSET,
+  terrainClassNames: TERRAIN_CLASS_NAMES,
 };
 
 export const PHANTASIE2_OUTDOOR: OutdoorLayout = {
@@ -165,6 +242,8 @@ export const PHANTASIE2_OUTDOOR: OutdoorLayout = {
   mapsIntSize: MAPS_INT_SIZE_P2,
   worldSectionsEW: WORLD_SECTIONS_EW_P2,
   worldWidth: WORLD_WIDTH_P2,
+  iconBankOffset: OUTDOOR_ICON_BANK_OFFSET_P2,
+  terrainClassNames: TERRAIN_CLASS_NAMES_P2,
 };
 
 /**
@@ -466,19 +545,18 @@ export function assembleWorld(
 // ---------------------------------------------------------------------------
 
 /**
- * The outdoor terrain-icon bank in the Phantasie I `game` executable:
- * DATA hunk 69 `+0x294`, i.e. file offset `0x196BC`. The display list's
- * `iconIndex` is scaled by 128 (`asl.l #7` at `game+0x1713C`) and added to
- * this base.
- */
-export const OUTDOOR_ICON_BANK_OFFSET = 0x196bc;
-
-/**
  * Each entry is a `graphics.library` **multi-coloured area-fill pattern**,
  * not a sprite: the two draw routines set `rp->AreaPtrn = iconAddress` and
  * `rp->AreaPtSz = -4` (`game+0x1F392`/`0x1F39A`), and a negative
  * `AreaPtSz` means `2^4 = 16` rows per plane, 16 pixels wide, one 16-word
  * block per bitplane with the planes stored consecutively.
+ *
+ * Phantasie II reaches the identical byte layout through the Atari ST's own
+ * GEM VDI instead: `vsf_udpat(handle, pattern, planes = 4)` (VDI opcode
+ * 112, wrapper at `PHANT.PRG` addr `0x1A3C6`) with the workstation opened
+ * at interior style `FIS_USER` (`work_in[7] = 4`, addr `0x52C6`). A VDI
+ * multi-plane user fill pattern is `16 * planes` words, 16 words per plane,
+ * planes consecutive — the same 128 bytes, same order.
  */
 export const OUTDOOR_ICON_WIDTH = 16;
 export const OUTDOOR_ICON_HEIGHT = 16;
@@ -498,13 +576,19 @@ export const OUTDOOR_PALETTE_SLOT = 2;
 
 /**
  * Decode one 16 x 16 icon to palette indices (row-major, 256 entries).
- * `gameExe` is the whole Phantasie I `game` file.
+ * `gameExe` is the whole executable — Phantasie I's `game` (the default
+ * bank offset) or Phantasie II's `PHANT.PRG` (pass
+ * `OUTDOOR_ICON_BANK_OFFSET_P2`).
  */
-export function decodeOutdoorIcon(gameExe: Uint8Array, index: number): Uint8Array {
+export function decodeOutdoorIcon(
+  gameExe: Uint8Array,
+  index: number,
+  bankOffset: number = OUTDOOR_ICON_BANK_OFFSET,
+): Uint8Array {
   if (index < 0 || !Number.isInteger(index)) {
     throw new RangeError(`outdoor icon index must be a non-negative integer, got ${index}`);
   }
-  const base = OUTDOOR_ICON_BANK_OFFSET + index * OUTDOOR_ICON_SIZE;
+  const base = bankOffset + index * OUTDOOR_ICON_SIZE;
   if (base + OUTDOOR_ICON_SIZE > gameExe.length) {
     throw new RangeError(`outdoor icon ${index} runs past the end of the executable`);
   }
@@ -523,36 +607,22 @@ export function decodeOutdoorIcon(gameExe: Uint8Array, index: number): Uint8Arra
 }
 
 /** Decode all 12 icons, indexed by terrain class. */
-export function decodeOutdoorIconBank(gameExe: Uint8Array): Uint8Array[] {
+export function decodeOutdoorIconBank(
+  gameExe: Uint8Array,
+  bankOffset: number = OUTDOOR_ICON_BANK_OFFSET,
+): Uint8Array[] {
   const icons: Uint8Array[] = [];
-  for (let i = 0; i < OUTDOOR_ICON_COUNT; i++) icons.push(decodeOutdoorIcon(gameExe, i));
+  for (let i = 0; i < OUTDOOR_ICON_COUNT; i++) {
+    icons.push(decodeOutdoorIcon(gameExe, i, bankOffset));
+  }
   return icons;
 }
 
-/**
- * English names for the twelve terrain classes (dungeon-format.md §8.3.3a).
- * Confirmed from three agreeing oracles: the class's own rendered icon, the
- * movement-cost ramp at `game+0x18022`, and the Phantasie I rulebook's
- * terrain key. Classes 4 and 5 have no icon — they are drawn as the town/inn
- * and dungeon markers instead (`game+0x1702C`).
- */
-export const TERRAIN_CLASS_NAMES: readonly string[] = [
-  'Grassland',
-  'Forest',
-  'Hills',
-  'Mountains',
-  'Town',
-  'Dungeon',
-  'Path',
-  'Mist',
-  'Desert',
-  'Desert',
-  'Ocean',
-  'Lake',
-];
-
-export function terrainClassName(code: number): string {
-  return TERRAIN_CLASS_NAMES[tileClass(code)] ?? `Class ${tileClass(code)}`;
+export function terrainClassName(
+  code: number,
+  names: readonly string[] = TERRAIN_CLASS_NAMES,
+): string {
+  return names[tileClass(code)] ?? `Class ${tileClass(code)}`;
 }
 
 /**
@@ -610,6 +680,7 @@ function fillPolygon(
   height: number,
   points: readonly { x: number; y: number }[],
   value: number,
+  drawPerimeter: boolean,
 ): void {
   const n = points.length;
   if (n === 0) return;
@@ -645,7 +716,11 @@ function fillPolygon(
       for (let x = from; x <= to; x++) icons[y * width + x] = value;
     }
   }
-  // AreaMove/AreaDraw paint the outline too.
+  // AreaMove/AreaDraw paint the outline too — but only on P1. Phantasie II
+  // opens its workstation with `vsf_perimeter(handle, 0)` (VDI opcode 104,
+  // wrapper at `PHANT.PRG` addr `0x1A38C`, called with 0 at addr `0x52F4`),
+  // so its `v_fillarea` polygons have no outline at all.
+  if (!drawPerimeter) return;
   for (let i = 0; i < n; i++) {
     const a = points[i];
     const b = points[(i + 1) % n];
@@ -670,6 +745,7 @@ export function rasteriseOutdoorSection(
   section: OutdoorSection,
   width = 336,
   height = 208,
+  drawPerimeter = true,
 ): OutdoorRaster {
   const icons = new Int16Array(width * height).fill(-1);
   for (let y = OUTDOOR_MAP_ORIGIN_Y; y < OUTDOOR_MAP_ORIGIN_Y + OUTDOOR_MAP_HEIGHT; y++) {
@@ -680,7 +756,7 @@ export function rasteriseOutdoorSection(
     }
   }
   for (const group of section.displayList.groups) {
-    fillPolygon(icons, width, height, group.points, group.iconIndex);
+    fillPolygon(icons, width, height, group.points, group.iconIndex, drawPerimeter);
   }
   return { width, height, icons };
 }
@@ -696,8 +772,9 @@ export function renderOutdoorSection(
   icons: readonly Uint8Array[],
   width = 336,
   height = 208,
+  drawPerimeter = true,
 ): { width: number; height: number; pixels: Uint8Array } {
-  const raster = rasteriseOutdoorSection(section, width, height);
+  const raster = rasteriseOutdoorSection(section, width, height, drawPerimeter);
   const pixels = new Uint8Array(width * height);
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {

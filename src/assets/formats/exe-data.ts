@@ -409,6 +409,25 @@ export function readP2TownPalette(exe: Uint8Array): RGB[] {
   return decodePalette16(exe, P2_PIC_TOWN_PALETTE_OFFSET, 'st');
 }
 
+/**
+ * `PHANT.PRG`'s **outdoor world-map** palette — the one the terrain icon
+ * bank renders under (dungeon-format.md §8.6.8). Confirmed: the only two
+ * `Setpalette` (XBIOS 6) call sites in the whole outdoor module, addrs
+ * `0x5720` and `0x5CEE`, both take address `0x22956` (file offset
+ * `0x22972`) as their operand.
+ *
+ * It is Phantasie I's own world-map palette (`game+0x1949C`, slot 2) with
+ * **one** entry changed: index 15 goes from white (`0x0EEE`) to red
+ * (`0x0700`). Bank entry 8 — P2's Molten Lava — is the only entry in the
+ * whole bank that uses colour 15.
+ */
+const P2_OUTDOOR_PALETTE_OFFSET = 0x22972;
+
+/** See `P2_OUTDOOR_PALETTE_OFFSET`. */
+export function readP2OutdoorPalette(exe: Uint8Array): RGB[] {
+  return decodePalette16(exe, P2_OUTDOOR_PALETTE_OFFSET, 'st');
+}
+
 // ---------------------------------------------------------------------------
 // Phantasie III (Amiga) name tables — data-tables.md §3.1, §4
 //

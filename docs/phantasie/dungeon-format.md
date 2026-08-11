@@ -1288,6 +1288,9 @@ repeat {
 (`movea.l $1fbd0.l,a5; move.w (a5)+,d7` then the `cmp.w #$ffff` /
 `adda.l count*4` loop at addr `0x504C`-`0x5070`).
 
+Where the `iconIndex` leads — P2's own 12-entry terrain-pattern bank, and
+what it draws with — is **§8.6.8**.
+
 **Verification.** Parsing all 17 files with this grammar at 1,500 succeeds on
 every one: `backgroundIconIndex` is `10` in all 17 (the same value as all 18
 P1 files), the `0xFFFF` terminator is found in bounds in all 17 (earliest
@@ -1883,6 +1886,275 @@ character sheet and its fields read `"123456789 "`, `"LEVEL XX WIZARD
 HALFLING OKAY"`, `"HIT POINTS XXX/XXX"`. The program overwrites them at
 runtime. Only objects the game never rewrites (menu entries, the two
 refusal boxes of §8.6.3a, static labels) carry real on-screen text.
+
+#### 8.6.8 The outdoor icon bank at `PHANT.PRG` addr `0x21DD6` — confirmed
+
+> **Correction (2026-08-11):** §8.6.1 and `tools/viewer/map-viewer.ts` both
+> recorded P2's icon bank as "not yet found", and `TODO.md` carried
+> `world-p2-map-tile-graphics` as open with only P1's answer to go on. It is
+> solved, and it is P1's bank reached through an entirely different OS
+> graphics stack.
+
+Phantasie II is a GEM/TOS program, so none of P1's `graphics.library`
+`AreaPtrn`/`SetAfPt` machinery exists here. The mechanism P2 uses instead is
+the Atari VDI's own **user-defined multi-plane fill pattern**, and it lands
+on a byte-for-byte identical bank format.
+
+The display-list walker at addr `0x5028` (§8.6.1) hands each group to a draw
+routine at addr `0x545A`, which begins:
+
+```
+00545e  move.w  #$4,(a7)              ; planes = 4
+005462  move.w  $8(a6),d0             ; iconIndex
+005466  ext.l   d0
+005468  asl.l   #$7,d0                ; * 128
+00546a  add.l   #$21dd6,d0            ; + bank base
+005470  move.l  d0,-(a7)              ; pattern address
+005472  move.w  $248be.l,-(a7)        ; VDI workstation handle
+005478  jsr     $1a3c6.l              ; vsf_udpat(handle, pattern, 4)
+```
+
+and the background routine at addr `0x53EE` is the same call with the
+list's `backgroundIconIndex`, followed by `vr_recfl` over the map rectangle
+instead of `v_fillarea` over a polygon.
+
+**Every VDI call is identified by its own opcode, not by inference** — each
+wrapper writes a literal into `contrl[0]` before invoking the VDI trap
+dispatcher at addr `0x1A5F0`:
+
+| Wrapper | `contrl[0]` | VDI call | Where used |
+|---|---|---|---|
+| `0x1A3C6` | `0x70` = 112 | `vsf_udpat(handle, pattern, planes)` | `0x5416` (background), `0x545E` (group) |
+| `0x19EE0` | `9` | `v_fillarea(handle, count, pxyarray)` | `0x549C` — `pxyarray` is `a5`, i.e. **the points are read straight out of the `OUT*.DAT` buffer**, no copy |
+| `0x1A21E` | `0x72` = 114 | `vr_recfl(handle, pxyarray)` | `0x5440` (background rectangle) |
+| `0x1A38C` | `0x68` = 104 | `vsf_perimeter(handle, 0)` | `0x52FA` — **perimeter off**, so P2's polygons have no outline (P1's `AreaEnd` draws one) |
+| `0x1AA74` | AES `0x4E` = 78 | `graf_mouse(M_OFF/M_ON)` | around every fill |
+
+The workstation itself is opened at addr `0x52EA` with `work_in[7] = 4`
+(`move.w #$4,$24ca4.l` at addr `0x52C6`) — **`FIS_USER`**, the interior
+style that makes `vsf_udpat` take effect at all — and `work_in[10] = 2`
+(raster coordinates), which is why the display list's points are literal
+screen pixels.
+
+A VDI multi-plane user fill pattern is `16 * planes` words: **16 words per
+plane, 16 pixels wide, planes consecutive**. With `planes = 4` that is
+`4 × 16 × 2 = 128` bytes — exactly the `asl.l #7` stride, and exactly P1's
+`AreaPtSz = -4` layout.
+
+| Property | Value | Evidence |
+|---|---|---|
+| Base | addr `0x21DD6` = **file `0x21DF2`** (DATA segment; `text_len` = `0x1E298`, data runs to `0x2468C`) | `add.l #$21dd6` at addrs `0x541E`/`0x546A` |
+| Entry size | 128 bytes | `asl.l #7` + `contrl[3] = planes << 4` = 64 words |
+| Geometry | **16 × 16 pixels, 4 bitplanes, plane-major** (plane 0's sixteen big-endian words, then plane 1's, …) | VDI `vsf_udpat` semantics + `planes = 4` |
+| Entries | **exactly 12** (indices 0-11) | see the marker-bank identity below |
+| Palette | 16 ST words at addr `0x22956` = **file `0x22972`** | the only two `Setpalette` (XBIOS 6) sites in the whole outdoor module, addrs `0x5720` and `0x5CEE`, both take `#$22956` |
+| Screen placement | the pattern is origin-aligned, not shape-aligned: `pixel(x,y) = icon[y mod 16][x mod 16]` | VDI fill patterns tile from the workstation origin, same as `AreaPtrn` |
+
+**The bank has exactly 12 entries, and that is arithmetic, not a guess.**
+The marker draw routine at addr `0x5230` does the identical
+`asl.l #7 ; add.l #$223D6` against a *marker-type* argument, and
+`0x223D6 − 0x21DD6 = 0x600 = 12 × 128`. The marker bank begins precisely
+one 12-entry terrain bank later, which bounds the terrain bank exactly.
+(Marker types used by the walker at addrs `0x5084`-`0x5226`: `0` town,
+`1` inn, `2` dungeon — up to 8 of them — and `4` for extra class-4 cells.)
+
+##### The decisive cross-port check — 9 of 12 entries are byte-identical to P1's
+
+Searching the whole 155,785-byte `PHANT.PRG` for each of P1's twelve
+128-byte icons (from `game+0x196BC`, §8.2.4a) as a raw substring finds nine
+of them, and **every one lands exactly at `0x21DF2 + index × 128`**:
+
+| P1 icon | Found in `PHANT.PRG` at file | Predicted |
+|---|---|---|
+| 0 | `0x21DF2` | `0x21DF2` ✓ |
+| 1 | `0x21E72` | ✓ |
+| 2 | `0x21EF2` | ✓ |
+| 3 | `0x21F72` | ✓ |
+| 4, 5 | (blank in both — town/dungeon markers) | ✓ |
+| 6 | `0x220F2` | ✓ |
+| 9 | `0x22272` | ✓ |
+| 10 | `0x222F2` | ✓ |
+
+A whole-binary substring search could have landed anywhere; that all nine
+hits fall on the predicted stride confirms **base, entry size, entry
+ordering and plane layout simultaneously**, from an oracle entirely outside
+this binary. Only indices **7, 8 and 11** differ — P2's three new terrains
+(below).
+
+**Plane-major, not row-interleaved.** The same 128 bytes admit exactly one
+other reading (word 0 = row 0 plane 0, word 1 = row 0 plane 1, …). Under
+plane-major every entry uses **2-7 colours**; under row-interleaved they use
+**13-16** — i.e. nearly the whole palette smeared over a 16 × 16 tile, which
+no fill pattern does. The byte-identity result above independently settles
+it anyway.
+
+**The palette is P1's world-map palette with one entry changed.** Decoding
+file `0x22972` as 16 raw ST words gives channel nibbles all in 0-7 with a
+zero high nibble, 16/16 — and entry-for-entry it is `game+0x1949C` (P1's
+world-map palette slot 2, §8.2.4a) at the Amiga port's doubled nibble
+resolution:
+
+| Index | P2 (ST) | P1 (Amiga) | | Index | P2 (ST) | P1 (Amiga) |
+|---|---|---|---|---|---|---|
+| 0 | `0000` black | `0000` | | 8 | `0333` grey | `0666` |
+| 1 | `0700` red | `0E00` | | 9 | `0520` brown | `0A40` |
+| 2 | `0140` green | `0280` | | 10 | `0230` olive | `0460` |
+| 3 | `0760` gold | `0EB0` | | 11 | `0740` orange | `0E80` |
+| 4 | `0046` sky blue | `008B` | | 12 | `0271` bright green | `04E2` |
+| 5 | `0707` magenta | `0E0E` | | 13 | `0444` light grey | `0888` |
+| 6 | `0117` blue | `022E` | | 14 | `0135` dark blue | `026A` |
+| 7 | `0045` cyan | `008A` | | **15** | **`0700` red** | **`0EEE` white** |
+
+**Index 15 is the only difference in the whole table** — and bank entry 8
+(P2's Molten Lava) is the only entry, terrain or marker, that uses colour
+15. P2 repurposed exactly one palette slot for exactly one new tile.
+
+**Screen geometry is instruction-for-instruction P1's.** `MarkerRect()` at
+addr `0x4AF2` computes `rect.x = engineRow × [0x246A6] + [0x246AA]`,
+`rect.y = col × [0x246A8] + [0x246AC]`, and the initialiser at addr
+`0x5764` stores `12, 9, 4, 15` into those four BSS words — P1's
+`game+0x173B0` constants exactly. The background rectangle built two
+instructions later is `SetRect($248C8, 4, 15, 312, 180)` (addr `0x5794`;
+the helper at `0x19CCE` stores `x, y, w, h` verbatim, and `0x19412`
+converts to `x, y, x+w−1, y+h−1` for `vr_recfl`). `312 = 26 × 12` and
+`180 = 20 × 9`, so the background rectangle covers the 26 × 20 grid
+**exactly**, with no slack — which is itself a free confirmation of the
+cell size and the axis assignment.
+
+#### 8.6.8a The icon index *is* the terrain class — verified cell-for-cell
+
+Rasterising all 17 display lists (background `vr_recfl` of the map
+rectangle, then each group as an even-odd `v_fillarea` polygon with the
+perimeter off) and sampling the centre of each grid cell's own screen
+rectangle (`x = engineRow·12 + 4 + 6`, `y = col·9 + 15 + 4`) gives
+
+> **8,790 / 8,840 = 99.43% agreement** between the polygon's `iconIndex`
+> and the cell's own `tile / 10`, across all 17 sections and **all twelve
+> classes, with nothing excluded**
+
+Per class the match is 98.0-100%; six of the seventeen sections are a
+perfect 100%. The residue is polygon-edge sampling, not disagreement: the
+confusions are single-digit counts spread over adjacent classes with no
+systematic offset. **This is the same 99.4% P1 scores under the same
+test**, and the transposed placement hypothesis fails the raster bounds
+outright.
+
+**One real divergence from P1 here, and it makes P2's result stronger.**
+§8.2.4a had to *exclude* classes 4 and 5 because no P1 display list ever
+references icon 4 or 5 — towns and dungeons are marker-only there. P2's
+lists **do** carry them: 20 groups use index 4 and 8 use index 5, almost
+all of them a 4-point polygon covering a single cell, and **38 of the 39
+class-4/class-5 cells in the whole corpus sample their own icon index**
+(23/24 towns, 15/15 dungeons). Both entries are blank patterns, so the fill
+paints colour 0 and the marker overlay (addrs `0x5084`-`0x5226`) draws the
+real symbol on top. So in Phantasie II the identity `iconIndex == tileClass`
+holds over the complete class space, not a subset of it.
+
+`backgroundIconIndex` is `10` in all 17 files and class 10 is the ocean —
+same flood-then-fill-the-land construction as P1.
+
+##### The twelve terrain classes, named — confirmed
+
+Three oracles, none of them "it looks like":
+
+1. **Byte-identical art.** Nine of the twelve entries are literally P1's
+   bytes (above), whose names §8.3.3a already confirms from three
+   independent oracles of its own.
+2. **The movement-cost ramp** at addr `0x6110` is instruction-for-instruction
+   P1's `game+0x18022`: `class = tile / 10`; `if class > 3 → cost 60`, else
+   `cost = (class + 1) × 75` (`cmpi.w #$3` at `0x612C`, `muls.w #$4B` at
+   `0x6148`). Same graded 0-3 land types, same flat 60 for everything else.
+3. **The shared Phantasie I/II rulebook's own "NEW TERRAIN FEATURES"
+   section** (p. 26, text layer of
+   `Phantasie_I_and_Phantasie_II_Rulebook_SSI_text.pdf`) lists exactly
+   **three** terrains new to Phantasie II — and exactly three bank entries
+   differ from P1's.
+
+| Class | Cells | Icon | Cost | Name | Confidence |
+|---|---|---|---|---|---|
+| 0 | 1,132 | bright-green dots on black | 75 | **Grassland** | **confirmed** (P1-identical bytes) |
+| 1 | 958 | green foliage, brown trunks | 150 | **Forest** | **confirmed** (P1-identical) |
+| 2 | 258 | brown mounds, green tufts, grey highlights | 225 | **Hills** | **confirmed** (P1-identical) |
+| 3 | 277 | brown/grey rock masses | 300 | **Mountains** | **confirmed** (P1-identical) |
+| 4 | 24 | *(blank — drawn as marker 0/1/4)* | 60 | **Town** / **Inn** | **confirmed** (P1-identical) |
+| 5 | 15 | *(blank — drawn as marker 2)* | 60 | **Dungeon entrance** | **confirmed** (P1-identical) |
+| 6 | 157 | sparse grey speckle | 60 | **Path** | **confirmed** (P1-identical) |
+| 7 | 1,037 | **solid black** | 60 | **Dark Void** | **confirmed** |
+| 8 | 653 | dense blue/cyan/grey mottle with red flecks | 60 | **Molten Lava** | **confirmed** |
+| 9 | 234 | orange dashes on black | 60 | **Desert** | **confirmed** (P1-identical) |
+| 10 | 3,716 | cyan/blue wave bands | 60 | **Ocean** | **confirmed** (P1-identical) |
+| 11 | 379 | sparse grey speckle (different bit pattern from 6) | 60 | **Mist** | **confirmed** |
+
+The rulebook's three new entries read:
+
+- **Molten Lava** — "Extremely dangerous to travel through the intense heat;
+  almost always causes damage to your characters. **No encounters.**"
+- **Mist** — "A fine mist shrouds these areas… Undead and insect encounters
+  abound."
+- **Dark Voids** — "Dark areas considered dangerous to travel through.
+  **Again**, undead and insects flourish in these areas."
+
+**The code partitions the three exactly the way the rulebook does.** The
+terrain-effect dispatcher at addr `0x63B6` switches on the class:
+
+```
+0063bc  cmp.w #$7,d0   beq $6338     ; class 7  -> shared handler
+0063c4  cmp.w #$8,d0   beq $6398     ; class 8  -> its own handler
+0063ca  cmp.w #$b,d0   beq $6338     ; class 11 -> shared handler
+```
+
+Classes **7 and 11 share one handler** (addr `0x6338`: an RNG roll at
+`jsr $FD40`, and on a hit an encounter index `rng/34 + variant·12 + 1`
+stored to `$2832C`) — matching the rulebook's "Again, undead and insects",
+which explicitly says Mist and Dark Voids behave the same. Class **8 has
+its own, encounter-free handler** (addr `0x6398`, keyed on the tile variant
+alone) — matching "No encounters." So `{7, 11} = {Mist, Dark Void}` and
+`8 = Molten Lava` is forced by the code, not chosen.
+
+Within that pair: entry **7 is solid colour 0**, i.e. literally a dark area
+("Dark Voids: **Dark areas**"), and entry 11 is a field of dots ("Mist:
+appears as an area of … dots"). And entry 8 is the sole user of the one
+palette slot P2 changed to red — the "intense heat" tile.
+
+Two further corroborations of the assignment:
+
+- **Classes 7, 8 and 11 occur only in sections 17-31**, the underworld half
+  of the mosaic (§8.6.3), whose own `OUT*.DAT` text reads
+  `"YOUR PARTY GOES THROUGH A STRANGE / INTERDIMENSIONAL VORTEX"`,
+  `"HERE IS AN ENOURMOUS BLACK CASTLE"`, `"THERE IS A SMALL /
+  BLOODSTAINED TEMPLE HERE"`. Classes 0, 1, 2, 6 and 9 occur only in
+  sections 1-12, the Ferronrah surface.
+- **Path (6) and Mist (11) render in the same colour 8** and would be
+  ambiguous on screen — except they are perfectly disjoint by landmass:
+  6 is surface-only (157 cells), 11 underworld-only (379). They can never
+  appear on the same screen, which is why the artists could reuse the
+  colour.
+
+The rulebook describes Lava as "an orange wave pattern" and Mist as "blue
+dots"; on the ST they are red-flecked and grey respectively. The rulebook
+is a single cross-platform document (it also covers Apple II, C64 and
+Macintosh releases) and its colour wording does not match this binary's own
+palette — the *behavioural* split above is the load-bearing evidence, not
+the colour adjectives.
+
+##### Decoder and pipeline
+
+`decodeOutdoorIcon`/`decodeOutdoorIconBank` in
+`src/assets/formats/outdoor.ts` now take a bank offset;
+`OutdoorLayout` carries `iconBankOffset` and `terrainClassNames`, so
+`PHANTASIE2_OUTDOOR` selects `0x21DF2` and `TERRAIN_CLASS_NAMES_P2`.
+`rasteriseOutdoorSection` gained a `drawPerimeter` flag (default `true` for
+P1's `AreaEnd`; P2 passes `false` for `vsf_perimeter(handle, 0)`).
+`readP2OutdoorPalette()` in `exe-data.ts` reads file `0x22972`.
+`tools/phantasieii/build-map.ts` bakes `screens/world-map.png`
+(2412 × 693 = `201 × 12` by `77 × 9`) and
+`textures/terrain-icons.png` (192 × 16) with its sidecar, and
+`world-map.json` now carries `terrainIcons`, `terrainClassNames`,
+`cellWidth`/`cellHeight` and `image`/`imageWidth`/`imageHeight` — the same
+shape P1 emits, so `tools/viewer/map-viewer.ts` picks the strip up with no
+viewer-side change. 28 real-byte tests in
+`src/assets/formats/__tests__/outdoor-p2.test.ts`.
+
 
 ## 9. Phantasie III `D/` files not covered by the reference tool
 
@@ -2609,9 +2881,14 @@ So indexing is `$2908 + Y × $2808 + X`, and there are only two consumers:
    ```
    (A second, identical fetch sits at addr `0x9BE6` — the arm taken for the
    party-marker cell, which calls `$378A` instead of `$3834`.)
-   This is the direct code-level proof of `graphics-formats.md` §5.3's
-   column-index reading, which until now had no `.set`-consuming code
-   behind it at all.
+   This is the direct code-level proof that the map byte reaches the
+   renderer untransformed. **What it selects was then settled one call
+   deeper**: disassembling `$3834` itself shows a `asl.w #7` (× 128) into
+   the `.set` picture buffer followed by 16 scanlines of four plane words,
+   i.e. the byte is a **tile index into a 250-entry 16 × 16 × 4bpp bank**,
+   not a pixel-column index into a 320 × 200 picture. See
+   `graphics-formats.md` §5.3's second 2026-08-11 correction block for the
+   full listing and the refutation of the column reading.
 2. **The terrain classifier**, addr `0xA4A6`, which reads the *party's own*
    cell and reduces it to a terrain class.
 

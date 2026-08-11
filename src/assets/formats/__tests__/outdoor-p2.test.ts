@@ -4,6 +4,17 @@ import { describe, it, expect } from 'vitest';
 import {
   MAPS_INT_SIZE_P2,
   OUTDOOR_DISPLAY_LIST_OFFSET_P2,
+  OUTDOOR_ICON_BANK_OFFSET,
+  OUTDOOR_ICON_BANK_OFFSET_P2,
+  OUTDOOR_ICON_COUNT,
+  OUTDOOR_ICON_SIZE,
+  OUTDOOR_CELL_WIDTH,
+  OUTDOOR_CELL_HEIGHT,
+  OUTDOOR_MAP_ORIGIN_X,
+  OUTDOOR_MAP_ORIGIN_Y,
+  OUTDOOR_MAP_WIDTH,
+  OUTDOOR_MAP_HEIGHT,
+  TERRAIN_CLASS_NAMES_P2,
   OUTDOOR_FILE_SIZE_P2,
   OUTDOOR_GRID_SIZE,
   OUTDOOR_SECTION_HEIGHT,
@@ -19,7 +30,10 @@ import {
   WORLD_WIDTH_P2,
   assembleWorld,
   decodeMapsInt,
+  decodeOutdoorIcon,
+  decodeOutdoorIconBank,
   decodeOutdoorSection,
+  rasteriseOutdoorSection,
   hasPoiRecord,
   poiMessage,
   revealedTileCode,
@@ -269,5 +283,158 @@ describe('world assembly (dungeon-format.md §8.6.3, axis-corrected 2026-08-11)'
     });
     expect(edges).toBe(30);
     expect(pureOcean).toBe(29);
+  });
+});
+
+describe('P2 outdoor icon bank — PHANT.PRG addr 0x21DD6 (dungeon-format.md §8.6.8)', () => {
+  const phant = readDisk1('PHANT.PRG');
+  const gameP1 = new Uint8Array(readFileSync(resolve('data/phantasie/amiga/game')));
+
+  it('sits at file 0x21DF2 — addr 0x21DD6 plus the 28-byte GEMDOS header', () => {
+    expect(OUTDOOR_ICON_BANK_OFFSET_P2).toBe(0x21dd6 + 28);
+    expect(PHANTASIE2_OUTDOOR.iconBankOffset).toBe(OUTDOOR_ICON_BANK_OFFSET_P2);
+    expect(PHANTASIE1_OUTDOOR.iconBankOffset).toBe(OUTDOOR_ICON_BANK_OFFSET);
+  });
+
+  it('the marker bank begins exactly one 12-entry terrain bank later', () => {
+    // The marker draw routine at addr 0x5230 does `asl.l #7; add.l #$223D6`,
+    // and 0x223D6 - 0x21DD6 = 0x600 = 12 * 128. That arithmetic identity is
+    // what bounds the terrain bank at exactly OUTDOOR_ICON_COUNT entries.
+    expect(0x223d6 - 0x21dd6).toBe(OUTDOOR_ICON_COUNT * OUTDOOR_ICON_SIZE);
+  });
+
+  it('9 of the 12 entries are byte-identical to P1\'s Amiga bank, at the predicted offsets', () => {
+    const identical: number[] = [];
+    for (let i = 0; i < OUTDOOR_ICON_COUNT; i++) {
+      const a = gameP1.subarray(
+        OUTDOOR_ICON_BANK_OFFSET + i * OUTDOOR_ICON_SIZE,
+        OUTDOOR_ICON_BANK_OFFSET + (i + 1) * OUTDOOR_ICON_SIZE,
+      );
+      const b = phant.subarray(
+        OUTDOOR_ICON_BANK_OFFSET_P2 + i * OUTDOOR_ICON_SIZE,
+        OUTDOOR_ICON_BANK_OFFSET_P2 + (i + 1) * OUTDOOR_ICON_SIZE,
+      );
+      if (a.every((v, k) => v === b[k])) identical.push(i);
+    }
+    // Everything except P2's three new terrains (7 Dark Void, 8 Molten Lava,
+    // 11 Mist) is the same artwork, byte for byte, across the two ports.
+    expect(identical).toEqual([0, 1, 2, 3, 4, 5, 6, 9, 10]);
+  });
+
+  it('decodes 16x16x4bpp plane-major, giving indices in 0..15', () => {
+    const bank = decodeOutdoorIconBank(phant, OUTDOOR_ICON_BANK_OFFSET_P2);
+    expect(bank).toHaveLength(OUTDOOR_ICON_COUNT);
+    for (const px of bank) {
+      expect(px).toHaveLength(256);
+      for (const v of px) expect(v).toBeLessThanOrEqual(15);
+    }
+  });
+
+  it('plane-major beats VDI-row-interleaved: 2-7 colours per entry, not 13-16', () => {
+    // The alternative reading (word 0 = row 0 plane 0, word 1 = row 0 plane 1,
+    // ...) is the only other layout the same 128 bytes admit. It smears every
+    // entry across nearly the whole palette, which no fill pattern does.
+    for (let i = 0; i < OUTDOOR_ICON_COUNT; i++) {
+      const planeMajor = new Set(decodeOutdoorIcon(phant, i, OUTDOOR_ICON_BANK_OFFSET_P2));
+      const base = OUTDOOR_ICON_BANK_OFFSET_P2 + i * OUTDOOR_ICON_SIZE;
+      const interleaved = new Set<number>();
+      for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x++) {
+          let v = 0;
+          for (let plane = 0; plane < 4; plane++) {
+            const at = base + (y * 4 + plane) * 2;
+            const word = (phant[at] << 8) | phant[at + 1];
+            if (word & (0x8000 >> x)) v |= 1 << plane;
+          }
+          interleaved.add(v);
+        }
+      }
+      expect(planeMajor.size).toBeLessThanOrEqual(7);
+      if (planeMajor.size > 1) expect(interleaved.size).toBeGreaterThan(planeMajor.size);
+    }
+  });
+
+  it('entries 4 and 5 are blank — towns and dungeons are markers, not fills', () => {
+    for (const i of [4, 5]) {
+      expect(decodeOutdoorIcon(phant, i, OUTDOOR_ICON_BANK_OFFSET_P2).every((v) => v === 0)).toBe(
+        true,
+      );
+    }
+  });
+
+  it('entry 8 (Molten Lava) is the only entry using colour 15 — the one palette slot P2 changed', () => {
+    const usingFifteen: number[] = [];
+    // Include the marker entries past the terrain bank, so this is a
+    // statement about the whole 16-entry pattern region, not just 0-11.
+    for (let i = 0; i < 16; i++) {
+      if (decodeOutdoorIcon(phant, i, OUTDOOR_ICON_BANK_OFFSET_P2).includes(15)) {
+        usingFifteen.push(i);
+      }
+    }
+    expect(usingFifteen).toEqual([8]);
+  });
+
+  it('names all twelve P2 classes', () => {
+    expect(TERRAIN_CLASS_NAMES_P2).toHaveLength(OUTDOOR_ICON_COUNT);
+    expect(PHANTASIE2_OUTDOOR.terrainClassNames).toBe(TERRAIN_CLASS_NAMES_P2);
+    expect(TERRAIN_CLASS_NAMES_P2[7]).toBe('Dark Void');
+    expect(TERRAIN_CLASS_NAMES_P2[8]).toBe('Molten Lava');
+    expect(TERRAIN_CLASS_NAMES_P2[11]).toBe('Mist');
+  });
+
+  it('Path (6) and Mist (11) share a colour but never share a screen', () => {
+    // Both render as sparse index-8 grey dots, which would be ambiguous if
+    // they could co-occur. Class 6 is surface-only, class 11 underworld-only.
+    const surface = new Set<number>();
+    const underworld = new Set<number>();
+    SECTION_NUMBER_BY_BLOCK_P2.forEach((n) => {
+      const grid = decodeOutdoorSection(readDisk2(`OUT${n}.DAT`), PHANTASIE2_OUTDOOR).grid;
+      const into = n >= 17 ? underworld : surface;
+      for (const code of grid) into.add(tileClass(revealedTileCode(code)));
+    });
+    expect(surface.has(6)).toBe(true);
+    expect(surface.has(11)).toBe(false);
+    expect(underworld.has(11)).toBe(true);
+    expect(underworld.has(6)).toBe(false);
+  });
+});
+
+describe('P2 iconIndex is the terrain class — dungeon-format.md §8.6.8a', () => {
+  /**
+   * Replay each section's display list and sample the centre of every grid
+   * cell's own screen rectangle, exactly as §8.2.4a did for P1. The screen
+   * geometry is P2's own: `MarkerRect()` at addr `0x4AF2` multiplies by the
+   * four words stored at addr `0x5764` (12, 9, 4, 15), and the background
+   * rectangle is `SetRect(4, 15, 312, 180)` — where `312 = 26 * 12` and
+   * `180 = 20 * 9` cover the grid exactly.
+   */
+  // Unlike P1, P2's display lists *do* carry classes 4 and 5 (a tiny 4-point
+  // polygon per town/dungeon cell), so nothing needs excluding here.
+  it('agrees on the cell class across all 17 sections, all twelve classes', () => {
+    let total = 0;
+    let agree = 0;
+    for (const n of SECTION_NUMBER_BY_BLOCK_P2) {
+      const section = decodeOutdoorSection(readDisk2(`OUT${n}.DAT`), PHANTASIE2_OUTDOOR);
+      const raster = rasteriseOutdoorSection(section, undefined, undefined, false);
+      for (let fileRow = 0; fileRow < OUTDOOR_SECTION_HEIGHT; fileRow++) {
+        const engineRow = OUTDOOR_SECTION_HEIGHT - 1 - fileRow;
+        for (let col = 0; col < OUTDOOR_SECTION_WIDTH; col++) {
+          const cls = tileClass(
+            revealedTileCode(section.grid[fileRow * OUTDOOR_SECTION_WIDTH + col]),
+          );
+          const px = engineRow * OUTDOOR_CELL_WIDTH + OUTDOOR_MAP_ORIGIN_X + 6;
+          const py = col * OUTDOOR_CELL_HEIGHT + OUTDOOR_MAP_ORIGIN_Y + 4;
+          total++;
+          if (raster.icons[py * raster.width + px] === cls) agree++;
+        }
+      }
+    }
+    expect(total).toBe(8840);
+    expect(agree).toBe(8790); // 99.43%
+  });
+
+  it('the background rectangle covers the 26 x 20 grid exactly', () => {
+    expect(OUTDOOR_MAP_WIDTH).toBe(OUTDOOR_SECTION_HEIGHT * OUTDOOR_CELL_WIDTH); // 312
+    expect(OUTDOOR_MAP_HEIGHT).toBe(OUTDOOR_SECTION_WIDTH * OUTDOOR_CELL_HEIGHT); // 180
   });
 });
