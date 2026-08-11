@@ -151,6 +151,38 @@ const POI_STYLES: Record<WorldPoiType, { color: string; shape: 'diamond' | 'circ
 /** Marker kinds that always carry a caption. The rest would be unreadable en masse. */
 const CAPTIONED_POI_TYPES = new Set<WorldPoiType>(['town', 'dungeon', 'inn']);
 
+/**
+ * Cross-game "reskin": paint Phantasie I/II's terrain classes with a
+ * similarly-named Phantasie III tile, borrowed from its real bundled
+ * artwork (graphics-formats.md §5.3) since P3's 250-tile bank has far more
+ * visual variety than P1's 12-pattern icon bank or P2's own. **This is a
+ * fun approximation, not an RE claim** — Phantasie I/II never shipped this
+ * art or anything like it; the mapping below is a same-name-or-closest
+ * match chosen by eye, not derived from any format fact. Classes with no
+ * reasonable P3 counterpart (Town, Dungeon, and P2's Dark Void/Molten
+ * Lava, whose own tile values are only reachable from the *castle/
+ * Netherworld* maps this project hasn't decoded yet) are left unmapped and
+ * fall back to native rendering even with the skin on.
+ *
+ * Values are representative tile indices from the middle of each class's
+ * confirmed value band (`P3_TERRAIN_BANDS` in `src/assets/formats/
+ * p3-overworld.ts`) — any value in-band renders that class's art, the
+ * exact choice doesn't matter beyond "not an edge case".
+ */
+const P3_SKIN_TILE_BY_CLASS_NAME: Record<string, number> = {
+  Grassland: 196, // Meadows band 188-205
+  Forest: 233, // Forest band 225-241
+  Hills: 134, // Hills band 115-154
+  Mountains: 102, // Mountains band 90-114
+  Path: 219, // Pathway band 214-224
+  Mist: 71, // Bright mist band 68-74
+  Desert: 171, // Desert band 155-187
+  Ocean: 13, // Water band 2-25
+  Lake: 13, // Water band 2-25
+};
+/** P3 is a single game/platform pair — see viewer.ts's own `GAME_PLATFORMS`. */
+const P3_SKIN_ASSET_BASE = '/assets/phantasieiii/amiga';
+
 /** World pixels per map cell at zoom 1. Arbitrary — nothing is baked. */
 const CELL = 8;
 const MIN_ZOOM = 0.25;
@@ -191,6 +223,12 @@ export class WorldMapViewer {
   private terrainPatterns: (CanvasPattern | null)[] = [];
   /** The per-cell-**value** tile strip (P3). Cells blit straight out of it. */
   private tileSheet: HTMLImageElement | null = null;
+  /** Cross-game "Phantasie III art" reskin patterns, by local class index — see `P3_SKIN_TILE_BY_CLASS_NAME`. */
+  private p3SkinPatterns: (CanvasPattern | null)[] = [];
+  private p3SkinLoaded = false;
+  private useP3Skin = false;
+  /** Cached across `show()` calls — P3's own map never changes mid-session. */
+  private static p3SkinSheetPromise: Promise<{ img: HTMLImageElement; columns: number } | null> | null = null;
 
   private zoom = 1;
   private offsetX = 0;
@@ -265,8 +303,12 @@ export class WorldMapViewer {
 
     this.terrainPatterns = [];
     this.tileSheet = null;
+    this.p3SkinPatterns = [];
+    this.p3SkinLoaded = false;
+    this.useP3Skin = false;
     if (map.terrainIcons) void this.loadTerrainPatterns(assetBase, map.terrainIcons);
     if (map.terrainTiles) void this.loadTileSheet(assetBase, map.terrainTiles);
+    this.bindP3Skin();
   }
 
   hide(): void {
@@ -278,6 +320,9 @@ export class WorldMapViewer {
     this.poiByCell.clear();
     this.terrainPatterns = [];
     this.tileSheet = null;
+    this.p3SkinPatterns = [];
+    this.p3SkinLoaded = false;
+    this.useP3Skin = false;
   }
 
   /** Human-readable summary for the viewer toolbar. */
@@ -385,6 +430,79 @@ export class WorldMapViewer {
     }
     if (this.map?.terrainTiles !== tilesPath) return; // a newer show() started
     this.tileSheet = img;
+    this.draw();
+  }
+
+  /**
+   * Show the "Phantasie III art" toggle only for a map that could use it —
+   * one with its own class vocabulary (P1/P2) and not already showing P3's
+   * own real tiles (P3 itself, where the toggle would be a no-op).
+   */
+  private bindP3Skin(): void {
+    const label = document.getElementById('map-p3-skin-label');
+    const checkbox = document.getElementById('map-p3-skin') as HTMLInputElement | null;
+    if (!label || !checkbox) return;
+    const eligible = Boolean(this.map?.terrainClassNames) && !this.map?.terrainTiles;
+    setHidden(label, !eligible);
+    checkbox.checked = false;
+    if (!eligible) return;
+    this.on(checkbox, 'change', () => {
+      this.useP3Skin = checkbox.checked;
+      if (this.useP3Skin && !this.p3SkinLoaded) void this.loadP3Skin();
+      else this.draw();
+    });
+  }
+
+  /**
+   * Fetch P3's own world map (cached process-wide — see
+   * `p3SkinSheetPromise`) purely for its tile strip and column count, then
+   * crop one pattern per *local* class from `P3_SKIN_TILE_BY_CLASS_NAME`.
+   * A class with no entry there (or no P3 map loaded at all) just has no
+   * pattern, which `drawTerrainClasses()` already falls back on gracefully.
+   */
+  private async loadP3Skin(): Promise<void> {
+    WorldMapViewer.p3SkinSheetPromise ??= (async () => {
+      try {
+        const jsonRes = await fetch(`${P3_SKIN_ASSET_BASE}/world-map.json`);
+        if (!jsonRes.ok) return null;
+        const p3Map = (await jsonRes.json()) as WorldMapData;
+        if (!p3Map.terrainTiles || !p3Map.terrainTileColumns) return null;
+        const img = await loadImage(`${P3_SKIN_ASSET_BASE}/${p3Map.terrainTiles}`);
+        return img ? { img, columns: p3Map.terrainTileColumns } : null;
+      } catch (err) {
+        console.warn('Phantasie III tile skin unavailable:', err);
+        return null;
+      }
+    })();
+
+    const sheet = await WorldMapViewer.p3SkinSheetPromise;
+    this.p3SkinLoaded = true;
+    if (!sheet || !this.map?.terrainClassNames) {
+      this.draw();
+      return;
+    }
+
+    const { img, columns } = sheet;
+    const tileW = Math.floor(img.width / columns);
+    const tileH = tileW; // square tiles, confirmed graphics-formats.md §5.3
+    const patterns: (CanvasPattern | null)[] = [];
+    this.map.terrainClassNames.forEach((name, cls) => {
+      const tile = P3_SKIN_TILE_BY_CLASS_NAME[name];
+      if (tile === undefined) {
+        patterns[cls] = null;
+        return;
+      }
+      const cell = document.createElement('canvas');
+      cell.width = tileW;
+      cell.height = tileH;
+      cell
+        .getContext('2d')!
+        .drawImage(img, (tile % columns) * tileW, Math.floor(tile / columns) * tileH, tileW, tileH, 0, 0, tileW, tileH);
+      const pattern = this.ctx?.createPattern(cell, 'repeat') ?? null;
+      pattern?.setTransform(new DOMMatrix().scale(CELL / tileW));
+      patterns[cls] = pattern;
+    });
+    this.p3SkinPatterns = patterns;
     this.draw();
   }
 
@@ -625,7 +743,8 @@ export class WorldMapViewer {
         // otherwise cost 77 fills each. A texture pattern tiles correctly
         // across a wide fillRect the same way a flat colour does.
         if (runClass !== NONE && x > runStart) {
-          ctx.fillStyle = this.terrainPatterns[runClass] ?? this.classColorOf(runClass);
+          const skinned = this.useP3Skin ? this.p3SkinPatterns[runClass] : undefined;
+          ctx.fillStyle = skinned ?? this.terrainPatterns[runClass] ?? this.classColorOf(runClass);
           ctx.fillRect(runStart * CELL, y * CELL, (x - runStart) * CELL + bleed, CELL + bleed);
         }
         runStart = x;
