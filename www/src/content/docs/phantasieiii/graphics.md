@@ -164,45 +164,59 @@ file is accounted for with zero unexplained gap.
 ### What the map array encodes
 
 The reference tool's own `.SET` reader skips past the map array's bytes
-without interpreting them. This project examined them independently:
+without interpreting them. This project traced them to the code that
+consumes them.
 
-- Value range 0-241, 196 distinct values across the 3,750 cells.
-- Rendered directly as a greyscale heightmap, the array produces an
-  unmistakable continent silhouette — bays, peninsulas, and internal
-  shading, not noise.
-- The picture region, rendered, is not a small tile grid — it's a handful
-  of large, distinct terrain panels side by side (a city/castle skyline,
-  mountains, forest/plains, a swamp-textured band).
+**Each map-cell byte is a tile index into a 250-entry bank of 16 × 16 ×
+4bpp tiles**, and that bank *is* the 32,000-byte "picture" region —
+250 × 128 = 32,000 exactly. Two routines settle it between them:
 
-**Confirmed hypothesis** (structural and rendered evidence, not code-traced
-— no `.set`-consuming code was located in `PhantasieIII`): **each map-cell
-byte is an X pixel-column index (0-241) into the accompanying picture.**
-Two independent lines of evidence converge:
+- The 9 × 9 viewport blitter at addr `0x9B82` computes `base + Y*50 + X`,
+  fetches the byte, and pushes it **verbatim, with no transform of any
+  kind**, to the tile blitter at addr `0x3834`.
+- That tile blitter clamps the value to 250, multiplies it by 128
+  (`asl.w #7`), adds the `.set` picture-buffer pointer the loader parked in
+  `$290C`, and then runs 16 iterations of "four consecutive words → the
+  four screen bitplanes, advance one scanline". A tile is 16 rows ×
+  (plane0, plane1, plane2, plane3) words = 128 bytes — the standard Amiga
+  interleaved-bitplane tile layout.
 
-1. **Frequency distribution reveals two populations.** A handful of values
-   dominate by area (`197` → 1,063 cells, `0` → 889, `227` → 325, ...), and
-   strikingly, values **24 through 49 — 26 consecutive integers — each
-   occur in the map array exactly once**, scattered at non-adjacent
-   coordinates. That's the signature of one map cell per named location
-   (town/dungeon/landmark), not a small closed "biome selector" set.
-2. **Rendering `picture[row][mapValue]` for any fixed row reproduces the
-   confirmed silhouette and adds geographically coherent detail**: value
-   `227` forms winding, connected lines (a river network); value `0` forms
-   a clean closed border (ocean); other high-frequency values form
-   blob-shaped regions (forest/plains/hills). **Decisively**, the 26
-   single-occurrence "location" values land squarely within the picture's
-   city/castle-skyline column range — every named location on the map
-   automatically gets a distinct "building facade" colour as its marker,
-   purely as a side effect of the column-index scheme.
+Rendering all 3,750 cells through the bank produces an 800 × 1200 image of
+Phantasie III's world with real terrain art: ocean, forest canopy, mountain
+ridges, desert, paved roads, rivers and bridges. Tiles `0` and `1` come out
+as single flat colours, which is exactly why the game's terrain classifier
+gives them their own two scalar `Water` tests ahead of its `2`-`25` band —
+an independent confirmation that falls out of the decode for free.
 
-The exact row the real game samples wasn't determined — no `.set`-consuming
-render code was located to trace it from. This doesn't weaken the
-column-index confirmation: the rendered result is essentially identical in
-*shape and feature type* at every row tested (20/50/100/150/180), differing
-only in the specific texture sampled — exactly what "one terrain type per
-column, texture varies down the column" predicts. Implemented as
-`terrainColumnForMapValue`/`terrainPixelIndexForMapValue` in
-`src/assets/formats/set.ts`.
+> **A hypothesis this replaced.** An earlier pass, working before the
+> consuming code had been found, concluded that the byte was an **X
+> pixel-column index** into a 320 × 200 picture. That reading reproduced
+> the continent silhouette convincingly — but only because both readings
+> are monotone in the byte value: the on-disk order is tile-major, and the
+> column-block remap above lays 12.5 consecutive tiles down each 16-pixel
+> strip of the 320 × 200 view, so "pixel column *v*" and "tile *v*" land in
+> neighbouring terrain regions for every *v*. A plausible picture is not the
+> same as the right mechanism; the difference in practice is a flat colour
+> per cell versus the actual artwork.
+
+### The named locations
+
+Thirty cells carry distinctive values (`25`-`52` and `54`) that occur in the
+whole 3,750-cell array exactly once each — twice for value `50`, where two
+inns share a graphic. Those are the **building facades** for Phantasie
+III's towns, dungeon entrances and inns.
+
+They are artwork, not a lookup key. The engine identifies every named place
+through `LocateSpecial()` at addr `0x9C6A`, a flat if-chain of hardcoded
+`(x, y)` comparisons against the party position, which never reads the map
+array at all. Phantasie III has no `out*.dat`/`maps.int` equivalent — there
+is no POI side table to decode, only coordinates compiled into the code.
+
+Cross-checking the 30 recovered arms against the real file gives a perfect
+bijection: every arm's cell carries a value that occurs in the map exactly
+as many times as that value has arms. That is what binds each coordinate to
+a concrete name — Pendragon, Sandy Shores, Flagler, the Mystic Inn, "A cave
+smelling of sulphur", and the rest.
 
 ## Sprite-bank grid extraction
 

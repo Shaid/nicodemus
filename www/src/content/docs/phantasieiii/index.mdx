@@ -55,10 +55,10 @@ trilogy shares an author. The headline results:
   coloured PNG output** — the title screen, sprite grids, dialog buttons,
   UI icons, and terrain panels are all real, readable art, not noise. A
   real bug was caught and fixed along the way: `.SET`'s picture region is
-  stored in an odd column-block-major byte order on disk, not the row-major
-  order the renderer expects — `remapSetPictureBytes()` fixes it, and a
-  smoothness-metric regression test now guards against it silently breaking
-  again. See [Graphics Formats](../phantasieiii/graphics/).
+  not a picture at all but a bank of 250 16 × 16 tiles, stored tile-major —
+  every byte of the 50 × 75 world map is one tile index into it, which is
+  what turns the world map from a coloured silhouette into the game's actual
+  terrain art. See [Graphics Formats](../phantasieiii/graphics/).
 - **80 monsters, 181 items, and 57 spells, all executable-embedded and all
   cross-checked against a genuine primary source** — the actual SSI 1987
   *Phantasie III* manual, found this session as a scanned 32-page PDF. The

@@ -6,25 +6,34 @@
  * not a generic sprite sheet, despite sharing the `.cmp`/`.csh` family's
  * ST palette convention.
  *
- * **Map array byte -> terrain semantics (graphics-formats.md §5.3, TODO
- * `gfx-set-map-semantics`): confirmed hypothesis.** Each map-cell byte is
- * an X pixel-column index (0-241, within the picture's 0-319 width) into
- * the accompanying picture — the picture is a horizontal strip of
- * contiguous terrain-type bands (water / city-skyline / mountains / hills
- * / forest / water / forest / water, left to right), not a single scenic
- * view. Sampling `picture[row][mapValue]` for *any* fixed row reproduces
- * the already-confirmed continent silhouette (graphics-formats.md §5.3's
- * greyscale-heightmap render) plus geographically coherent features that
- * emerge purely from the raw bytes: winding connected lines of a single
- * value (rivers), blob regions of another (forests), and — decisively — a
- * run of 26 sequential byte values (24-49) that each occur in the map
- * array *exactly once*, scattered across distinct (x,y) cells, landing
- * squarely in the picture's city-skyline column range: consistent with
- * one map cell per named town/landmark, using that column's distinct
- * building-facade colour as a location marker. `terrainColumnForMapValue`
- * below documents the (identity) value->column relationship; the exact
- * row the original game samples was not determined — no downstream code
- * in this pipeline depends on it yet.
+ * **Map array byte -> terrain semantics (graphics-formats.md §5.3):
+ * solved, code-traced.** Each map-cell byte is a **tile index into a
+ * 250-entry bank of 16 x 16 x 4bpp tiles** that occupies the whole 32,000-
+ * byte "picture" region (250 * 128 = 32,000 exactly). The tile blitter at
+ * hunk-0 addr `0x3834` proves it instruction by instruction: it clamps the
+ * value to 250 (`cmpi.w #$fa` / `move.w #$fa`), multiplies by 128
+ * (`asl.w #7`), adds the `.set` picture-buffer pointer the loader stashed
+ * in hunk-1 `$290C`, and then runs 16 iterations of "four consecutive
+ * words -> the four screen bitplanes, advance one scanline". So a tile is
+ * 16 rows x (plane0, plane1, plane2, plane3) words = 128 bytes, in the
+ * standard Amiga interleaved-bitplane tile layout.
+ *
+ * This supersedes the earlier "the map byte is an X pixel-column index
+ * into a 320x200 picture" reading. That hypothesis produced a plausible
+ * continent silhouette only because both readings are monotone in the byte
+ * value: the on-disk order is tile-major, and `remapSetPictureBytes`
+ * happens to lay 12.5 consecutive tiles down each 16-pixel-wide column
+ * strip of the 320x200 view, so "pixel column v" and "tile v" land in
+ * neighbouring terrain regions. Rendering the map through the real tile
+ * bank produces the actual game world (ocean, forest, mountain, desert,
+ * roads and rivers, all as recognisable 16 x 16 art) rather than a
+ * one-colour-per-cell approximation.
+ *
+ * `picture` (the 320x200 view) is retained because §5.2's byte-order fix
+ * is a real, separately verified property of the file, and the 320x200
+ * screen-format buffer is what the loader's `Read()` literally fills — but
+ * it cuts a tile in half at every other column-strip boundary, so anything
+ * that wants terrain art must use `tiles`, not `picture`.
  */
 
 import { decodeBitplaneIndices, type BitplaneConfig } from './bitplane.ts';
@@ -48,14 +57,36 @@ const PICTURE_CONFIG: BitplaneConfig = {
   interleave: 2,
 };
 
+/** Tile geometry the blitter at hunk-0 addr `0x3834` hardcodes. */
+export const SET_TILE_WIDTH = 16;
+export const SET_TILE_HEIGHT = 16;
+/** 16 rows x 4 bitplane words — the `asl.w #7` stride at addr `0x3858`. */
+export const SET_TILE_BYTES = 128;
+/** 32,000 / 128 — and the blitter's own clamp ceiling (`cmpi.w #$fa`). */
+export const SET_TILE_COUNT = 250;
+
+export interface SetTileBank {
+  count: number;
+  tileWidth: number;
+  tileHeight: number;
+  /** Tile `t`'s pixel `(x, y)` at `(t * tileHeight + y) * tileWidth + x`. */
+  indices: Uint8Array;
+}
+
 export interface SetFile {
-  /** Meaning not identified — see graphics-formats.md §9. */
+  /** Read and discarded by the game — see graphics-formats.md §5.4. */
   unknownByte: number;
   mapWidth: number;
   mapHeight: number;
   palette: RGB[];
-  /** Row-major, `cell[x,y]` at `y*mapWidth+x`. Byte semantics unconfirmed. */
+  /** Row-major, `cell[x,y]` at `y*mapWidth+x`; each byte a `tiles` index. */
   mapArray: Uint8Array;
+  /** The real terrain art: 250 16x16 tiles the map array indexes into. */
+  tiles: SetTileBank;
+  /**
+   * The same 32,000 bytes viewed as one 320x200x4bpp screen buffer. Faithful
+   * to §5.2's byte order but NOT a coherent picture — see the module comment.
+   */
   picture: { width: number; height: number; indices: Uint8Array };
 }
 
@@ -116,33 +147,72 @@ export function decodeSet(data: Uint8Array): SetFile {
     mapHeight,
     palette,
     mapArray,
+    tiles: decodeSetTiles(rawPictureBytes),
     picture: { width: SET_PICTURE_WIDTH, height: SET_PICTURE_HEIGHT, indices },
   };
 }
 
 /**
- * The X pixel-column in the `.set` picture that a map-cell byte value
- * selects (graphics-formats.md §5.3 — confirmed hypothesis: identity,
- * clamped to the picture's width). Every map value observed in the real
- * `phantasy.set` file (0-241) already falls within range.
+ * Split the `.set` picture region into the 250 16x16x4bpp terrain tiles the
+ * blitter at hunk-0 addr `0x3834` consumes. Tile `t` starts at byte
+ * `t * 128`; within it, row `r` is four big-endian plane words at
+ * `+ r * 8`, and pixel `x` of that row is bit `15 - x` of each word, plane
+ * 0 contributing the least-significant bit (the blitter writes the words to
+ * screen bitplanes 0..3 in source order, plane strides 0/8000/16000/24000).
  */
-export function terrainColumnForMapValue(value: number): number {
-  return Math.min(Math.max(value, 0), SET_PICTURE_WIDTH - 1);
+export function decodeSetTiles(rawTileBank: Uint8Array): SetTileBank {
+  const count = Math.floor(rawTileBank.length / SET_TILE_BYTES);
+  const indices = new Uint8Array(count * SET_TILE_WIDTH * SET_TILE_HEIGHT);
+  for (let tile = 0; tile < count; tile++) {
+    const tileBase = tile * SET_TILE_BYTES;
+    for (let row = 0; row < SET_TILE_HEIGHT; row++) {
+      const rowBase = tileBase + row * 8;
+      const p0 = (rawTileBank[rowBase] << 8) | rawTileBank[rowBase + 1];
+      const p1 = (rawTileBank[rowBase + 2] << 8) | rawTileBank[rowBase + 3];
+      const p2 = (rawTileBank[rowBase + 4] << 8) | rawTileBank[rowBase + 5];
+      const p3 = (rawTileBank[rowBase + 6] << 8) | rawTileBank[rowBase + 7];
+      const out = (tile * SET_TILE_HEIGHT + row) * SET_TILE_WIDTH;
+      for (let x = 0; x < SET_TILE_WIDTH; x++) {
+        const bit = 15 - x;
+        indices[out + x] =
+          ((p0 >> bit) & 1) | (((p1 >> bit) & 1) << 1) | (((p2 >> bit) & 1) << 2) | (((p3 >> bit) & 1) << 3);
+      }
+    }
+  }
+  return { count, tileWidth: SET_TILE_WIDTH, tileHeight: SET_TILE_HEIGHT, indices };
 }
 
 /**
- * Sample the picture's palette-index at a map cell's terrain column, for a
- * given picture row. The row is NOT confirmed against the real game (see
- * this module's top-of-file comment) — callers needing a single
- * representative colour per terrain value should pick a row and treat the
- * result as a rendering choice, not a verified fact.
+ * The tile a map-cell byte selects. The blitter clamps at 250 rather than
+ * 249 (`cmpi.w #$fa,$10(a5)` / `ble` / `move.w #$fa`), which would read one
+ * tile past the bank — a real off-by-one in the original, unreachable in
+ * practice because the shipped map array's values top out at 241. Clamped
+ * to the last real tile here so callers can index `indices` safely.
  */
-export function terrainPixelIndexForMapValue(
-  picture: SetFile['picture'],
-  value: number,
-  row: number,
-): number {
-  const x = terrainColumnForMapValue(value);
-  const clampedRow = Math.min(Math.max(row, 0), picture.height - 1);
-  return picture.indices[clampedRow * picture.width + x];
+export function setTileIndexForMapValue(value: number, tileCount = SET_TILE_COUNT): number {
+  const clamped = value > SET_TILE_COUNT ? SET_TILE_COUNT : value;
+  return Math.min(Math.max(clamped, 0), tileCount - 1);
+}
+
+/**
+ * Lay the tile bank out as a single sheet image, `columns` tiles per row —
+ * the form the pipeline bakes to PNG and the viewer blits cells out of.
+ */
+export function renderSetTileSheet(
+  bank: SetTileBank,
+  columns: number,
+): { width: number; height: number; indices: Uint8Array } {
+  const rows = Math.ceil(bank.count / columns);
+  const width = columns * bank.tileWidth;
+  const height = rows * bank.tileHeight;
+  const indices = new Uint8Array(width * height);
+  for (let tile = 0; tile < bank.count; tile++) {
+    const ox = (tile % columns) * bank.tileWidth;
+    const oy = Math.floor(tile / columns) * bank.tileHeight;
+    for (let row = 0; row < bank.tileHeight; row++) {
+      const src = (tile * bank.tileHeight + row) * bank.tileWidth;
+      indices.set(bank.indices.subarray(src, src + bank.tileWidth), (oy + row) * width + ox);
+    }
+  }
+  return { width, height, indices };
 }

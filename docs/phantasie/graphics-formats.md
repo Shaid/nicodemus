@@ -891,6 +891,78 @@ any earlier version of this document.
 > derived from `dungeon-format.md` §9.0.5.5's table, not as a decoded
 > engine mechanism.
 
+> **Correction (2026-08-11, second pass) — the map byte is a TILE index,
+> not a pixel-column index. The picture region is a 250-entry 16 × 16 × 4bpp
+> tile bank.** The correction block above stopped one call deep: it verified
+> that the viewport blitter at addr `0x9B82` passes the map byte to the tile
+> blitter at addr `0x3834` untransformed, but did not disassemble `0x3834`
+> itself. Doing so settles the question outright — the whole routine is 48
+> instructions and every one of them is decisive:
+>
+> ```
+> LoadTile(void *dest /* +8(a5) */, int xBytes /* +$C */, int y /* +$E */,
+>          int value /* +$10 */)
+>   0x3840  andi.w  #$ff,$10(a5)          ; value &= 0xFF
+>   0x3846  cmpi.w  #$fa,$10(a5)          ; > 250 ?
+>   0x384e  move.w  #$fa,$10(a5)          ;   clamp to 250
+>   0x3854  move.w  $10(a5),d0
+>   0x3858  asl.w   #7,d0                 ; value * 128  <-- tile stride
+>   0x385e  adda.l  $290c.l,a3            ; + the .set picture buffer (§5.4)
+>   0x3864  muls.w  #$28,d0               ; screen y * 40 bytes
+>   0x3874  moveq   #15,d0                ; 16 scanlines
+>   0x3876  move.w  (a3)+,(a2)            ;   plane 0
+>   0x3878  move.w  (a3)+,$1f40(a2)       ;   plane 1  (+8,000)
+>   0x387c  move.w  (a3)+,$3e80(a2)       ;   plane 2  (+16,000)
+>   0x3880  move.w  (a3)+,$5dc0(a2)       ;   plane 3  (+24,000)
+>   0x3884  lea     $28(a2),a2            ;   next scanline
+>   0x3888  dbf     d0,0x3876
+> ```
+>
+> A tile is therefore **16 rows × (plane0, plane1, plane2, plane3) words =
+> 128 bytes**, the standard Amiga interleaved-bitplane tile layout, and the
+> region holds `32,000 / 128 = 250` of them exactly — the same 250 the
+> clamp at `0x3846` names. `$290C` is the pointer §5.4's loader stores the
+> 32,000-byte read into, so the bank *is* the picture region, addressed
+> tile-major from its first byte.
+>
+> **Why the pixel-column hypothesis looked right.** Both readings are
+> monotone in the byte value. §5.2's remap lays 12.5 consecutive tiles down
+> each 16-pixel-wide column strip of the 320 × 200 view, so "pixel column
+> v" (`floor(v/16)` strips in) and "tile v" (`floor(v/12.5)` strips in)
+> land in neighbouring terrain regions for every v. That is enough to
+> reproduce a continent silhouette and put the marker values in the
+> "city-skyline" region, which is exactly what the earlier pass observed.
+> It is not enough to render the world: sampling one pixel per cell gives a
+> flat-colour approximation, whereas blitting the real tile gives the
+> actual game map.
+>
+> **Verified by rendering.** Blitting `tiles[cell]` for all 3,750 cells
+> produces an 800 × 1200 image of Phantasie III's world with recognisable
+> 16 × 16 terrain art — ocean, forest canopy, mountain ridges, desert,
+> paved roads, rivers and bridges — and the 30 marker cells resolve into
+> legible building facades at exactly the coordinates `dungeon-format.md`
+> §9.0.5.5 lists. Two further independent checks fall out of the same
+> decode: tiles `0` and `1` are each a **single flat colour**, which is
+> precisely why the terrain classifier at addr `0xA4A6` gives them their own
+> two scalar `Water` arms ahead of the `2`-`25` band; and every cell on all
+> four borders of the 50 × 75 grid classifies as Water, i.e. the continent
+> is ringed by ocean with no orientation ambiguity.
+>
+> Implemented as `decodeSetTiles` / `setTileIndexForMapValue` /
+> `renderSetTileSheet` in `src/assets/formats/set.ts`; the refuted
+> `terrainColumnForMapValue` / `terrainPixelIndexForMapValue` are removed.
+> `SetFile.picture` is retained — §5.2's byte-order fix is a real property
+> of the file and the 320 × 200 buffer is literally what the loader's
+> `Read()` fills — but it splits a tile in half at every other column-strip
+> boundary and must not be used as terrain art.
+>
+> **This also closes the "which picture row does the blitter sample?" open
+> question**: the blitter samples no row. It copies all 16 rows of a 128-byte
+> tile. There was never a row to find.
+>
+> **Confidence: confirmed** — code-traced instruction by instruction,
+> byte-verified, and visually confirmed against a full-world render.
+
 ### 5.4 The `.SET` reader — located; the leading byte is read and discarded
 
 The `.set` **loader** — distinct from the map *renderer* found separately
