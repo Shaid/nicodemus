@@ -1,0 +1,726 @@
+[
+  {
+    "index": 0,
+    "name": "NOTHING"
+  },
+  {
+    "index": 1,
+    "name": "GLOVE"
+  },
+  {
+    "index": 2,
+    "name": "WOOD SHLD"
+  },
+  {
+    "index": 3,
+    "name": "WOOD SH+1"
+  },
+  {
+    "index": 4,
+    "name": "SM SHIELD"
+  },
+  {
+    "index": 5,
+    "name": "SM SHLD+1"
+  },
+  {
+    "index": 6,
+    "name": "SM SHLD+2"
+  },
+  {
+    "index": 7,
+    "name": "SM SHLD+3"
+  },
+  {
+    "index": 8,
+    "name": "MD SHIELD"
+  },
+  {
+    "index": 9,
+    "name": "MD SHLD+1"
+  },
+  {
+    "index": 10,
+    "name": "MD SHLD+2"
+  },
+  {
+    "index": 11,
+    "name": "MD SHLD+3"
+  },
+  {
+    "index": 12,
+    "name": "LR SHIELD"
+  },
+  {
+    "index": 13,
+    "name": "LR SHLD+1"
+  },
+  {
+    "index": 14,
+    "name": "LR SHLD+2"
+  },
+  {
+    "index": 15,
+    "name": "LR SHLD+3"
+  },
+  {
+    "index": 16,
+    "name": "GIANT SH"
+  },
+  {
+    "index": 17,
+    "name": "GNT SH +1"
+  },
+  {
+    "index": 18,
+    "name": "GNT SH +2"
+  },
+  {
+    "index": 19,
+    "name": "GNT SH +3"
+  },
+  {
+    "index": 20,
+    "name": "GOD SHLD"
+  },
+  {
+    "index": 21,
+    "name": "CLOTHING"
+  },
+  {
+    "index": 22,
+    "name": "ROBES"
+  },
+  {
+    "index": 23,
+    "name": "LEATHER"
+  },
+  {
+    "index": 24,
+    "name": "H LEATHER"
+  },
+  {
+    "index": 25,
+    "name": "RING MAIL"
+  },
+  {
+    "index": 26,
+    "name": "SCALE ML"
+  },
+  {
+    "index": 27,
+    "name": "CHAIN ML"
+  },
+  {
+    "index": 28,
+    "name": "SPLINT ML"
+  },
+  {
+    "index": 29,
+    "name": "BANDED ML"
+  },
+  {
+    "index": 30,
+    "name": "PLATE ML"
+  },
+  {
+    "index": 31,
+    "name": "CLOTH +1"
+  },
+  {
+    "index": 32,
+    "name": "ROBES +1"
+  },
+  {
+    "index": 33,
+    "name": "LEATHER+1"
+  },
+  {
+    "index": 34,
+    "name": "LEATHER+2"
+  },
+  {
+    "index": 35,
+    "name": "RING ML+1"
+  },
+  {
+    "index": 36,
+    "name": "RING ML+2"
+  },
+  {
+    "index": 37,
+    "name": "CHAIN +1"
+  },
+  {
+    "index": 38,
+    "name": "CHAIN +2"
+  },
+  {
+    "index": 39,
+    "name": "GOD ROBES"
+  },
+  {
+    "index": 40,
+    "name": "GOD ARMOR"
+  },
+  {
+    "index": 41,
+    "name": "STICK"
+  },
+  {
+    "index": 42,
+    "name": "KNIFE"
+  },
+  {
+    "index": 43,
+    "name": "SM CLUB"
+  },
+  {
+    "index": 44,
+    "name": "SM STAFF"
+  },
+  {
+    "index": 45,
+    "name": "SM MACE"
+  },
+  {
+    "index": 46,
+    "name": "DAGGER"
+  },
+  {
+    "index": 47,
+    "name": "SM FLAIL"
+  },
+  {
+    "index": 48,
+    "name": "CLUB"
+  },
+  {
+    "index": 49,
+    "name": "MACE"
+  },
+  {
+    "index": 50,
+    "name": "SM HAMMER"
+  },
+  {
+    "index": 51,
+    "name": "SM AXE"
+  },
+  {
+    "index": 52,
+    "name": "STAFF"
+  },
+  {
+    "index": 53,
+    "name": "SM SWORD"
+  },
+  {
+    "index": 54,
+    "name": "FLAIL"
+  },
+  {
+    "index": 55,
+    "name": "HAMMER"
+  },
+  {
+    "index": 56,
+    "name": "PTCH FORK"
+  },
+  {
+    "index": 57,
+    "name": "SPEAR"
+  },
+  {
+    "index": 58,
+    "name": "AXE"
+  },
+  {
+    "index": 59,
+    "name": "SWORD"
+  },
+  {
+    "index": 60,
+    "name": "HVY MACE"
+  },
+  {
+    "index": 61,
+    "name": "MAUL"
+  },
+  {
+    "index": 62,
+    "name": "TRIDENT"
+  },
+  {
+    "index": 63,
+    "name": "LRG SPEAR"
+  },
+  {
+    "index": 64,
+    "name": "LRG AXE"
+  },
+  {
+    "index": 65,
+    "name": "MORN.STAR"
+  },
+  {
+    "index": 66,
+    "name": "PIKE"
+  },
+  {
+    "index": 67,
+    "name": "LNG SWORD"
+  },
+  {
+    "index": 68,
+    "name": "SPETUM"
+  },
+  {
+    "index": 69,
+    "name": "BARDICHE"
+  },
+  {
+    "index": 70,
+    "name": "HALBERD"
+  },
+  {
+    "index": 71,
+    "name": "SM MACE+1"
+  },
+  {
+    "index": 72,
+    "name": "DAGGER+1"
+  },
+  {
+    "index": 73,
+    "name": "SM MACE+2"
+  },
+  {
+    "index": 74,
+    "name": "DAGGER+2"
+  },
+  {
+    "index": 75,
+    "name": "DAGGER+3"
+  },
+  {
+    "index": 76,
+    "name": "STAFF +1"
+  },
+  {
+    "index": 77,
+    "name": "DAGGER+4"
+  },
+  {
+    "index": 78,
+    "name": "FLAIL +1"
+  },
+  {
+    "index": 79,
+    "name": "SPEAR +1"
+  },
+  {
+    "index": 80,
+    "name": "AXE +1"
+  },
+  {
+    "index": 81,
+    "name": "SWORD +1"
+  },
+  {
+    "index": 82,
+    "name": "SWORD +2"
+  },
+  {
+    "index": 83,
+    "name": "SWORD +3"
+  },
+  {
+    "index": 84,
+    "name": "LRG AXE+1"
+  },
+  {
+    "index": 85,
+    "name": "SWORD +4"
+  },
+  {
+    "index": 86,
+    "name": "SWORD +5"
+  },
+  {
+    "index": 87,
+    "name": "SWORD +6"
+  },
+  {
+    "index": 88,
+    "name": "HALBERD+1"
+  },
+  {
+    "index": 89,
+    "name": "SWORD +7"
+  },
+  {
+    "index": 90,
+    "name": "HALBERD+2"
+  },
+  {
+    "index": 91,
+    "name": "HALBERD+3"
+  },
+  {
+    "index": 92,
+    "name": "SWORD +10"
+  },
+  {
+    "index": 93,
+    "name": "HALBERD+4"
+  },
+  {
+    "index": 94,
+    "name": "HALBERD+5"
+  },
+  {
+    "index": 95,
+    "name": "HALBERD+6"
+  },
+  {
+    "index": 96,
+    "name": "HALBERD+7"
+  },
+  {
+    "index": 97,
+    "name": "GOD KNIFE"
+  },
+  {
+    "index": 98,
+    "name": "GOD MACE"
+  },
+  {
+    "index": 99,
+    "name": "GOD AXE"
+  },
+  {
+    "index": 100,
+    "name": "GOD SWORD"
+  },
+  {
+    "index": 101,
+    "name": "HEAL POT1"
+  },
+  {
+    "index": 102,
+    "name": "HEAL POT2"
+  },
+  {
+    "index": 103,
+    "name": "HEAL POT3"
+  },
+  {
+    "index": 104,
+    "name": "HEAL POT4"
+  },
+  {
+    "index": 105,
+    "name": "HEAL POT5"
+  },
+  {
+    "index": 106,
+    "name": "HEAL POT6"
+  },
+  {
+    "index": 107,
+    "name": "HEAL POT7"
+  },
+  {
+    "index": 108,
+    "name": "HEAL POT8"
+  },
+  {
+    "index": 109,
+    "name": "HEAL POT9"
+  },
+  {
+    "index": 110,
+    "name": "HEALING10"
+  },
+  {
+    "index": 111,
+    "name": "MAGIC 1"
+  },
+  {
+    "index": 112,
+    "name": "MAGIC 2"
+  },
+  {
+    "index": 113,
+    "name": "MAGIC 3"
+  },
+  {
+    "index": 114,
+    "name": "MAGIC 4"
+  },
+  {
+    "index": 115,
+    "name": "MAGIC 5"
+  },
+  {
+    "index": 116,
+    "name": "MAGIC 6"
+  },
+  {
+    "index": 117,
+    "name": "MAGIC 7"
+  },
+  {
+    "index": 118,
+    "name": "MAGIC 8"
+  },
+  {
+    "index": 119,
+    "name": "MAGIC 9"
+  },
+  {
+    "index": 120,
+    "name": "MAGIC 10"
+  },
+  {
+    "index": 121,
+    "name": "SCROLL A"
+  },
+  {
+    "index": 122,
+    "name": "SCROLL "
+  },
+  {
+    "index": 123,
+    "name": "SCROLL "
+  },
+  {
+    "index": 124,
+    "name": "SCROLL B"
+  },
+  {
+    "index": 125,
+    "name": "SCROLL C"
+  },
+  {
+    "index": 126,
+    "name": "SCROLL D"
+  },
+  {
+    "index": 127,
+    "name": "SCROLL E"
+  },
+  {
+    "index": 128,
+    "name": "SCROLL F"
+  },
+  {
+    "index": 129,
+    "name": "SCROLL G"
+  },
+  {
+    "index": 130,
+    "name": "SCROLL H"
+  },
+  {
+    "index": 131,
+    "name": "SCROLL I"
+  },
+  {
+    "index": 132,
+    "name": "SCROLL J"
+  },
+  {
+    "index": 133,
+    "name": "SCROLL "
+  },
+  {
+    "index": 134,
+    "name": "SCROLL K"
+  },
+  {
+    "index": 135,
+    "name": "SCROLL "
+  },
+  {
+    "index": 136,
+    "name": "SCROLL "
+  },
+  {
+    "index": 137,
+    "name": "SCROLL "
+  },
+  {
+    "index": 138,
+    "name": "SCROLL L"
+  },
+  {
+    "index": 139,
+    "name": "SCROLL M"
+  },
+  {
+    "index": 140,
+    "name": "SCROLL N"
+  },
+  {
+    "index": 141,
+    "name": "AMULET 1"
+  },
+  {
+    "index": 142,
+    "name": "AMULET 2"
+  },
+  {
+    "index": 143,
+    "name": "AMULET 3"
+  },
+  {
+    "index": 144,
+    "name": "AMULET 4"
+  },
+  {
+    "index": 145,
+    "name": "AMULET 5"
+  },
+  {
+    "index": 146,
+    "name": "AMULET 6"
+  },
+  {
+    "index": 147,
+    "name": "AMULET 7"
+  },
+  {
+    "index": 148,
+    "name": "AMULET 8"
+  },
+  {
+    "index": 149,
+    "name": "FLMN WAND"
+  },
+  {
+    "index": 150,
+    "name": "---ORB---"
+  },
+  {
+    "index": 151,
+    "name": "QUARTZ"
+  },
+  {
+    "index": 152,
+    "name": "CRYSTAL"
+  },
+  {
+    "index": 153,
+    "name": "KEY"
+  },
+  {
+    "index": 154,
+    "name": "BRONZE"
+  },
+  {
+    "index": 155,
+    "name": "COPPER"
+  },
+  {
+    "index": 156,
+    "name": "SAPPHIRE "
+  },
+  {
+    "index": 157,
+    "name": "JADE"
+  },
+  {
+    "index": 158,
+    "name": "SILVER"
+  },
+  {
+    "index": 159,
+    "name": "EMERALD"
+  },
+  {
+    "index": 160,
+    "name": "RING"
+  },
+  {
+    "index": 161,
+    "name": "RUBY"
+  },
+  {
+    "index": 162,
+    "name": "GOLD"
+  },
+  {
+    "index": 163,
+    "name": "NECKLACE"
+  },
+  {
+    "index": 164,
+    "name": "BRASS"
+  },
+  {
+    "index": 165,
+    "name": "PAINTING"
+  },
+  {
+    "index": 166,
+    "name": "GOLD CUP"
+  },
+  {
+    "index": 167,
+    "name": "BRACELET"
+  },
+  {
+    "index": 168,
+    "name": "STATUETTE"
+  },
+  {
+    "index": 169,
+    "name": "CROWN"
+  },
+  {
+    "index": 170,
+    "name": "EAR RINGS"
+  },
+  {
+    "index": 171,
+    "name": "GOLD BALL"
+  },
+  {
+    "index": 172,
+    "name": "GOLD KEY"
+  },
+  {
+    "index": 173,
+    "name": "PLATINUM"
+  },
+  {
+    "index": 174,
+    "name": "STATUE"
+  },
+  {
+    "index": 175,
+    "name": "GOLD RING"
+  },
+  {
+    "index": 176,
+    "name": "DIAMOND"
+  },
+  {
+    "index": 177,
+    "name": "GOLD BOOK"
+  },
+  {
+    "index": 178,
+    "name": "SILVER OX"
+  },
+  {
+    "index": 179,
+    "name": "GOLD FORK"
+  },
+  {
+    "index": 180,
+    "name": "GOD RING"
+  }
+]

@@ -1,0 +1,66 @@
+[
+  {
+    "index": 0,
+    "name": "HUMAN"
+  },
+  {
+    "index": 1,
+    "name": "DWARF"
+  },
+  {
+    "index": 2,
+    "name": "ELF"
+  },
+  {
+    "index": 3,
+    "name": "HALFLING"
+  },
+  {
+    "index": 4,
+    "name": "GNOME"
+  },
+  {
+    "index": 5,
+    "name": "PIXIE"
+  },
+  {
+    "index": 6,
+    "name": "SPRITE"
+  },
+  {
+    "index": 7,
+    "name": "OGRE"
+  },
+  {
+    "index": 8,
+    "name": "GNOLL"
+  },
+  {
+    "index": 9,
+    "name": "TROLL"
+  },
+  {
+    "index": 10,
+    "name": "KOBOLD"
+  },
+  {
+    "index": 11,
+    "name": "ORC"
+  },
+  {
+    "index": 12,
+    "name": "GOBLIN"
+  },
+  {
+    "index": 13,
+    "name": "LIZ.MAN"
+  },
+  {
+    "index": 14,
+    "name": "MINOTAUR"
+  },
+  {
+    "index": 15,
+    "name": "UNDEAD"
+  }
+]

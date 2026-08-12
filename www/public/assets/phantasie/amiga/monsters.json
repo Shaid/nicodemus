@@ -1,0 +1,482 @@
+[
+  {
+    "index": 0,
+    "name": "SKELETON",
+    "width": 32,
+    "height": 34
+  },
+  {
+    "index": 1,
+    "name": "BANTIR",
+    "width": 32,
+    "height": 30
+  },
+  {
+    "index": 2,
+    "name": "DRIP SLIME",
+    "width": 32,
+    "height": 27
+  },
+  {
+    "index": 3,
+    "name": "SKUM",
+    "width": 32,
+    "height": 26
+  },
+  {
+    "index": 4,
+    "name": "GIANT ANT",
+    "width": 32,
+    "height": 25
+  },
+  {
+    "index": 5,
+    "name": "GIANT BEE",
+    "width": 32,
+    "height": 26
+  },
+  {
+    "index": 6,
+    "name": "VIPER",
+    "width": 32,
+    "height": 22
+  },
+  {
+    "index": 7,
+    "name": "COYOTE",
+    "width": 32,
+    "height": 24
+  },
+  {
+    "index": 8,
+    "name": "ORC",
+    "width": 32,
+    "height": 32
+  },
+  {
+    "index": 9,
+    "name": "KOBOLD",
+    "width": 32,
+    "height": 33
+  },
+  {
+    "index": 10,
+    "name": "RANGER",
+    "width": 32,
+    "height": 36
+  },
+  {
+    "index": 11,
+    "name": "SCRIBE",
+    "width": 32,
+    "height": 34
+  },
+  {
+    "index": 12,
+    "name": "APPRENTICE DEVIL",
+    "width": 32,
+    "height": 37
+  },
+  {
+    "index": 13,
+    "name": "ZOMBIE",
+    "width": 32,
+    "height": 31
+  },
+  {
+    "index": 14,
+    "name": "GHOUL",
+    "width": 32,
+    "height": 32
+  },
+  {
+    "index": 15,
+    "name": "CENTIPEDE",
+    "width": 32,
+    "height": 21
+  },
+  {
+    "index": 16,
+    "name": "STING BEETLE",
+    "width": 32,
+    "height": 26
+  },
+  {
+    "index": 17,
+    "name": "BEAR",
+    "width": 32,
+    "height": 32
+  },
+  {
+    "index": 18,
+    "name": "BADGER",
+    "width": 32,
+    "height": 37
+  },
+  {
+    "index": 19,
+    "name": "BABOON",
+    "width": 32,
+    "height": 28
+  },
+  {
+    "index": 20,
+    "name": "GOBLIN",
+    "width": 32,
+    "height": 32
+  },
+  {
+    "index": 21,
+    "name": "BARBARIAN",
+    "width": 32,
+    "height": 32
+  },
+  {
+    "index": 22,
+    "name": "ILLUSIONIST",
+    "width": 32,
+    "height": 37
+  },
+  {
+    "index": 23,
+    "name": "MAGIC USER",
+    "width": 32,
+    "height": 38
+  },
+  {
+    "index": 24,
+    "name": "LARGE SKELETON",
+    "width": 32,
+    "height": 38
+  },
+  {
+    "index": 25,
+    "name": "WIGHT",
+    "width": 32,
+    "height": 33
+  },
+  {
+    "index": 26,
+    "name": "DEATH FLY",
+    "width": 32,
+    "height": 37
+  },
+  {
+    "index": 27,
+    "name": "SQUISHY GUNK",
+    "width": 32,
+    "height": 34
+  },
+  {
+    "index": 28,
+    "name": "KILLER BEE",
+    "width": 32,
+    "height": 25
+  },
+  {
+    "index": 29,
+    "name": "SNAKE",
+    "width": 32,
+    "height": 31
+  },
+  {
+    "index": 30,
+    "name": "BABY DRAGON",
+    "width": 64,
+    "height": 39
+  },
+  {
+    "index": 31,
+    "name": "TIGER",
+    "width": 32,
+    "height": 30
+  },
+  {
+    "index": 32,
+    "name": "LIZARD MAN",
+    "width": 32,
+    "height": 35
+  },
+  {
+    "index": 33,
+    "name": "TROLKIN",
+    "width": 32,
+    "height": 37
+  },
+  {
+    "index": 34,
+    "name": "WITCH DOCTOR",
+    "width": 32,
+    "height": 32
+  },
+  {
+    "index": 35,
+    "name": "PRIEST",
+    "width": 32,
+    "height": 35
+  },
+  {
+    "index": 36,
+    "name": "DEVIL",
+    "width": 32,
+    "height": 39
+  },
+  {
+    "index": 37,
+    "name": "WRAITH",
+    "width": 32,
+    "height": 34
+  },
+  {
+    "index": 38,
+    "name": "GIANT HORNET",
+    "width": 48,
+    "height": 30
+  },
+  {
+    "index": 39,
+    "name": "HISSING SKUZ",
+    "width": 32,
+    "height": 32
+  },
+  {
+    "index": 40,
+    "name": "DEATH BEETLE",
+    "width": 32,
+    "height": 26
+  },
+  {
+    "index": 41,
+    "name": "ASP",
+    "width": 48,
+    "height": 32
+  },
+  {
+    "index": 42,
+    "name": "GREEN DRAGON",
+    "width": 80,
+    "height": 80
+  },
+  {
+    "index": 43,
+    "name": "WERE BEAR",
+    "width": 32,
+    "height": 32
+  },
+  {
+    "index": 44,
+    "name": "OGRE",
+    "width": 32,
+    "height": 33
+  },
+  {
+    "index": 45,
+    "name": "HILL GIANT",
+    "width": 80,
+    "height": 80
+  },
+  {
+    "index": 46,
+    "name": "SORCERER",
+    "width": 32,
+    "height": 36
+  },
+  {
+    "index": 47,
+    "name": "LORD",
+    "width": 32,
+    "height": 37
+  },
+  {
+    "index": 48,
+    "name": "DEMON",
+    "width": 32,
+    "height": 30
+  },
+  {
+    "index": 49,
+    "name": "VAMPIRE",
+    "width": 64,
+    "height": 39
+  },
+  {
+    "index": 50,
+    "name": "GHOST",
+    "width": 32,
+    "height": 39
+  },
+  {
+    "index": 51,
+    "name": "BLUE OOZE",
+    "width": 32,
+    "height": 26
+  },
+  {
+    "index": 52,
+    "name": "PYTHON",
+    "width": 32,
+    "height": 29
+  },
+  {
+    "index": 53,
+    "name": "FIRE ELEMENTAL",
+    "width": 32,
+    "height": 38
+  },
+  {
+    "index": 54,
+    "name": "ORANGE DRAGON",
+    "width": 80,
+    "height": 73
+  },
+  {
+    "index": 55,
+    "name": "WERE WOLF",
+    "width": 32,
+    "height": 29
+  },
+  {
+    "index": 56,
+    "name": "TROLL",
+    "width": 32,
+    "height": 32
+  },
+  {
+    "index": 57,
+    "name": "WARRIOR",
+    "width": 48,
+    "height": 39
+  },
+  {
+    "index": 58,
+    "name": "MASTER ILLUSIONIST",
+    "width": 32,
+    "height": 38
+  },
+  {
+    "index": 59,
+    "name": "HIGH RANGER",
+    "width": 32,
+    "height": 33
+  },
+  {
+    "index": 60,
+    "name": "HIGH DEMON",
+    "width": 32,
+    "height": 38
+  },
+  {
+    "index": 61,
+    "name": "HIGH DEVIL",
+    "width": 32,
+    "height": 39
+  },
+  {
+    "index": 62,
+    "name": "KILLER CRUD",
+    "width": 32,
+    "height": 27
+  },
+  {
+    "index": 63,
+    "name": "KILLER WASP",
+    "width": 32,
+    "height": 24
+  },
+  {
+    "index": 64,
+    "name": "SPIRIT",
+    "width": 32,
+    "height": 36
+  },
+  {
+    "index": 65,
+    "name": "WATER ELEMENTAL",
+    "width": 32,
+    "height": 34
+  },
+  {
+    "index": 66,
+    "name": "DRAGON KING",
+    "width": 80,
+    "height": 79
+  },
+  {
+    "index": 67,
+    "name": "STORM GIANT",
+    "width": 80,
+    "height": 77
+  },
+  {
+    "index": 68,
+    "name": "TITAN",
+    "width": 80,
+    "height": 80
+  },
+  {
+    "index": 69,
+    "name": "GREAT TROLL",
+    "width": 32,
+    "height": 38
+  },
+  {
+    "index": 70,
+    "name": "WIZARD",
+    "width": 32,
+    "height": 39
+  },
+  {
+    "index": 71,
+    "name": "OVERLORD",
+    "width": 32,
+    "height": 38
+  },
+  {
+    "index": 72,
+    "name": "BLACK LORD",
+    "width": 48,
+    "height": 40
+  },
+  {
+    "index": 73,
+    "name": "MINOR DEITY",
+    "width": 80,
+    "height": 80
+  },
+  {
+    "index": 74,
+    "name": "ZEUS",
+    "width": 80,
+    "height": 80
+  },
+  {
+    "index": 75,
+    "name": "J. R. TROLKIN",
+    "width": 32,
+    "height": 38
+  },
+  {
+    "index": 76,
+    "name": "BLACK KNIGHT",
+    "width": 32,
+    "height": 40
+  },
+  {
+    "index": 77,
+    "name": "OLD MAN",
+    "width": 32,
+    "height": 31
+  },
+  {
+    "index": 78,
+    "name": "SPLAT BEAST",
+    "width": 32,
+    "height": 27
+  },
+  {
+    "index": 79,
+    "name": "ORANGE DRAGON",
+    "width": 80,
+    "height": 80
+  }
+]

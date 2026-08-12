@@ -1,0 +1,75 @@
+---
+title: Data Tables
+description: The three name tables PHANT.PRG carries — 80 monsters, 16 races, 181 items — byte-identical offsets to Phantasie I's own reference source, all browsable.
+---
+
+import DataTable from '../../../components/DataTable.astro';
+
+`PHANT.PRG` (155,785 bytes, the Atari ST GEMDOS executable) carries the same
+three sequential name-table shapes as Phantasie I's `game`, at Phantasie
+II's own confirmed offsets — **every one of the reference source's cited
+offsets carried over unchanged**, since `PHANT.PRG` is the very same
+platform (Atari ST) binary those offsets were originally recorded against,
+unlike Phantasie III's Amiga-vs-ST port mismatch. Every table here is
+browsable in full, not just described — each one reads the extraction
+pipeline's own JSON straight from `public/assets/phantasieii/atarist/` at
+build time (`tools/phantasieii/build-data-tables.ts`). See
+`docs/phantasie/data-tables.md` §2 for the full byte-level evidence this
+page summarises.
+
+## Monster table
+
+80 fixed 58-byte NUL-terminated name slots at `PHANT.PRG+0x1FF2A`, plus two
+80-entry big-endian offset/dimension tables (`+0x23D90` sprite byte offsets
+into `MSTR1.PAT`/`MSTR2.PAT`, `+0x2114A` width/height) — see [.PAT Sprite
+Banks](../../phantasieii/graphics/) for how those resolve to actual sprite
+images under the confirmed ST word-Interleaved plane layout.
+
+**Confirmed byte-exact**: summing the Planar-equivalent byte count across
+all 80 entries reproduces `MSTR1.PAT`/`MSTR2.PAT`'s exact 76,832-byte total
+with zero discrepancy, and the table's declared extent lands exactly on the
+width/height table's own start offset. Note P2's roster differs from P1's at
+a few indices (e.g. index 3 is `GREEN MUCK` here vs. P1's `SKUM`) — expected,
+since P1 and P2 are different games sharing one engine, not the same
+content.
+
+<DataTable
+	assetPath="phantasieii/atarist"
+	table="monsters"
+	label="monster"
+	columns={[{ key: 'index' }, { key: 'name' }, { key: 'width' }, { key: 'height' }]}
+/>
+
+## Race table
+
+16 sequential NUL-terminated strings at `PHANT.PRG+0x1F01C` —
+**byte-identical to Phantasie I's own race list**, index for index.
+
+<DataTable assetPath="phantasieii/atarist" table="races" label="race" />
+
+## Item table
+
+181 sequential NUL-terminated strings at `PHANT.PRG+0x1E9CC`, same "no fixed
+stride" convention as the race table and the same shared early-game
+armor/weapon list as Phantasie I, diverging past it (P2 has its own
+`SCROLL A`-`SCROLL N` lettering instead of P1's `SCROLL 1`-`SCROLL 20`, and a
+different late-game gem/treasure list).
+
+**Confirmed, byte-exact, cross-validated against real dungeon-script data**:
+decoding every real opcode-`0x06` ("+Item") action record across all 8 real
+`DNG1`-`DNG8` files resolves **44 distinct item indices, 0 out of the
+0-180 range** — e.g. `MD SHIELD`, `SWORD +2`, `HEAL POT7`, `SCROLL H`,
+`DIAMOND`.
+
+<DataTable assetPath="phantasieii/atarist" table="items" label="item" />
+
+## Where to read the full evidence
+
+- `docs/phantasie/data-tables.md` §2 — the byte-level offsets and
+  verification detail behind every table on this page.
+- [.PAT Sprite Banks](../../phantasieii/graphics/) — how the monster/race
+  sprite tables resolve to actual pixel data.
+- [Characters, Items & Combat](../../phantasieii/characters-and-combat/) —
+  how these tables feed combat resolution.
+- [Status & Open Work](../../phantasieii/status/) — everything about this
+  game still open.

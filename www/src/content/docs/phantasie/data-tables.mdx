@@ -1,0 +1,79 @@
+---
+title: Data Tables
+description: The three name tables Phantasie I's game executable carries — 80 monsters, 16 races, 181 items — all browsable, cross-checked against real dungeon-script data.
+---
+
+import DataTable from '../../../components/DataTable.astro';
+
+`game` (193,804 bytes, the AmigaOS `HUNK` executable) carries three
+sequential name tables read directly as **raw, unadjusted file offsets** —
+no hunk-header/segment-relative correction needed, confirmed for every table
+below. Every table here is browsable in full, not just described — each one
+reads the extraction pipeline's own JSON straight from
+`public/assets/phantasie/amiga/` at build time
+(`tools/phantasie/build-data-tables.ts`), so what you see is exactly what
+the game's own bytes decode to. See
+`docs/phantasie/data-tables.md` §1 for the full
+byte-level evidence this page summarises.
+
+## Monster table
+
+80 fixed 58-byte NUL-terminated name slots at `game+0x0C88`, plus two
+80-entry big-endian offset/dimension tables (`game+0x16842` sprite byte
+offsets into `mstr1.pat`/`mstr2.pat`, `game+0x1EA8` width/height) — see
+[Graphics Formats](../../phantasie/graphics/) for how those resolve to
+actual sprite images.
+
+**Confirmed byte-exact**: summing `width/8 × height × 4` (Planar 4bpp byte
+count) across all 80 entries reproduces `mstr1.pat`'s exact 68,016-byte
+length with zero discrepancy, and every offset lands perfectly contiguously
+in index order.
+
+<DataTable
+	assetPath="phantasie/amiga"
+	table="monsters"
+	label="monster"
+	columns={[{ key: 'index' }, { key: 'name' }, { key: 'width' }, { key: 'height' }]}
+/>
+
+## Race table
+
+16 sequential NUL-terminated strings (no fixed stride — each name starts
+immediately after the previous one's NUL) at `game+0x69BE`. Race sprites
+have no offset table: a fixed formula, `index × 512` bytes into
+`party1.pat`/`party2.pat`, all races a uniform 32×32.
+
+**Confirmed**: 16 legible, distinct, in-genre race names with zero decode
+drift between entries, and `party1.pat`'s size (8,192 bytes) is exactly
+`16 × 512`, zero remainder.
+
+<DataTable assetPath="phantasie/amiga" table="races" label="race" />
+
+## Item table
+
+181 sequential NUL-terminated strings at `game+0x5EFC`, same "no fixed
+stride" convention as the race table. Index 0 is `"NOTHING"`, the
+empty-item-slot sentinel; indices 1-180 are real items — armor and shields
+at low indices, then weapons, then potions/scrolls/rings/gems at increasing
+indices.
+
+**Confirmed, byte-exact, cross-validated against real dungeon-script data**:
+decoding every real opcode-`0x06` ("+Item") action record across all 10 real
+`dng1`-`dng10` files resolves **63 distinct item indices, 0 out of the
+0-180 range** — e.g. index 51 resolves to `"SM AXE"`, matching the confirmed
+example action record cited in the scripting-engine notes.
+
+<DataTable assetPath="phantasie/amiga" table="items" label="item" />
+
+## Where to read the full evidence
+
+- `docs/phantasie/data-tables.md` §1 — the byte-level
+  offsets, stride conventions, and verification detail behind every table
+  on this page.
+- [Graphics Formats](../../phantasie/graphics/) — how the monster/race
+  sprite tables resolve to actual pixel data.
+- [Characters & Combat](../../phantasie/characters-and-combat/) — the
+  `GetStat`/`SetStat` accessor and combat formulas that consume these
+  tables at runtime.
+- [Status & Open Work](../../phantasie/status/) — everything about this
+  game still open.

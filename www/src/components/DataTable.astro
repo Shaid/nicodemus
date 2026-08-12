@@ -1,0 +1,177 @@
+---
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+interface Column {
+	/** Property name to read off each row object. */
+	key: string;
+	/** Column header. Defaults to a Title Case version of `key`. */
+	label?: string;
+}
+
+interface Props {
+	/**
+	 * Full directory under `public/assets/` holding the table JSON, e.g.
+	 * `"phantasieiii/amiga"` — this component has no opinion on your
+	 * project's own layout convention.
+	 */
+	assetPath: string;
+	/** Table JSON basename (without extension), read from `<assetPath>/<table>.json`. */
+	table: string;
+	/**
+	 * Dot path into the parsed JSON to reach the row array, e.g. `"items"`
+	 * for a `{ items: [...], shopMarkups: [...] }` document. Omit when the
+	 * JSON file's top level *is* the row array.
+	 */
+	rowsKey?: string;
+	/** Column list, in display order. Omit to auto-derive from the first row's own keys. */
+	columns?: Column[];
+	/** Singular noun for the filter UI ("Filter monsters"). */
+	label?: string;
+}
+
+const { assetPath, table, rowsKey, columns, label = table } = Astro.props;
+
+// Same repo-first, site-mirror-fallback resolution SpriteGallery.astro uses:
+// prefer the monorepo's live pipeline output; fall back to this site's own
+// committed asset mirror (all CI ever has, since it never gets the original
+// copyrighted game files).
+const repoAssetRoot = resolve(process.cwd(), '..', 'public', 'assets', assetPath);
+const assetRoot = existsSync(repoAssetRoot)
+	? repoAssetRoot
+	: resolve(process.cwd(), 'public', 'assets', assetPath);
+const dataPath = resolve(assetRoot, `${table}.json`);
+
+// Build-time readFileSync failing the build is correct here (per
+// components.md's trap list) -- a missing table JSON means the data-table
+// pipeline step didn't run, and the build should say so loudly rather than
+// silently rendering an empty table.
+const raw: unknown = JSON.parse(readFileSync(dataPath, 'utf8'));
+
+function getByPath(value: unknown, path: string): unknown {
+	return path.split('.').reduce<unknown>((acc, key) => {
+		if (acc !== null && typeof acc === 'object' && key in acc) {
+			return (acc as Record<string, unknown>)[key];
+		}
+		return undefined;
+	}, value);
+}
+
+const rowsValue = rowsKey ? getByPath(raw, rowsKey) : raw;
+const rows: Record<string, unknown>[] = Array.isArray(rowsValue) ? (rowsValue as Record<string, unknown>[]) : [];
+
+function labelFor(col: Column): string {
+	if (col.label) return col.label;
+	// camelCase -> Title Case ("attributesRequired" -> "Attributes Required").
+	return col.key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase());
+}
+
+const cols: Column[] = columns ?? (rows.length > 0 ? Object.keys(rows[0]).map((key) => ({ key })) : []);
+
+function formatCell(value: unknown): string {
+	if (value === null || value === undefined) return '—'; // em dash for "no value"
+	if (Array.isArray(value)) return value.join(', ');
+	if (typeof value === 'boolean') return value ? 'yes' : 'no';
+	return String(value);
+}
+
+const tableId = `data-table-${table}`;
+const searchId = `${tableId}-search`;
+
+const rowsWithSearch = rows.map((row) => ({
+	row,
+	search: cols
+		.map((c) => formatCell(row[c.key]))
+		.join(' ')
+		.toLowerCase(),
+}));
+---
+
+<div class="data-table-toolbar">
+	<label for={searchId}>Filter {label}</label>
+	<input id={searchId} data-table-search={table} type="search" placeholder={`Search ${label}`} />
+	<span>{rows.length} rows</span>
+</div>
+
+<div class="data-table-scroll">
+	<table id={tableId} class="data-table" data-table={table}>
+		<thead>
+			<tr>
+				{cols.map((c) => (
+					<th>{labelFor(c)}</th>
+				))}
+			</tr>
+		</thead>
+		<tbody>
+			{rowsWithSearch.map(({ row, search }) => (
+				<tr data-row={table} data-search={search}>
+					{cols.map((c) => (
+						<td>{formatCell(row[c.key])}</td>
+					))}
+				</tr>
+			))}
+		</tbody>
+	</table>
+</div>
+
+<script define:vars={{ table }}>
+	const input = document.querySelector(`[data-table-search="${table}"]`);
+	const rows = [...document.querySelectorAll(`[data-row="${table}"]`)];
+	input?.addEventListener('input', (event) => {
+		const query = event.target.value.trim().toLowerCase();
+		for (const row of rows) row.hidden = query !== '' && !row.dataset.search.includes(query);
+	});
+</script>
+
+<style>
+	.data-table-toolbar {
+		align-items: center;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+		margin: 1.5rem 0 1rem;
+	}
+	.data-table-toolbar label {
+		font-weight: 600;
+	}
+	.data-table-toolbar input {
+		border: 1px solid var(--sl-color-gray-5);
+		border-radius: 0.35rem;
+		font: inherit;
+		min-width: min(20rem, 100%);
+		padding: 0.45rem 0.65rem;
+	}
+	.data-table-toolbar span {
+		color: var(--sl-color-gray-3);
+		font-size: 0.9rem;
+	}
+	.data-table-scroll {
+		border: 1px solid var(--sl-color-gray-5);
+		border-radius: 0.45rem;
+		overflow-x: auto;
+	}
+	.data-table {
+		border-collapse: collapse;
+		font-size: 0.85rem;
+		width: 100%;
+	}
+	.data-table th,
+	.data-table td {
+		border-bottom: 1px solid var(--sl-color-gray-6);
+		padding: 0.4rem 0.7rem;
+		text-align: left;
+		white-space: nowrap;
+	}
+	.data-table th {
+		background: var(--sl-color-gray-6);
+		position: sticky;
+		top: 0;
+		z-index: 1;
+	}
+	.data-table tbody tr:hover {
+		background: var(--sl-color-gray-6);
+	}
+	.data-table tr[hidden] {
+		display: none;
+	}
+</style>

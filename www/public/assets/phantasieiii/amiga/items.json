@@ -1,0 +1,1269 @@
+[
+  {
+    "index": 0,
+    "name": "0",
+    "pointValue": 0,
+    "attributesRequired": 0,
+    "basePrice": 0
+  },
+  {
+    "index": 1,
+    "name": "Glove",
+    "pointValue": 1,
+    "attributesRequired": 1,
+    "basePrice": 1
+  },
+  {
+    "index": 2,
+    "name": "Wooden Shield",
+    "pointValue": 2,
+    "attributesRequired": 2,
+    "basePrice": 1
+  },
+  {
+    "index": 3,
+    "name": "Wooden Shield +1",
+    "pointValue": 3,
+    "attributesRequired": 3,
+    "basePrice": 1
+  },
+  {
+    "index": 4,
+    "name": "Small Shield",
+    "pointValue": 4,
+    "attributesRequired": 4,
+    "basePrice": 1
+  },
+  {
+    "index": 5,
+    "name": "Small Shield +1",
+    "pointValue": 5,
+    "attributesRequired": 5,
+    "basePrice": 2
+  },
+  {
+    "index": 6,
+    "name": "Small Shield +2",
+    "pointValue": 6,
+    "attributesRequired": 6,
+    "basePrice": 6
+  },
+  {
+    "index": 7,
+    "name": "Small Shield +3",
+    "pointValue": 7,
+    "attributesRequired": 7,
+    "basePrice": 10
+  },
+  {
+    "index": 8,
+    "name": "Medium Shield",
+    "pointValue": 8,
+    "attributesRequired": 8,
+    "basePrice": 21
+  },
+  {
+    "index": 9,
+    "name": "Medium Shield +1",
+    "pointValue": 9,
+    "attributesRequired": 9,
+    "basePrice": 29
+  },
+  {
+    "index": 10,
+    "name": "Medium Shield +2",
+    "pointValue": 10,
+    "attributesRequired": 10,
+    "basePrice": 46
+  },
+  {
+    "index": 11,
+    "name": "Medium Shield +3",
+    "pointValue": 11,
+    "attributesRequired": 11,
+    "basePrice": 73
+  },
+  {
+    "index": 12,
+    "name": "Large Shield",
+    "pointValue": 12,
+    "attributesRequired": 12,
+    "basePrice": 97
+  },
+  {
+    "index": 13,
+    "name": "Large Shield +1",
+    "pointValue": 13,
+    "attributesRequired": 13,
+    "basePrice": 136
+  },
+  {
+    "index": 14,
+    "name": "Large Shield +2",
+    "pointValue": 14,
+    "attributesRequired": 14,
+    "basePrice": 181
+  },
+  {
+    "index": 15,
+    "name": "Large Shield +3",
+    "pointValue": 15,
+    "attributesRequired": 15,
+    "basePrice": 246
+  },
+  {
+    "index": 16,
+    "name": "Giant Shield",
+    "pointValue": 16,
+    "attributesRequired": 16,
+    "basePrice": 321
+  },
+  {
+    "index": 17,
+    "name": "Giant Shield +1",
+    "pointValue": 17,
+    "attributesRequired": 17,
+    "basePrice": 406
+  },
+  {
+    "index": 18,
+    "name": "Giant Shield +2",
+    "pointValue": 18,
+    "attributesRequired": 18,
+    "basePrice": 521
+  },
+  {
+    "index": 19,
+    "name": "Giant Shield +3",
+    "pointValue": 19,
+    "attributesRequired": 19,
+    "basePrice": 650
+  },
+  {
+    "index": 20,
+    "name": "God Shield",
+    "pointValue": 20,
+    "attributesRequired": 20,
+    "basePrice": 794
+  },
+  {
+    "index": 21,
+    "name": "Clothing",
+    "pointValue": 1,
+    "attributesRequired": 2,
+    "basePrice": 1
+  },
+  {
+    "index": 22,
+    "name": "Robes",
+    "pointValue": 2,
+    "attributesRequired": 4,
+    "basePrice": 1
+  },
+  {
+    "index": 23,
+    "name": "Leather",
+    "pointValue": 3,
+    "attributesRequired": 6,
+    "basePrice": 8
+  },
+  {
+    "index": 24,
+    "name": "Hard Leather",
+    "pointValue": 4,
+    "attributesRequired": 8,
+    "basePrice": 25
+  },
+  {
+    "index": 25,
+    "name": "Ring Mail",
+    "pointValue": 5,
+    "attributesRequired": 10,
+    "basePrice": 58
+  },
+  {
+    "index": 26,
+    "name": "Scale Mail",
+    "pointValue": 6,
+    "attributesRequired": 12,
+    "basePrice": 126
+  },
+  {
+    "index": 27,
+    "name": "Chain Mail",
+    "pointValue": 7,
+    "attributesRequired": 14,
+    "basePrice": 232
+  },
+  {
+    "index": 28,
+    "name": "Splint Mail",
+    "pointValue": 8,
+    "attributesRequired": 16,
+    "basePrice": 406
+  },
+  {
+    "index": 29,
+    "name": "Banded Mail",
+    "pointValue": 9,
+    "attributesRequired": 18,
+    "basePrice": 650
+  },
+  {
+    "index": 30,
+    "name": "Plate Mail",
+    "pointValue": 10,
+    "attributesRequired": 20,
+    "basePrice": 981
+  },
+  {
+    "index": 31,
+    "name": "Cloth +1",
+    "pointValue": 2,
+    "attributesRequired": 0,
+    "basePrice": 628
+  },
+  {
+    "index": 32,
+    "name": "Robes +1",
+    "pointValue": 3,
+    "attributesRequired": 0,
+    "basePrice": 1009
+  },
+  {
+    "index": 33,
+    "name": "Leather +1",
+    "pointValue": 4,
+    "attributesRequired": 2,
+    "basePrice": 1514
+  },
+  {
+    "index": 34,
+    "name": "Leather +2",
+    "pointValue": 5,
+    "attributesRequired": 4,
+    "basePrice": 2164
+  },
+  {
+    "index": 35,
+    "name": "Ring Mail +1",
+    "pointValue": 6,
+    "attributesRequired": 6,
+    "basePrice": 2977
+  },
+  {
+    "index": 36,
+    "name": "Ring Mail +2",
+    "pointValue": 7,
+    "attributesRequired": 8,
+    "basePrice": 3977
+  },
+  {
+    "index": 37,
+    "name": "Chain Mail +1",
+    "pointValue": 8,
+    "attributesRequired": 10,
+    "basePrice": 5121
+  },
+  {
+    "index": 38,
+    "name": "Chain Mail +2",
+    "pointValue": 9,
+    "attributesRequired": 12,
+    "basePrice": 6553
+  },
+  {
+    "index": 39,
+    "name": "God Robes",
+    "pointValue": 10,
+    "attributesRequired": 14,
+    "basePrice": 8161
+  },
+  {
+    "index": 40,
+    "name": "God Armour",
+    "pointValue": 11,
+    "attributesRequired": 16,
+    "basePrice": 10126
+  },
+  {
+    "index": 41,
+    "name": "Self Bow",
+    "pointValue": 1,
+    "attributesRequired": 0,
+    "basePrice": 40
+  },
+  {
+    "index": 42,
+    "name": "Self Bow +1",
+    "pointValue": 2,
+    "attributesRequired": 2,
+    "basePrice": 73
+  },
+  {
+    "index": 43,
+    "name": "Self Bow +2",
+    "pointValue": 3,
+    "attributesRequired": 4,
+    "basePrice": 126
+  },
+  {
+    "index": 44,
+    "name": "Short Bow",
+    "pointValue": 4,
+    "attributesRequired": 6,
+    "basePrice": 205
+  },
+  {
+    "index": 45,
+    "name": "Short Bow +1",
+    "pointValue": 5,
+    "attributesRequired": 8,
+    "basePrice": 321
+  },
+  {
+    "index": 46,
+    "name": "Short Bow +2",
+    "pointValue": 6,
+    "attributesRequired": 10,
+    "basePrice": 461
+  },
+  {
+    "index": 47,
+    "name": "Medium Bow",
+    "pointValue": 7,
+    "attributesRequired": 12,
+    "basePrice": 650
+  },
+  {
+    "index": 48,
+    "name": "Medium Bow +1",
+    "pointValue": 8,
+    "attributesRequired": 14,
+    "basePrice": 898
+  },
+  {
+    "index": 49,
+    "name": "Medium Bow +2",
+    "pointValue": 9,
+    "attributesRequired": 16,
+    "basePrice": 1217
+  },
+  {
+    "index": 50,
+    "name": "Compound Bow",
+    "pointValue": 10,
+    "attributesRequired": 18,
+    "basePrice": 1621
+  },
+  {
+    "index": 51,
+    "name": "Compound Bow +1",
+    "pointValue": 11,
+    "attributesRequired": 20,
+    "basePrice": 2081
+  },
+  {
+    "index": 52,
+    "name": "Compound Bow +2",
+    "pointValue": 12,
+    "attributesRequired": 22,
+    "basePrice": 2692
+  },
+  {
+    "index": 53,
+    "name": "Gnome Bow",
+    "pointValue": 13,
+    "attributesRequired": 24,
+    "basePrice": 3381
+  },
+  {
+    "index": 54,
+    "name": "Long Bow",
+    "pointValue": 14,
+    "attributesRequired": 26,
+    "basePrice": 4148
+  },
+  {
+    "index": 55,
+    "name": "Long Bow +1",
+    "pointValue": 15,
+    "attributesRequired": 28,
+    "basePrice": 5121
+  },
+  {
+    "index": 56,
+    "name": "Long Bow +2",
+    "pointValue": 16,
+    "attributesRequired": 30,
+    "basePrice": 6266
+  },
+  {
+    "index": 57,
+    "name": "Crossbow",
+    "pointValue": 17,
+    "attributesRequired": 32,
+    "basePrice": 7528
+  },
+  {
+    "index": 58,
+    "name": "Old Bow",
+    "pointValue": 18,
+    "attributesRequired": 34,
+    "basePrice": 8989
+  },
+  {
+    "index": 59,
+    "name": "Crossbow +2",
+    "pointValue": 19,
+    "attributesRequired": 36,
+    "basePrice": 10673
+  },
+  {
+    "index": 60,
+    "name": "God Bow",
+    "pointValue": 20,
+    "attributesRequired": 38,
+    "basePrice": 12601
+  },
+  {
+    "index": 61,
+    "name": "Knife",
+    "pointValue": 1,
+    "attributesRequired": 3,
+    "basePrice": 1
+  },
+  {
+    "index": 62,
+    "name": "Dagger",
+    "pointValue": 2,
+    "attributesRequired": 6,
+    "basePrice": 1
+  },
+  {
+    "index": 63,
+    "name": "Club",
+    "pointValue": 3,
+    "attributesRequired": 9,
+    "basePrice": 4
+  },
+  {
+    "index": 64,
+    "name": "Mace",
+    "pointValue": 4,
+    "attributesRequired": 12,
+    "basePrice": 8
+  },
+  {
+    "index": 65,
+    "name": "Small Axe",
+    "pointValue": 4,
+    "attributesRequired": 15,
+    "basePrice": 13
+  },
+  {
+    "index": 66,
+    "name": "Staff",
+    "pointValue": 5,
+    "attributesRequired": 18,
+    "basePrice": 25
+  },
+  {
+    "index": 67,
+    "name": "Short Sword",
+    "pointValue": 6,
+    "attributesRequired": 21,
+    "basePrice": 40
+  },
+  {
+    "index": 68,
+    "name": "Flail",
+    "pointValue": 6,
+    "attributesRequired": 24,
+    "basePrice": 58
+  },
+  {
+    "index": 69,
+    "name": "Hammer",
+    "pointValue": 7,
+    "attributesRequired": 27,
+    "basePrice": 59
+  },
+  {
+    "index": 70,
+    "name": "Spear",
+    "pointValue": 8,
+    "attributesRequired": 30,
+    "basePrice": 126
+  },
+  {
+    "index": 71,
+    "name": "Axe",
+    "pointValue": 9,
+    "attributesRequired": 33,
+    "basePrice": 157
+  },
+  {
+    "index": 72,
+    "name": "Sword",
+    "pointValue": 9,
+    "attributesRequired": 36,
+    "basePrice": 205
+  },
+  {
+    "index": 73,
+    "name": "Heavy Mace",
+    "pointValue": 10,
+    "attributesRequired": 39,
+    "basePrice": 274
+  },
+  {
+    "index": 74,
+    "name": "Trident",
+    "pointValue": 11,
+    "attributesRequired": 42,
+    "basePrice": 337
+  },
+  {
+    "index": 75,
+    "name": "Large Spear",
+    "pointValue": 12,
+    "attributesRequired": 45,
+    "basePrice": 406
+  },
+  {
+    "index": 76,
+    "name": "Large Axe",
+    "pointValue": 12,
+    "attributesRequired": 48,
+    "basePrice": 501
+  },
+  {
+    "index": 77,
+    "name": "Pike",
+    "pointValue": 13,
+    "attributesRequired": 51,
+    "basePrice": 606
+  },
+  {
+    "index": 78,
+    "name": "Long Sword",
+    "pointValue": 14,
+    "attributesRequired": 54,
+    "basePrice": 721
+  },
+  {
+    "index": 79,
+    "name": "Bardiche",
+    "pointValue": 15,
+    "attributesRequired": 57,
+    "basePrice": 846
+  },
+  {
+    "index": 80,
+    "name": "Halberd",
+    "pointValue": 15,
+    "attributesRequired": 60,
+    "basePrice": 981
+  },
+  {
+    "index": 81,
+    "name": "Dagger +1",
+    "pointValue": 2,
+    "attributesRequired": 3,
+    "basePrice": 1844
+  },
+  {
+    "index": 82,
+    "name": "Dagger +2",
+    "pointValue": 3,
+    "attributesRequired": 6,
+    "basePrice": 2164
+  },
+  {
+    "index": 83,
+    "name": "Club +1",
+    "pointValue": 4,
+    "attributesRequired": 9,
+    "basePrice": 2509
+  },
+  {
+    "index": 84,
+    "name": "Club +2",
+    "pointValue": 5,
+    "attributesRequired": 12,
+    "basePrice": 2881
+  },
+  {
+    "index": 85,
+    "name": "Flail +1",
+    "pointValue": 7,
+    "attributesRequired": 15,
+    "basePrice": 3277
+  },
+  {
+    "index": 86,
+    "name": "Flail +2",
+    "pointValue": 8,
+    "attributesRequired": 18,
+    "basePrice": 3754
+  },
+  {
+    "index": 87,
+    "name": "Spear +1",
+    "pointValue": 9,
+    "attributesRequired": 21,
+    "basePrice": 4206
+  },
+  {
+    "index": 88,
+    "name": "Sword +1",
+    "pointValue": 10,
+    "attributesRequired": 24,
+    "basePrice": 4682
+  },
+  {
+    "index": 89,
+    "name": "Sword +2",
+    "pointValue": 11,
+    "attributesRequired": 27,
+    "basePrice": 5185
+  },
+  {
+    "index": 90,
+    "name": "Sword +4",
+    "pointValue": 13,
+    "attributesRequired": 30,
+    "basePrice": 5713
+  },
+  {
+    "index": 91,
+    "name": "Sword +5",
+    "pointValue": 14,
+    "attributesRequired": 33,
+    "basePrice": 6266
+  },
+  {
+    "index": 92,
+    "name": "Sword +6",
+    "pointValue": 15,
+    "attributesRequired": 36,
+    "basePrice": 6846
+  },
+  {
+    "index": 93,
+    "name": "Halberd +1",
+    "pointValue": 16,
+    "attributesRequired": 39,
+    "basePrice": 7450
+  },
+  {
+    "index": 94,
+    "name": "Halberd +2",
+    "pointValue": 17,
+    "attributesRequired": 42,
+    "basePrice": 8081
+  },
+  {
+    "index": 95,
+    "name": "Sword +10",
+    "pointValue": 19,
+    "attributesRequired": 45,
+    "basePrice": 8737
+  },
+  {
+    "index": 96,
+    "name": "Halberd +5",
+    "pointValue": 20,
+    "attributesRequired": 48,
+    "basePrice": 9418
+  },
+  {
+    "index": 97,
+    "name": "Halberd +6",
+    "pointValue": 21,
+    "attributesRequired": 51,
+    "basePrice": 10126
+  },
+  {
+    "index": 98,
+    "name": "God Knife",
+    "pointValue": 22,
+    "attributesRequired": 54,
+    "basePrice": 10858
+  },
+  {
+    "index": 99,
+    "name": "God Mace",
+    "pointValue": 23,
+    "attributesRequired": 57,
+    "basePrice": 11617
+  },
+  {
+    "index": 100,
+    "name": "God Sword",
+    "pointValue": 25,
+    "attributesRequired": 60,
+    "basePrice": 12401
+  },
+  {
+    "index": 101,
+    "name": "Healing Potion 1",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 10
+  },
+  {
+    "index": 102,
+    "name": "Healing Potion 2",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 34
+  },
+  {
+    "index": 103,
+    "name": "Healing Potion 3",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 58
+  },
+  {
+    "index": 104,
+    "name": "Healing Potion 4",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 89
+  },
+  {
+    "index": 105,
+    "name": "Healing Potion 5",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 126
+  },
+  {
+    "index": 106,
+    "name": "Healing Potion 6",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 169
+  },
+  {
+    "index": 107,
+    "name": "Healing Potion 7",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 218
+  },
+  {
+    "index": 108,
+    "name": "Healing Potion 8",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 260
+  },
+  {
+    "index": 109,
+    "name": "Healing Potion 9",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 321
+  },
+  {
+    "index": 110,
+    "name": "Healing Potion 10",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 370
+  },
+  {
+    "index": 111,
+    "name": "Magic Potion 1",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 29
+  },
+  {
+    "index": 112,
+    "name": "Magic Potion 2",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 73
+  },
+  {
+    "index": 113,
+    "name": "Magic Potion 3",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 126
+  },
+  {
+    "index": 114,
+    "name": "Magic Potion 4",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 181
+  },
+  {
+    "index": 115,
+    "name": "Magic Potion 5",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 232
+  },
+  {
+    "index": 116,
+    "name": "Magic Potion 6",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 305
+  },
+  {
+    "index": 117,
+    "name": "Magic Potion 7",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 370
+  },
+  {
+    "index": 118,
+    "name": "Magic Potion 8",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 442
+  },
+  {
+    "index": 119,
+    "name": "Magic Potion 9",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 521
+  },
+  {
+    "index": 120,
+    "name": "Magic Potion 10",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 584
+  },
+  {
+    "index": 121,
+    "name": "Scroll I",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 97
+  },
+  {
+    "index": 122,
+    "name": "Scroll II",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 73
+  },
+  {
+    "index": 123,
+    "name": "Scroll III",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 25
+  },
+  {
+    "index": 124,
+    "name": "Scroll III",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 1
+  },
+  {
+    "index": 125,
+    "name": "Scroll III",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 17
+  },
+  {
+    "index": 126,
+    "name": "Scroll IV",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 65
+  },
+  {
+    "index": 127,
+    "name": "Scroll V",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 97
+  },
+  {
+    "index": 128,
+    "name": "Scroll VI",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 81
+  },
+  {
+    "index": 129,
+    "name": "Scroll VII",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 40
+  },
+  {
+    "index": 130,
+    "name": "Scroll VII",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 4
+  },
+  {
+    "index": 131,
+    "name": "Scroll VII",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 8
+  },
+  {
+    "index": 132,
+    "name": "Scroll VIII",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 52
+  },
+  {
+    "index": 133,
+    "name": "Scroll IX",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 89
+  },
+  {
+    "index": 134,
+    "name": "Scroll X",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 89
+  },
+  {
+    "index": 135,
+    "name": "Scroll XI",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 52
+  },
+  {
+    "index": 136,
+    "name": "Scroll XII",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 10
+  },
+  {
+    "index": 137,
+    "name": "Scroll XIII",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 2
+  },
+  {
+    "index": 138,
+    "name": "Scroll XIV",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 34
+  },
+  {
+    "index": 139,
+    "name": "Scroll XV",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 81
+  },
+  {
+    "index": 140,
+    "name": "Scroll XVI",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 97
+  },
+  {
+    "index": 141,
+    "name": "Quartz",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 388
+  },
+  {
+    "index": 142,
+    "name": "a Pearl",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 442
+  },
+  {
+    "index": 143,
+    "name": "Crystal",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 521
+  },
+  {
+    "index": 144,
+    "name": "Gold Ore",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 584
+  },
+  {
+    "index": 145,
+    "name": "a Statuette",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 673
+  },
+  {
+    "index": 146,
+    "name": "Jade",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 769
+  },
+  {
+    "index": 147,
+    "name": "Onyx",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 846
+  },
+  {
+    "index": 148,
+    "name": "a Statue",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 953
+  },
+  {
+    "index": 149,
+    "name": "a Sapphire",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 1066
+  },
+  {
+    "index": 150,
+    "name": "Azurite",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 1217
+  },
+  {
+    "index": 151,
+    "name": "Coral",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 1345
+  },
+  {
+    "index": 152,
+    "name": "Turquoise",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 1480
+  },
+  {
+    "index": 153,
+    "name": "Topaz",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 1657
+  },
+  {
+    "index": 154,
+    "name": "Jacinth",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 1806
+  },
+  {
+    "index": 155,
+    "name": "a Burnt Gem",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 2001
+  },
+  {
+    "index": 156,
+    "name": "a Sweet Bottle",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 2206
+  },
+  {
+    "index": 157,
+    "name": "a Foul Bottle",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 2421
+  },
+  {
+    "index": 158,
+    "name": "a Black Jar",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 2646
+  },
+  {
+    "index": 159,
+    "name": "a Ruby",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 2881
+  },
+  {
+    "index": 160,
+    "name": "a Nice Gem",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 3126
+  },
+  {
+    "index": 161,
+    "name": "an Opal",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 3433
+  },
+  {
+    "index": 162,
+    "name": "a Star Ruby",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 3700
+  },
+  {
+    "index": 163,
+    "name": "an Emerald",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 4033
+  },
+  {
+    "index": 164,
+    "name": "a Blue Opal",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 4381
+  },
+  {
+    "index": 165,
+    "name": "a Diamond",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 4744
+  },
+  {
+    "index": 166,
+    "name": "Amethyst",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 5121
+  },
+  {
+    "index": 167,
+    "name": "a Fire Opal",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 5512
+  },
+  {
+    "index": 168,
+    "name": "a Gem of Light",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 5917
+  },
+  {
+    "index": 169,
+    "name": "a Black Urn",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 6337
+  },
+  {
+    "index": 170,
+    "name": "a Dark Key",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 6846
+  },
+  {
+    "index": 171,
+    "name": "a Black Vase",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 7297
+  },
+  {
+    "index": 172,
+    "name": "a Light Key",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 7841
+  },
+  {
+    "index": 173,
+    "name": "a Golden Chalice",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 8406
+  },
+  {
+    "index": 174,
+    "name": "a Silk Tapestry",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 8989
+  },
+  {
+    "index": 175,
+    "name": "a Painting",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 9593
+  },
+  {
+    "index": 176,
+    "name": "a Golden Belt",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 10216
+  },
+  {
+    "index": 177,
+    "name": "an Old Crown",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 10858
+  },
+  {
+    "index": 178,
+    "name": "an Old Coin",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 11521
+  },
+  {
+    "index": 179,
+    "name": "Old Wine",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 12301
+  },
+  {
+    "index": 180,
+    "name": "Wand of Nikademus",
+    "pointValue": null,
+    "attributesRequired": null,
+    "basePrice": 13006
+  }
+]
