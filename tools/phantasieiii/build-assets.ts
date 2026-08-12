@@ -20,6 +20,7 @@ import {
 import { buildWorldMap } from './build-map.ts';
 import { buildCastleMaps } from './build-castle-maps.ts';
 import { buildMusicAssets } from './build-music.ts';
+import { buildDungeons } from './build-dungeons.ts';
 // getGameConfig is dynamically imported inside main() (CLI-only) to avoid a
 // static circular import — game-config.ts imports buildAssets from this
 // file to register the pipeline step.
@@ -34,9 +35,12 @@ export interface ManifestEntry {
    * sprite-atlas / picture canvas; `'map'` is the world-map view, which
    * reads `<name>.json` + `<name>-pois.json` instead of an atlas; `'music'`
    * is the player, which reads `music/<name>.bin` and decodes it in the
-   * browser (see `tools/phantasieiii/build-music.ts`).
+   * browser (see `tools/phantasieiii/build-music.ts`). `'dungeon'` is a
+   * decoded dungeon level (grid + star/action tables + messages) —
+   * `<name>.json` holds the full document; see `build-dungeons.ts` and
+   * `scripting-engine.md`.
    */
-  type?: 'atlas' | 'map' | 'music';
+  type?: 'atlas' | 'map' | 'music' | 'dungeon';
 }
 
 /** Upsert-by-name merge into an existing manifest.json, since multiple
@@ -158,8 +162,16 @@ export function buildAssets(config: PlatformConfig, dataDir: string): void {
   const mapEntries = buildWorldMap(dataDir, outDir);
   const castleMapEntries = buildCastleMaps(dataDir, outDir);
   const musicEntries = buildMusicAssets(dataDir, outDir);
+  const dungeonEntries = buildDungeons(dataDir, outDir);
 
-  const entries = [...cmpEntries, ...setEntries, ...mapEntries, ...castleMapEntries, ...musicEntries];
+  const entries = [
+    ...cmpEntries,
+    ...setEntries,
+    ...mapEntries,
+    ...castleMapEntries,
+    ...musicEntries,
+    ...dungeonEntries,
+  ];
   upsertManifest(outDir, entries);
 
   console.log(`Wrote ${entries.length} asset(s) to ${outDir}`);

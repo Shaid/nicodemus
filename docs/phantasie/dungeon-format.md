@@ -1161,10 +1161,38 @@ slot is zero). `16000 / 40 = 400` lines total. Reading the lines
 sequentially reproduces legible, multi-paragraph narrative text ("THE
 HISTORY OF GELNOR", in parts), formatted the same way dungeon messages are
 (centered, all-caps, hyphenated word-wrap). **Confidence: confirmed** for
-the line stride and encoding. **Open** for how the 400 lines subdivide into
-individual named "scrolls" (no length-prefix or part-count field was
-identified — likely a fixed number of lines per scroll, but this project
-did not determine what that count is).
+the line stride and encoding.
+
+> **Correction (2026-08-12): the scroll-boundary question is resolved at the
+> data-layout level.** Grouping the 400 lines by runs of one or more fully-NUL
+> ("blank") lines yields **exactly 19 segments, and every segment's start
+> line is an exact multiple of 20 — zero deviations** across all 19 (starts:
+> `0, 20, 40, 80, 100, 120, 140, 160, 180, 200, 220, 240, 260, 280, 300, 320,
+> 340, 360, 380`). This is a free structural invariant, not a guess: the file
+> is **20 fixed 20-line (800-byte) scroll slots** (`400 / 20 = 20`, matching
+> `16000 / 800 = 20` exactly). A scroll's real content occupies the leading
+> lines of one or more slots; the rest of its slot(s) is NUL-filled. Every
+> scroll fits in a single 800-byte slot except one — "THE HISTORY OF GELNOR,
+> PART 3" (37 content lines, which continues directly into an in-fiction
+> "THE GELNOR TIMES" newspaper article) — which spans two consecutive slots
+> (slots 2-3), so slot 3 alone carries no independent scroll. This
+> structurally parallels Phantasie III's `D/S1`-`S20` scroll loader (§9.0.4),
+> which reads a fixed length per scroll and special-cases the one outlier
+> (`S6`) that needs more.
+>
+> **Not resolved this pass**: whether the game addresses a scroll by this
+> same 0-19 slot index at runtime (with slot 3 simply never requested) — no
+> P1 code trace was done for the scroll loader/reader, so the *data-layout*
+> finding above is confirmed but the *addressing* scheme is still a
+> hypothesis, consistent with the P3 `S1`-`S20` analogy rather than
+> independently verified in P1's own disassembly.
+>
+> Decoder: `src/assets/formats/scrolls.ts` (`readScrollLines`,
+> `readScrollDocuments`), 10 real-byte tests in
+> `src/assets/formats/__tests__/scrolls.test.ts`. Wired into
+> `tools/phantasie/build-assets.ts` as a `type: 'text'` manifest entry,
+> emitting `public/assets/phantasie/amiga/scrolls.json` (19 documents, byte-
+> exact against the real `data/phantasie/amiga/scrolls.dtx`).
 
 ### 8.5 `tamb.dat` (2850 bytes) — open
 
@@ -1783,8 +1811,21 @@ alone this pass.
 
 `src/assets/formats/gem-rsc.ts` decodes the GEM `.RSC` resource files
 (§8.6.7), with 21 real-byte tests in
-`src/assets/formats/__tests__/gem-rsc.test.ts`. Also not wired into the
-pipeline.
+`src/assets/formats/__tests__/gem-rsc.test.ts`.
+
+> **Correction (2026-08-12): now wired into the pipeline.**
+> `tools/phantasieii/build-assets.ts`'s `buildRscAssets()` walks every tree
+> in all three `.RSC` files (`readTree`/`treeStrings`) plus each file's
+> free-string pool (`freeStrings`) and emits three `type: 'text'` manifest
+> entries — `phant-rsc.json` (26 trees, 15 free strings), `out-rsc.json` (44
+> trees, 1 free string), `backup-rsc.json` (11 trees, 0 free strings) — each
+> holding `{ sourceFile, treeCount, trees: [{index, objectCount, strings}],
+> freeStrings }`. 4 real-byte pipeline tests in
+> `tools/phantasieii/__tests__/build-assets.test.ts` confirm known strings
+> survive the real build (`"FROM PHANTASIE 1 TO PHANTASIE 2"` in
+> `backup-rsc.json` tree 0, the `"WE DID IT AGAIN FOR YOU!"` ST-conversion
+> credits in `phant-rsc.json`, the two section-refusal strings and the one
+> `out-rsc.json` free-string template).
 
 #### 8.6.7 GEM `.RSC` resource files — confirmed
 
@@ -3257,7 +3298,7 @@ in-executable character-record layout, which was out of scope here.
 | `twns.int` 292-byte record | Stride, name-field offset, 12-town roster confirmed. **The map position is *not* in this file** — it is in the `out*.dat` POI record (§8.2.2); a search of the whole file for the 10 known `(section, x, y)` triples returned zero hits, and the first 32 bytes of every populated record are byte-identical, i.e. a shared shop/price template | Every other field in the record; the two non-empty non-name "slots" at the end; which table the POI record's town index `+2` addresses |
 | `out*.dat` | **Full four-region layout confirmed** (§8.2): 20×26 grid, 15×5-byte POI table, 10×40-byte text array, trailing residue | Meaning of the POI record's `+2`/`+3` bytes for non-town features |
 | `maps.int` | **Solved** (§8.3): 18 × 520-byte grids = the 18 `out*.dat` grids; sections tile 4-wide with 1-cell overlap into a 77×126 world | What the ±120 tile-code bank means; per-class terrain names; whether `game` reads the file at all (no `maps.int` string in it) |
-| `scrolls.dtx` | 40-byte line stride confirmed, 400 lines total | How lines subdivide into individual scrolls |
+| `scrolls.dtx` | **Solved at the data-layout level** (§8.4 correction, 2026-08-12): 40-byte line stride, 400 lines, grouped into 19 scroll documents by blank-line runs, every document start an exact multiple of the confirmed 20-line/800-byte slot quantum. Wired into the pipeline as `scrolls.json` | Whether the game addresses a scroll by this same 0-19 slot index at runtime (no P1 code trace of the scroll loader was done) |
 | `tamb.dat` | Byte-frequency profile only | Everything else |
 | Phantasie III `S1`-`S20` | **Loader traced** (§9.0.4): 1,050-byte read, message ids 121-140 → scrolls 1-20, `S6` special-cased (resolves the outlier size) | The on-disk text layout beyond "flat NUL-terminated blob"; where the 1,050-byte read is word-wrapped |
 | Phantasie III `M0`, `M1` | **Fully solved** (§9.0.2-§9.0.2.6): three-track music; the whole driver is traced — a vblank interrupt server (`"VertB-Timer"`), a 24-command byte grammar, `frames = ((dur & 0x7F) + 1) × multiplier`, the ProTracker period table at hunk-1 `0x0640` (note 57 = A4 on NTSC), 4-phase ADSR, and four instruments including LCG-generated noise. Both files parse byte-exactly with 0 unknown commands | Only whether `0xDB`'s two ignored argument bytes (always `0C 06`) carry vibrato depth/rate for another platform's port of the same driver |

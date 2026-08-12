@@ -159,6 +159,36 @@ game data as shown above). The choice-count heuristics are taken as
 documented behavior from the reference implementation; they were not
 independently re-derived from `data/phantasie/amiga/mess1` in this pass.
 
+> **Correction (2026-08-12, implementation pass):** the "otherwise the
+> choice count comes from the line immediately following the message
+> body" bullet above is off by one. Checked against three real examples
+> where the star's own `NbChoices` field (§1, the authoritative source the
+> real interpreter actually uses) is independently known:
+>
+> | Message | File | Star `nbChoices` | Next-line raw byte | Real choice text |
+> |---|---|---|---|---|
+> | index 90 | `mess1` (`dng1` star slot 0) | 2 | 3 | `" TAKE THEM  LEAVE THEM..."` — 2 options |
+> | index 69 | `mess1` (`dng1` star slot 2) | 3 | 4 | `"  READ IT    BURN IT    LEAVE IT..."` — 3 options |
+> | index 59 | `mess4` (`dng4` star slot 0) | 9 | 10 | `" 1  2  3...9..."` — 9 options |
+>
+> In all three, the raw next-line byte is **exactly one more** than the
+> real choice count — the same `storedValue = realValue + 1, 0 reserved`
+> convention §1 already documents for the star record's own message-index
+> field. The corrected heuristic is `embeddedChoiceCountHint =
+> nextLine.lengthByte - 1` (still gated on the raw byte being `1..10`,
+> per the original bullet). Slicing the choice-line text at the
+> **corrected** count (not the raw byte) reproduces the real choice text
+> exactly in all three cases; slicing at the raw, uncorrected byte value
+> would append one spurious empty entry every time. The `<40 chars -> 3`
+> and `==12 chars -> 10` branches are untouched by this correction — they
+> are hardcoded literal constants in the reference source, not a stored
+> byte subject to the same `+1` bias, and remain unverified beyond what
+> was already documented. Implemented in
+> `src/assets/formats/messages.ts`'s `decodeP1P2Message()` /
+> `sliceChoiceText()`; see that module's doc comment for the full
+> byte-level evidence and `messages.test.ts` for the regression tests
+> covering all three examples above.
+
 ### 3.2 Phantasie III message format
 
 Simpler and self-contained. A 110-slot pointer table at dungeon-file offset

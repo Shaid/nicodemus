@@ -218,7 +218,7 @@ references resolved to actual bank/cell coordinates from Phase 1).
 `entities.json` (monsters, name, stats, resolved sprite) replacing the
 current empty-array placeholder.
 
-### Phase 3 — Dungeon + scripting engine (shared P1/P2/P3 core)
+### Phase 3 — Dungeon + scripting engine (shared P1/P2/P3 core) — DECODERS + PIPELINE DONE, VIEWER NOT STARTED
 
 **Goal:** dungeon grid + star/action/message interpreter, decoupled from
 rendering — this is game *logic*, not just data, so it's the first piece
@@ -372,6 +372,66 @@ walking onto a star cell triggers a real message + choice + action chain
 using data straight from the file, byte-verified against the interpreter
 algorithm in `scripting-engine.md` §4.
 
+**Status update (2026-08-12): decoders + pipeline wiring DONE, viewer not
+started.** All five planned modules are built in `src/assets/formats/` with
+real-byte tests against the doc-confirmed examples (`dng1` star slot 0
+`5B 02 4B 00 00` -> messageIndex 90/nbChoices 2, action slot 5 `C6 33` ->
+`+Item` item 51, P3 `dnga.dat` message slot 5 -> `"Arrows fire from a slit
+in the roof."`, all reproduced as literal test assertions) plus corpus-wide
+coverage (all 10 P1 `dng*`/`mess*` pairs, all 8 real P2 `DNG*`/`MESS*`
+pairs including the confirmed `0x17` win-marker opcode in `DNG8`, all 11
+P3 `D/dngX.dat` files) — 113 new tests, all green, `npx tsc --noEmit` and
+`npm run lint` both clean.
+
+- `dungeon.ts` / `dungeon-p3.ts`: header + grid parsers, the shared
+  cell-ID classifier (`classifyCell`, dungeon-format.md §4), and both
+  engines' trap-damage/trap-message-index formulas (§6), preserved as
+  documented, bugs and all.
+- `opcodes.ts`: `P1_OPCODES`/`P2_OPCODES`/`P3_OPCODES` as pure data
+  (opcode -> name/kind/params/forcesStop), plus the confirmed
+  double-sized-record opcode set. Opcodes `0x12`/`0x13` carry a code-level
+  `unverifiedFor: ['p2','p3']` flag per this phase's original instruction
+  — P1's behavior is disassembly-confirmed (§6.3(b)); P2/P3 implement the
+  declared per-game table text only, not a traced interpreter. See
+  `TODO.md`'s `scripting-p2p3-stat-opcode-path` row.
+- `star-action.ts`: star/action record decoders (packed variable-stride
+  table scans per §1/§2), `buildActionEffect()` (record -> human/JSON
+  effect description), and `executeStar()`/`executeStarChain()` — the §4
+  interpreter algorithm, with statically-resolvable control flow (forced
+  stops, the two `gotoAction`/`gotoStar` opcodes) handled internally and
+  state-dependent opcodes (stat gates, item/race/bitmask checks) delegated
+  to a caller-supplied host interface, since no live game state exists yet
+  (that's Phase 6).
+- `messages.ts`: both message formats, plus a **real correction** found
+  while budgeting the requested spot-check — the P1/P2 choice-count
+  heuristic's "comes from the line immediately following the message
+  body" description was off by one against all three real examples
+  checked (star-confirmed `nbChoices` of 2, 3 and 9 all matched
+  `rawByte - 1`, not `rawByte`); see `scripting-engine.md` §3.1's dated
+  correction block and `messages.ts`'s module doc comment for the full
+  evidence.
+- **Pipeline wiring**: `tools/<game>/build-dungeons.ts` (one per game,
+  mirroring the existing `build-map.ts` per-game convention) assembles
+  grid + header + stars + actions (with resolved effects) + messages into
+  one `dungeon-<id>.json` per level and a `type: 'dungeon'` manifest
+  entry, wired into each game's `build-assets.ts`. P1 emits
+  `dungeon-1`..`dungeon-10`; P2 emits `dungeon-1`..`dungeon-8` (from
+  disk 2, the only disk that ships `DNG*`/`MESS*`); P3 emits
+  `dungeon-a`..`dungeon-k` (named after the file's own letter suffix,
+  since the header's `level` byte is non-unique across files — the same
+  "several files share one depth level" pattern P1/P2 use). Verified with
+  a real end-to-end pipeline run for all three games (10/8/11 dungeon
+  assets respectively, full manifests written) plus committed regression
+  tests (`tools/<game>/__tests__/build-dungeons.test.ts`) that don't
+  depend on that manual run.
+- **Not done**: the viewer panel (item 3 of the original task scope for
+  this phase) and the Phase 6 runtime `src/dungeon/` module tree (item 4
+  above) — explicitly out of this pass's budget, lower priority than the
+  decoder/pipeline work per the task brief. `docs/phantasie/TODO.md` has
+  no row for the viewer specifically since it was never started as a
+  discrete investigation (it's forward-looking implementation work, not
+  an open RE question).
+
 ### Phase 4 — Phantasie I graphics + data — DONE
 
 **Done**, with two scope decisions worth recording. `pic.ts` renders `.pic`
@@ -452,6 +512,27 @@ phase — get the top-down version functionally correct first (grid
 movement, star/action triggers, combat all working byte-correctly against
 real dungeon data), then treat first-person as a rendering-layer swap on
 top of the same already-decoded grid/cell data, not a new RE problem.
+
+**Stretch goal, noted 2026-08-12 — run P1/P2 on P3's engine/renderer.**
+P3 has the richest confirmed art (250-tile overworld bank, `.cmp` sprite
+banks, castle/Netherworld maps) and, once Phase 3 lands, the richest
+runtime (its own opcode superset, §5 of `scripting-engine.md`). P1 and P2's
+world/dungeon/star/action *data* is already confirmed byte-compatible with
+P3's engine shape (`dungeon-format.md` §1: same cell-ID ranges, same
+star/action record formats, opcodes `0x00`-`0x13` identical across all
+three — P3 only adds `0x14`-`0x1B` on top). The idea: drive P1's and P2's
+own decoded game data through the same runtime/rendering path built for
+P3, rather than building three separate renderers — analogous to the
+already-shipped P1/P2-world-map "Phantasie III art" skin
+(`tools/viewer/map-viewer.ts`), but for the actual playable engine, not
+just a cosmetic map overlay. Purely additive, and squarely blocked on
+Phase 3 (no runtime yet) and Phase 6 (no renderer yet) — do not start
+before both exist. Open design question for whenever this is picked up:
+P1/P2's own opcodes `0x14`+ don't exist (P1) or mean something P3-specific-
+incompatible (P2's `0x14`-`0x17` vs. P3's disjoint `0x14`-`0x1B`, per
+`scripting-engine.md` §5) — the interpreter would need to stay
+per-game-opcode-table-parameterised (as already planned for `opcodes.ts`)
+even when P1/P2 borrow P3's rendering.
 
 ### Phase 7 — Phantasie II graphics + data — DONE
 

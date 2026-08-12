@@ -1,6 +1,7 @@
 import { setHidden, type AtlasMeta, type PaletteData, type AtlasFrame } from './shared.ts';
 import { WorldMapViewer } from './map-viewer.ts';
 import { MusicPlayer } from './music-player.ts';
+import { DungeonViewer } from './dungeon-viewer.ts';
 import {
   GAME_IDS,
   GAME_DISPLAY_NAMES,
@@ -49,9 +50,12 @@ interface ManifestEntry {
    * which fetches `<name>.json` + `<name>-pois.json` and draws vector-ish
    * flat-coloured cells instead — see `map-viewer.ts`; `'music'` means the
    * Web Audio player, which fetches the raw `music/<name>.bin` stream and
-   * decodes it in the browser — see `music-player.ts`.
+   * decodes it in the browser — see `music-player.ts`. `'dungeon'` means
+   * the dungeon grid view — fetches `<name>.json` and draws a flat-coloured
+   * top-down cell grid, with click-to-inspect for star triggers — see
+   * `dungeon-viewer.ts`.
    */
-  type?: 'atlas' | 'map' | 'music';
+  type?: 'atlas' | 'map' | 'music' | 'dungeon';
 }
 
 const listEl = document.getElementById('list')!;
@@ -81,6 +85,8 @@ let currentFrame = 0;
 let mapViewer: WorldMapViewer | null = null;
 /** Likewise: no AudioContext exists until a music asset is opened. */
 let musicPlayer: MusicPlayer | null = null;
+/** Likewise: no dungeon fetch until a dungeon asset is opened. */
+let dungeonViewer: DungeonViewer | null = null;
 
 let currentGame: GameId = DEFAULT_GAME;
 let currentPlatform: PlatformId = DEFAULT_PLATFORM;
@@ -177,6 +183,7 @@ async function switchGamePlatform(game: GameId, platform: PlatformId) {
   currentFrame = 0;
   mapViewer?.hide();
   musicPlayer?.hide();
+  dungeonViewer?.hide();
 
   manifest = await loadManifest();
   // `?asset=` is honoured once, on the load that the URL was parsed for —
@@ -215,7 +222,7 @@ function renderList() {
     item.className = 'item';
     if (selected === a) item.classList.add('selected');
     const dim =
-      a.type === 'map' || a.type === 'music'
+      a.type === 'map' || a.type === 'music' || a.type === 'dungeon'
         ? `<span class="tag">${a.type}</span>`
         : `${a.sprites}sp${a.hasPalette ? ' · pal' : ''}`;
     item.innerHTML = `<span class="item-label">${a.name}</span><span class="item-dim">${dim}</span>`;
@@ -229,23 +236,30 @@ async function selectAsset(asset: ManifestEntry) {
   currentFrame = 0;
   updateUrl();
 
-  if (asset.type === 'map' || asset.type === 'music') {
+  if (asset.type === 'map' || asset.type === 'music' || asset.type === 'dungeon') {
     currentAtlas = null;
     currentPalette = null;
     currentFrames = [];
     renderList();
     if (asset.type === 'map') {
       musicPlayer?.hide();
+      dungeonViewer?.hide();
       await showMap(asset);
+    } else if (asset.type === 'music') {
+      mapViewer?.hide();
+      dungeonViewer?.hide();
+      await showMusic(asset);
     } else {
       mapViewer?.hide();
-      await showMusic(asset);
+      musicPlayer?.hide();
+      await showDungeon(asset);
     }
     return;
   }
 
   mapViewer?.hide();
   musicPlayer?.hide();
+  dungeonViewer?.hide();
   currentAtlas = await loadJSON<AtlasMeta>(`${asset.name}.json`);
   currentPalette = asset.hasPalette ? await loadJSON<PaletteData>(`${asset.name}.pal.json`) : null;
   currentFrames = currentAtlas?.frames ?? [];
@@ -277,8 +291,20 @@ async function showMusic(asset: ManifestEntry) {
   metaEl.textContent = musicPlayer.summary;
 }
 
+/** Dungeon entries open the flat-coloured grid view with click-to-inspect. */
+async function showDungeon(asset: ManifestEntry) {
+  titleEl.textContent = `${asset.name} — dungeon`;
+  metaEl.textContent = '';
+  frameInfoEl.textContent = 'click a cell to inspect it';
+  setHidden(frameStrip, true);
+  setHidden(paletteBar, true);
+  dungeonViewer ??= new DungeonViewer(canvasWrap);
+  await dungeonViewer.show(ASSET_BASE, asset.name, currentGame);
+  metaEl.textContent = dungeonViewer.summary;
+}
+
 function drawAsset() {
-  if (selected?.type === 'map' || selected?.type === 'music') return;
+  if (selected?.type === 'map' || selected?.type === 'music' || selected?.type === 'dungeon') return;
   if (!selected || !currentAtlas) {
     titleEl.textContent = 'No asset selected';
     metaEl.textContent = '';

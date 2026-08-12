@@ -132,6 +132,28 @@ canvas { image-rendering: pixelated; }
 .map-legend-swatch { width: 12px; height: 12px; border: 1px solid var(--border-control); border-radius: 2px; }
 #map-detail { font-size: 11px; color: var(--text-secondary); font-family: monospace; min-height: 14px; }
 
+/* Dungeon grid view: same strip chrome as the map, plus a richer detail
+ * panel (message text, a choice picker, and an action-chain list) rather
+ * than a one-line monospace summary. */
+#dungeon-strip {
+  border-top: 1px solid var(--border); background: var(--bg-panel); padding: 6px 12px;
+  display: flex; flex-direction: column; gap: 6px; max-height: 40%; overflow-y: auto;
+}
+#dungeon-strip.hidden { display: none; }
+#dungeon-legend { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+#dungeon-detail { font-size: 12px; color: var(--text-secondary); }
+.dungeon-hint { color: var(--text-muted); font-size: 11px; margin: 0; }
+.dungeon-detail-head { font-family: monospace; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+.dungeon-message {
+  background: var(--bg-input); border: 1px solid var(--border-control); border-radius: var(--radius);
+  padding: 6px 8px; font-family: monospace; white-space: pre-wrap; margin-bottom: 6px;
+}
+.dungeon-choices { margin-bottom: 6px; font-size: 12px; }
+.dungeon-choices select { font-family: inherit; }
+.dungeon-actions ol { margin: 4px 0 0 18px; padding: 0; font-size: 12px; }
+.dungeon-actions li { margin-bottom: 2px; font-family: monospace; }
+.dungeon-unverified { color: #d9822b; font-size: 10px; }
+
 /* Music player: the piano roll fills the pane like the map canvas does. */
 #canvas-wrap.music-mode {
   overflow: hidden; align-items: stretch; justify-content: stretch;

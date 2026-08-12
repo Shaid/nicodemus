@@ -28,7 +28,9 @@ import {
   decodeP1RaceSprite,
   P1_RACE_COUNT,
 } from '../../src/assets/formats/sprite-bank.ts';
+import { readScrollDocuments } from '../../src/assets/formats/scrolls.ts';
 import { buildWorldMap } from './build-map.ts';
+import { buildDungeons } from './build-dungeons.ts';
 // getGameConfig is dynamically imported inside main() (CLI-only) to avoid a
 // static circular import — game-config.ts imports buildAssets from this
 // file to register the pipeline step.
@@ -42,8 +44,13 @@ export interface ManifestEntry {
    * Which viewer to open the entry in. Absent (the default) means the
    * ordinary sprite-atlas / picture view; `'map'` is the world-map view,
    * which reads `<name>.json` + `<name>-pois.json` instead of a PNG.
+   * `'text'` is a plain narrative-text asset (no PNG) — `<name>.json` holds
+   * the decoded document list directly; see `scrolls.dtx` (§8.4).
+   * `'dungeon'` is a decoded dungeon level (grid + star/action tables +
+   * messages) — `<name>.json` holds the full document; see
+   * `build-dungeons.ts` and `scripting-engine.md`.
    */
-  type?: 'atlas' | 'map';
+  type?: 'atlas' | 'map' | 'text' | 'dungeon';
 }
 
 export function upsertManifest(outDir: string, entries: ManifestEntry[]): void {
@@ -213,6 +220,23 @@ function buildRaceBankAsset(
   return writeAtlas(outDir, atlasName, atlas, palette);
 }
 
+// ---------------------------------------------------------------------------
+// scrolls.dtx — the "THE HISTORY OF GELNOR" narrative text bank. Confirmed
+// format: dungeon-format.md §8.4. No PNG; the decoded scroll-document list
+// ships directly as `scrolls.json`.
+// ---------------------------------------------------------------------------
+
+function buildScrollsAsset(dataDir: string, outDir: string): ManifestEntry | null {
+  const path = resolve(dataDir, findFileCI(dataDir, 'scrolls.dtx'));
+  if (!existsSync(path)) return null;
+
+  const data = new Uint8Array(readFileSync(path));
+  const documents = readScrollDocuments(data);
+  writeJson(resolve(outDir, 'scrolls.json'), { documents });
+
+  return { name: 'scrolls', type: 'text', sprites: 0, hasPalette: false, png: '' };
+}
+
 /** Stage 2 entrypoint — registered as `buildAssets` in `game-config.ts`. */
 export function buildAssets(config: PlatformConfig, dataDir: string): void {
   const outDir = resolve('public/assets', config.assetDir, config.platform);
@@ -244,6 +268,13 @@ export function buildAssets(config: PlatformConfig, dataDir: string): void {
 
   // The overworld: maps.int + out*.dat -> world-map.json / world-map-pois.json.
   entries.push(...buildWorldMap(dataDir, outDir));
+
+  const scrolls = buildScrollsAsset(dataDir, outDir);
+  if (scrolls) entries.push(scrolls);
+  else console.warn('  ⚠ scrolls.dtx not found — skipping scrolls text asset');
+
+  // Dungeons: dngN/messN -> dungeon-N.json (Phase 3).
+  entries.push(...buildDungeons(dataDir, outDir));
 
   upsertManifest(outDir, entries);
   console.log(`Wrote ${entries.length} asset(s) to ${outDir}`);
