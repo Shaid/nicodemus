@@ -39,9 +39,18 @@ the data from `data/` in the first place.
 
 | Game | Platform | Data present | Graphics | Data tables | Dungeon/scripting | Pipeline |
 |------|----------|---------------|----------|--------------|---------------------|----------|
-| Phantasie (I) | Amiga | ✅ `data/phantasie/amiga/` | ✅ confirmed **and implemented** (`.pic`, `.pat` + executable tables) | ✅ confirmed **and implemented** (monster/race/palette in `game`) | ✅ confirmed (shared P1/P2 engine); not yet implemented (Phase 3) | ✅ `supported: true`, real `exportGameData`/`buildAssets` |
-| Phantasie II | Atari ST | ✅ extracted to `data/phantasieii/atarist/extracted/` (see `stx-extraction.md`) | ✅ confirmed **and implemented** (ST word-interleaved layout for `MSTR*.PAT`/`PARTY*.PAT` **and** all six `.PIC` full-screen pictures, each with a disassembly-traced palette source) | ✅ confirmed **and implemented** byte-exact against real `PHANT.PRG` (same compiled binary the reference offsets were recorded against — no adjustment needed) | ✅ confirmed against all 8 real `DNG*`/`MESS*` pairs, including the P2-exclusive `0x14`-`0x17` opcodes actually appearing in shipped data; not yet implemented (Phase 3) | ✅ `supported: true`, real `exportGameData`/`buildAssets` |
-| Phantasie III | Amiga | ✅ `data/phantasieiii/amiga/` | ✅ confirmed **and implemented** (`.cmp`/`.csh`/`.set`, including a real bug caught and fixed in `.set`'s byte-remap during implementation) | ✅ confirmed **and implemented** (`monsinfo.dat`, skills, race names, item/spell name tables); ⚠️ race sprite-index table & `inititem.dat` field semantics still unresolved | ✅ confirmed (own engine variant); not yet implemented (Phase 3) | ✅ `supported: true`, real `exportGameData`/`buildAssets` |
+| Phantasie (I) | Amiga | ✅ `data/phantasie/amiga/` | ✅ confirmed **and implemented** (`.pic`, `.pat` + executable tables) | ✅ confirmed **and implemented** (monster/race/item/palette in `game`) | ✅ confirmed **and implemented** (shared P1/P2 engine — `dungeon.ts`/`opcodes.ts`/`star-action.ts`/`messages.ts`, real interpreter, wired into the pipeline and the viewer) | ✅ `supported: true`, real `exportGameData`/`buildAssets` |
+| Phantasie II | Atari ST | ✅ extracted to `data/phantasieii/atarist/extracted/` (see `stx-extraction.md`) | ✅ confirmed **and implemented** (ST word-interleaved layout for `MSTR*.PAT`/`PARTY*.PAT` **and** all six `.PIC` full-screen pictures, each with a disassembly-traced palette source) | ✅ confirmed **and implemented** byte-exact against real `PHANT.PRG` (same compiled binary the reference offsets were recorded against — no adjustment needed); monster/race/item tables | ✅ confirmed against all 8 real `DNG*`/`MESS*` pairs, including the P2-exclusive `0x14`-`0x17` opcodes actually appearing in shipped data; **implemented**, same shared engine as P1 above | ✅ `supported: true`, real `exportGameData`/`buildAssets` |
+| Phantasie III | Amiga | ✅ `data/phantasieiii/amiga/` | ✅ confirmed **and implemented** (`.cmp`/`.csh`/`.set`, including a real bug caught and fixed in `.set`'s byte-remap during implementation) | ✅ confirmed **and implemented** (`monsinfo.dat`, skills, race names + sprite-cell table, item/spell name tables, `inititem.dat`'s armoury-stock format) | ✅ confirmed **and implemented** (own engine variant — same `dungeon-p3.ts`/`opcodes.ts`/`star-action.ts`/`messages.ts` modules, P3's own opcode/message-format branches) | ✅ `supported: true`, real `exportGameData`/`buildAssets` |
+
+**Status update (2026-08-12):** the race sprite-index table and
+`inititem.dat`'s field semantics — the two data-table caveats this row used
+to carry — are both now resolved (`data-tables.md` §4.2, §6.4). Every
+decoded table across all three games is now also republished as browsable
+JSON on the public docs site (`www/`, `phantasie/phantasieii/phantasieiii`
+`data-tables` pages) via a new Stage 2 `build-data-tables.ts` step per game
+and a shared `DataTable.astro` component — not just extracted to
+`data/extracted/` for internal pipeline use.
 
 **All three games now have real, tested, end-to-end graphics + data-table
 pipelines** (Phases 0-2, 4, and 7 all done) — `npx tsx
@@ -96,11 +105,11 @@ format doc section it implements:
 | `exe-data.ts` | AmigaOS HUNK parsing (`parseHunks()`) + monster/race/palette/skill table extraction from `game`/`PhantasieIII` | `data-tables.md` §1, §3, §5; see reference note below | ✅ built |
 | `monster-data.ts` | `monsinfo.dat` record decoder (P3) | `data-tables.md` §3 | ✅ built |
 | `ascii-strings.ts` | Small shared helper (NUL/space-padded string reads) factored out during implementation — not in the original plan, but small and generic enough to keep | n/a | ✅ built (unplanned) |
-| `dungeon.ts` | Shared P1/P2 dungeon grid + header parser | `dungeon-format.md` §3 | ⏳ Phase 3 |
-| `dungeon-p3.ts` | P3 dungeon grid + header parser | `dungeon-format.md` §5 | ⏳ Phase 3 |
-| `star-action.ts` | Star and action record decode + the interpreter loop, parameterised by an opcode table | `scripting-engine.md` §1, §2, §4 | ⏳ Phase 3 |
-| `opcodes.ts` | The P1/P2 and P3 opcode tables as data (not control flow) | `scripting-engine.md` §5 | ⏳ Phase 3 |
-| `messages.ts` | P1/P2 length-prefixed line table + P3 pointer/pool decoder | `scripting-engine.md` §3 | ⏳ Phase 3 |
+| `dungeon.ts` | Shared P1/P2 dungeon grid + header parser | `dungeon-format.md` §3 | ✅ built |
+| `dungeon-p3.ts` | P3 dungeon grid + header parser | `dungeon-format.md` §5 | ✅ built |
+| `star-action.ts` | Star and action record decode + the interpreter loop, parameterised by an opcode table | `scripting-engine.md` §1, §2, §4 | ✅ built |
+| `opcodes.ts` | The P1/P2 and P3 opcode tables as data (not control flow) | `scripting-engine.md` §5 | ✅ built |
+| `messages.ts` | P1/P2 length-prefixed line table + P3 pointer/pool decoder | `scripting-engine.md` §3 | ✅ built |
 
 All eight built modules have colocated `__tests__/*.test.ts` files
 (83 tests total) following the boilerplate guide's real-byte-fixture
@@ -196,11 +205,14 @@ correctly treated as non-blocking per the original plan.
 `monsinfo.dat`'s `Weapon`/`Armor`/spell fields are now understood
 (`weaponRating`/`armorRating` — raw combat stats, not item indices; spell
 fields confirmed against a newly-decoded P3 spell name table —
-`data-tables.md` §3.1). Two items remain genuinely open and non-blocking:
+`data-tables.md` §3.1). ~~Two items remain genuinely open and non-blocking:
 the race→sprite-bank-cell index table (`data-tables.md` §4.2 —
 `heros.cmp` currently renders via an unverified race-index-as-cell-index
 assumption) and `inititem.dat`'s field semantics (`data-tables.md` §6.3).
-Neither blocks a playable slice.
+Neither blocks a playable slice.~~ **Both resolved as of 2026-08-10** — see
+`data-tables.md` §4.2 (the real 19-byte sprite-cell table, not an identity
+mapping) and §6.4 (`inititem.dat` is `stock[18 armouries][181 item ids]`,
+the array orientation was transposed in the original reading).
 
 **Goal (original):** `monsinfo.dat` → `entities.json` (monster records, sprite-bank
 references resolved to actual bank/cell coordinates from Phase 1).
@@ -218,7 +230,18 @@ references resolved to actual bank/cell coordinates from Phase 1).
 `entities.json` (monsters, name, stats, resolved sprite) replacing the
 current empty-array placeholder.
 
-### Phase 3 — Dungeon + scripting engine (shared P1/P2/P3 core) — DECODERS + PIPELINE DONE, VIEWER NOT STARTED
+### Phase 3 — Dungeon + scripting engine (shared P1/P2/P3 core) — DONE
+
+**Status update (2026-08-12):** decoders, pipeline wiring, and the viewer
+are all done — `tools/viewer/dungeon-viewer.ts` renders a top-down grid for
+all three games and runs the real `executeStar`/`executeStarChain`
+interpreter live, click-to-inspect a star cell to see its real message,
+choices, and action chain. Playwright-verified this session (a real click
+on `dungeon-1`'s star at `(2, 26)` returned the real message text, a
+working choice dropdown, and a two-step action chain). What Phase 3's
+original "Done when" bar did **not** ask for and this still doesn't have:
+actual grid-based *player movement* / a playable interactive loop — that's
+Phase 6 (Runtime engine), not this phase.
 
 **Goal:** dungeon grid + star/action/message interpreter, decoupled from
 rendering — this is game *logic*, not just data, so it's the first piece
@@ -451,7 +474,21 @@ Both sprite banks render correctly-colored (not greyscale) via
 
 **Goal (original):** `.pic`/`.pat` decode, monster/race tables from `game`.
 
-### Phase 5 — Town + world-map data (prerequisite for a playable slice)
+### Phase 5 — Town + world-map data (prerequisite for a playable slice) — LARGELY DONE
+
+**Status update (2026-08-12):** all three games' world maps are decoded,
+byte-verified, and rendered as real interactive maps in the viewer (not
+just data) — `world-p1-viewer-north-up`, `world-p2-pipeline-wiring`,
+`world-p2-map-tile-graphics`, `world-p3-map-pipeline`, and
+`world-p3-castle-netherworld-maps` are all `resolved` in `TODO.md`. P1's
+`scrolls.dtx` is fully extracted (19 real scroll documents). What's left in
+this phase is narrow and non-blocking: `twns.int`'s unidentified container
+regions and the `PHANTASIA`-record anomaly (`world-p1-twns-int-fields`),
+P2's POI semantics not yet fed into its pipeline
+(`world-p2-poi-semantics-into-pipeline`), and one out-of-range encounter
+index (`world-p1-special-event-index-79`) — see `TODO.md` for all three.
+None of these block a first playable town→world-map slice; they just
+haven't been exercised as one end-to-end yet.
 
 **Goal:** `twns.int`, `out*.dat`, `maps.int` — the town/world-map layer a
 player passes through *before* ever reaching a dungeon (character creation
@@ -616,19 +653,22 @@ actual production build, not just checking the config.
 Phases 0, 1, 2, 4, and 7 are done — every game/platform pair now has a real
 graphics + data-table pipeline, and the viewer can browse all three. Next up:
 
-1. ~~**Phase 5's `maps.int`/`out*.dat` investigation**~~ — **done
-   (2026-08-10).** Both formats are decoded and code-confirmed against the
-   Amiga `game` executable; see `dungeon-format.md` §8.2/§8.3 and
-   `src/assets/formats/outdoor.ts`. The follow-on RE item, now the one that
-   blocks actually *drawing* the world map, is the outdoor icon bitmap bank
-   at `game+0x196BC` (`world-p1-outdoor-icons` in `TODO.md`).
-2. **Phase 3** (dungeon + scripting engine) — implementation-heavy, not
-   RE-heavy: buildable against all three games' already-confirmed formats in
-   one pass, no format-discovery risk left, no P2 revisit needed. Can
-   proceed in parallel with item 1 — they don't block each other, but Phase
-   3 alone does not reach a playable slice (see §1).
-3. Phase 6 (runtime engine) remains blocked on Phase 3 (and, for the
-   town/world-map traversal loop specifically, on Phase 5) as scoped.
+1. ~~**Phase 5's `maps.int`/`out*.dat` investigation**~~ — **done, including
+   the icon bank (2026-08-11).** Both formats are decoded and code-confirmed
+   against the Amiga `game` executable (`dungeon-format.md` §8.2/§8.3,
+   `src/assets/formats/outdoor.ts`); the outdoor icon bitmap bank at
+   `game+0x196BC` this item used to flag as the blocker on *drawing* the
+   world map is also resolved and rendered — all three games' world maps
+   (plus P3's castle/Netherworld maps) are interactive in the viewer with
+   real terrain art, not placeholder colors. `world-p1-outdoor-icons` no
+   longer appears in `TODO.md` (resolved and closed out).
+2. ~~**Phase 3** (dungeon + scripting engine)~~ — **done (2026-08-12).** See
+   Phase 3's own status update above.
+3. Phase 6 (runtime engine) no longer has a Phase 3 blocker; Phase 5's
+   remaining open items (town record container regions, `twns.int`'s
+   `PHANTASIA` anomaly — see `TODO.md`) are narrow enough not to block a
+   first playable slice either, but haven't been exercised end-to-end as
+   one.
 
 ## 5. Open risks carried forward
 
