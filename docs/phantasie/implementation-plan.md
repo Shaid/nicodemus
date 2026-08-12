@@ -537,6 +537,26 @@ message/choice UI. This is genre-specific game code with no format-doc
 counterpart; scope it once Phases 1-4 make clear what data is actually
 available to render.
 
+**Status update (2026-08-12):** Phase 3 is now done (see its own status
+above), so this phase is unblocked. A detailed implementation plan now
+exists at [`docs/implementation.md`](../implementation.md) — a phased
+breakdown for Phantasie III first (state/host foundation, dungeon view,
+combat, overworld traversal, town/shop loop, integration, save/load,
+real-tile-art stretch), followed by dedicated sections for adding
+Phantasie I and Phantasie II, plus a full game-logic differences catalog
+(dungeon/script interpreter, combat resolution, message/text, world map,
+character/stats, items/spells) so per-game branching decisions in
+implementation are never silently assumed. It also settles the
+`Game.ts`-vs-custom-orchestrator question this section leaves open above:
+`Game`/`InputManager` are deliberately **not** reused as top-level
+infrastructure (they hardwire one `TopDownCamera` to one free-pan input
+scheme for the app's whole lifetime, which doesn't fit dungeon/overworld/
+town/combat's four different interaction modes) — only `TopDownCamera`'s
+viewport math, `KeyState`/`PointerState`, and `pixi-helpers.ts` are reused,
+under a thin custom `PhantasieApp`/`SceneManager`. See that document for
+the full design; this section is left as historical context per this
+project's dated-correction-block convention.
+
 **Stretch goal, noted 2026-08-10 — the dungeon view itself.** The original
 games' dungeon renderers are visually plain (flat top-down tiles). Once a
 functionally-correct top-down renderer exists (this phase's "Done when" bar
