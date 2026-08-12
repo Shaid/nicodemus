@@ -3,6 +3,13 @@ title: Data Tables
 description: monsinfo.dat's 80 monster records, the 8-skill class/level progression table, the 18-race table, and the item/spell tables cross-checked against SSI's own 1987 manual.
 ---
 
+import DataTable from '../../../components/DataTable.astro';
+
+Every table below is browsable in full, not just described — each one reads
+the extraction pipeline's own JSON straight from `public/assets/phantasieiii/amiga/`
+at build time (`tools/phantasieiii/build-data-tables.ts`), so what you see here
+is exactly what the game's own bytes decode to.
+
 Four executable-embedded or standalone tables drive Phantasie III's
 monsters, character advancement, and item/spell catalogues. All of them are
 this session's own independent extraction and analysis — cross-checked,
@@ -50,6 +57,37 @@ same 128-byte disk-padding convention used throughout this data set —
 +0x24   1 byte   Experience (single byte — max 255)
 +0x25   1 byte   (unused pad byte)
 ```
+
+<DataTable
+	assetPath="phantasieiii/amiga"
+	table="monsters"
+	label="monster"
+	columns={[
+		{ key: 'index' },
+		{ key: 'name' },
+		{ key: 'encounterGroupSize', label: 'Group Size' },
+		{ key: 'attack' },
+		{ key: 'weaponRating', label: 'Weapon Rtg.' },
+		{ key: 'armorRating', label: 'Armor Rtg.' },
+		{ key: 'defense' },
+		{ key: 'threat' },
+		{ key: 'hp' },
+		{ key: 'mp' },
+		{ key: 'alignment' },
+		{ key: 'spell1', label: 'Spell 1' },
+		{ key: 'spell2', label: 'Spell 2' },
+		{ key: 'spell3', label: 'Spell 3' },
+		{ key: 'item1', label: 'Item 1' },
+		{ key: 'item2', label: 'Item 2' },
+		{ key: 'isUndead', label: 'Undead' },
+		{ key: 'gold' },
+		{ key: 'experience', label: 'XP' },
+	]}
+/>
+
+Spell/item fields above are the raw table indices (§3.1's cross-check against
+the spell/item tables below resolves them to real names — not repeated here
+per row to keep the table readable).
 
 **Confidence: confirmed** — record boundaries, stride, and offsets read
 from source and independently structurally validated. Decoding names at
@@ -135,6 +173,13 @@ Fighter's Attack progression (`0x28386`) reads a textbook level-1-to-15
 curve: `100, 110, 120, 135, 145, 155, 165, 180, 190, 200, 210, 220, 235,
 245, 255`, ending exactly at the byte max.
 
+<DataTable
+	assetPath="phantasieiii/amiga"
+	table="skills"
+	label="skill/class row"
+	columns={[{ key: 'skill' }, { key: 'class' }, { key: 'levels', label: 'Levels 1-15' }]}
+/>
+
 ### The level-15 anomaly
 
 A small number of classes' **15th** (last) level value breaks an otherwise
@@ -214,9 +259,29 @@ names, back to back — a generic UI-text lookup, not a race-specific
 structure. **Confidence: confirmed, byte-exact**, implemented as
 `readP3RaceNames()`.
 
-**Open**: the parallel race → sprite-bank-cell table is not located — see
-[Status & Open Work](../../phantasieiii/status/) for the three search approaches
-tried and why each came back empty.
+**The race → sprite-bank-cell table is now located and confirmed** (a
+correction — earlier revisions of this page called it unlocated after three
+distinct search approaches came back empty): 19 bytes at file offset
+`0x299D8`, found by disassembling the party-sprite cell extractor at
+`0x1B2DA` rather than searching for the table's own shape. It is **not** an
+identity mapping — 6 of the 18 races share a cell with another race (e.g.
+Halfling reuses Gnome's cell, Pixie and Sprite share one) — confirmed
+against 13 rendered `heros.cmp` cell crops, 13/13 matching the assigned
+race. See [Status & Open Work](../../phantasieiii/status/) for the three
+failed search approaches and why each one was structurally blind to this
+table.
+
+<DataTable
+	assetPath="phantasieiii/amiga"
+	table="races"
+	label="race"
+	columns={[
+		{ key: 'index' },
+		{ key: 'name' },
+		{ key: 'bankFile', label: 'Sprite Bank' },
+		{ key: 'cellIndex', label: 'Cell (idle)' },
+	]}
+/>
 
 ## The item table (executable-embedded, 181 entries)
 
@@ -227,6 +292,24 @@ real items (`"Wooden Shield"`, `"Small Axe"`, `"Wand of Nikademus"` at the
 final index 180). **Cross-checked against real dungeon scripts**: all real
 opcode-`0x06` records across the 11 dungeon files resolve to 71 distinct
 in-range item indices, 0 out of range.
+
+`pointValue`/`attributesRequired` are combat-equipment stats that only cover
+item ids 0-100 (shields, armor, bows, melee weapons) — potions, scrolls and
+valuables past id 100 aren't combat equipment and show as `—` (no fabricated
+zero). `basePrice` covers the full 0-180 range.
+
+<DataTable
+	assetPath="phantasieiii/amiga"
+	table="items"
+	label="item"
+	columns={[
+		{ key: 'index' },
+		{ key: 'name' },
+		{ key: 'pointValue', label: 'Point Value' },
+		{ key: 'attributesRequired', label: 'Attributes Req.' },
+		{ key: 'basePrice', label: 'Base Price (gold)' },
+	]}
+/>
 
 ### Cross-checked against SSI's 1987 manual
 
@@ -259,6 +342,15 @@ out-of-range values (39/36 distinct values respectively) — e.g. Skeleton's
 `Item 1`/`Item 2` resolve to `"Staff"`/`"Short Sword"`, plausible monster
 drops.
 
+### Armoury price markups
+
+18 big-endian words at file `0x28A0C` (hunk 1 `+0x1144`), indexed by armoury
+(0-17, `inititem.dat`'s own row index — see below). `chargedPrice =
+basePrice[item] × markup[armoury] / 100`; armoury 11 undercuts everyone at
+88%, armouries 6 and 8 charge double.
+
+<DataTable assetPath="phantasieiii/amiga" table="shop-markups" label="armoury" />
+
 ## The spell table (58 entries)
 
 Immediately after the item table, at file offset `0x4E74` (ends
@@ -290,48 +382,72 @@ confirmations:
 **Confidence: confirmed** — the manual's numbered table, two separate body
 text passages, and the independent opcode cross-reference all agree.
 
-## `inititem.dat` — still open
+<DataTable assetPath="phantasieiii/amiga" table="spells" label="spell" />
+
+## `inititem.dat` — the armoury stock table
 
 `data/phantasieiii/amiga/inititem.dat`, 3,328 bytes. **No reference source
 exists for this file** — confirmed by exhaustive grep across the reference
 tool's entire source tree. Everything here is this project's own structural
-analysis.
+analysis, but the format is now fully resolved, not just structurally
+characterized.
 
-Record boundary is confirmed two ways: a stride/column-cardinality scan
-strongly favours an 18-byte stride (181 records, `181 × 18 = 3,258`,
-landing exactly at the file's padding boundary), and — independently — the
+> **Correction:** earlier revisions of this page (and of the raw notes
+> behind it) read this file as **181 records of 18 bytes**, one record per
+> item, with the 18 columns as unknown per-item fields. That reading is
+> **transposed**. The real layout, taken from the code that indexes it, is
+> **18 records of 181 bytes, one record per armoury (shop)**, each a flat
+> `stock[itemId]` array over the confirmed 181-entry item table above. Both
+> readings share the same `181 × 18 = 3,258` byte total, which is why every
+> byte-accounting check under the old reading passed while the field
+> semantics stayed opaque.
+
+Record boundary/count is confirmed two ways: a stride/column-cardinality
+scan strongly favours an 18-byte stride (`181 × 18 = 3,258`, landing
+exactly at the file's padding boundary), and — independently — the
 `PhantasieIII` save writer/loader transfers a hardcoded `0xCBA` = `3,258`
 byte block between the file and a runtime buffer at hunk 1 `+0x44BA`
-([Combat & Character Record](../../phantasieiii/combat-and-character-record/)),
-confirming exactly this stride and count from the code side.
+([Combat & Character Record](../../phantasieiii/combat-and-character-record/)).
 
-**Field semantics remain unresolved.** This session's full 181-row
-correlation pass found:
+**Field semantics resolved** by disassembling the armoury-stock builder at
+file `0x8B5A` (reached from the "A) Armoury" town command): row byte 0 is
+that armoury's distinct-item count; bytes 1-180 are the stock quantity of
+item id 1-180. This is a **self-checking invariant** — counting the nonzero
+bytes in each of the 18 rows independently reproduces the row's own
+declared count, **18/18, zero deviations**. The transposed reading had no
+equivalent invariant to check itself against.
 
-- The nonzero value set is heavily **discretized**: across 87 nonzero rows
-  (159 nonzero byte reads), the values `1` (61×), `5` (39×), `200` (26×),
-  and `99` (6×) alone account for 132 of 159 reads (83%) — the shape of a
-  small enum/tier code, not a continuous stat magnitude.
-- Nonzero rows **cluster in the middle of the item range**: the first is
-  index 10, the last index 148 — every item from 149 to 180 (including the
-  endgame `Wand of Nikademus`) is entirely zero, and so is the cheapest
-  starter gear (indices 1-9). This rules against a simple "value/rarity"
-  reading.
-- A race-count coincidence (18 byte-columns = 18 confirmed races) was
-  tested by tabulating nonzero-count and `200`-count per column against
-  race order — no column stands out in a way that tracks race "power".
-  Checked and inconclusive, not a finding.
+This retro-explains every earlier structural finding under the wrong
+orientation:
 
-See [Status & Open Work](../../phantasieiii/status/) for the next genuinely
-different approach (tracing the `gamesave.dat` load/save code around hunk 1
-`+0x44BA` for an actual field consumer).
+- The discretized value set `{1, 5, 99, 200}` (83% of nonzero reads) is
+  *stock quantities* — `1` a unique piece, `5` five in stock, `200`/`99`
+  effectively-unlimited consumables — not an enum/tier code.
+- The all-zero range at item ids 149-180 (including `Wand of Nikademus`) is
+  the item-id range **no armoury stocks** (treasure, not merchandise), not
+  a "record" with no data.
+- The 18-column count is the confirmed **armoury count**, matching the
+  18-entry price-markup table above exactly — not a race-count coincidence
+  (18 races was tested and found no correlation, since it was never the
+  right axis).
+
+Resolved against the item table, the content is legible and thematically
+coherent — e.g. armoury 5 stocks `Clothing ×5, Robes ×5, Hard Leather ×1,
+Self Bow ×1, Club ×5, Mace ×1, Staff ×1, Short Sword ×1, Healing Potion 3
+×200, Healing Potion 5 ×5, Magic Potion 3 ×200, Magic Potion 5 ×5, Scroll XI
+×200, Scroll XII ×200, Scroll XIV ×1`.
+
+**Confidence: confirmed** — code-traced indexing, an 18/18 internal
+row-header invariant, and a coherent resolve against the independently
+confirmed item table. This armoury-stock array itself isn't yet a separate
+browsable table on this site (only its sibling price-markup table above
+is) — see [Status & Open Work](../../phantasieiii/status/).
 
 ## The open bits
 
-- `inititem.dat`'s 18 field meanings — record shape confirmed, semantics
-  open.
-- The race → sprite-bank-cell table — not located.
 - The level-15 skills anomaly's specific values — mechanism confirmed,
   intent unresolvable from code alone.
+- `scripting-p3-charrecord-field-names` — 8 of 9 character-sheet skill-pair
+  name bindings are a strong hypothesis, not disassembly-confirmed.
 
 Full detail: [Status & Open Work](../../phantasieiii/status/).

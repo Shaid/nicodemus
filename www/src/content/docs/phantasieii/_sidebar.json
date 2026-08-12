@@ -6,6 +6,7 @@
 			{ "label": "Status & Open Work", "slug": "phantasieii/status" },
 			{ "label": ".stx Extraction", "slug": "phantasieii/extraction" },
 			{ "label": ".PAT Sprite Banks", "slug": "phantasieii/graphics" },
+			{ "label": "Data Tables", "slug": "phantasieii/data-tables" },
 			{ "label": "Screens", "slug": "phantasieii/screens" },
 			{ "label": "Characters, Items & Combat", "slug": "phantasieii/characters-and-combat" },
 			{ "label": "Sprite Gallery", "slug": "phantasieii/sprites" }

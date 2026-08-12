@@ -37,9 +37,11 @@ mirror.
 40 frames, 32×48. Bank 0 in the confirmed dispatcher — every monster or
 race sprite resolving to bank 0 renders from here. Only one monster maps
 here in the confirmed `monsinfo.dat` data (`Troll Baby`, cell 10); the
-other 39 cells are the working hypothesis for the 18 playable races'
-sprites (race index used directly as the cell index) — **not** a located
-table, see [Status & Open Work](../../phantasieiii/status/).
+other 39 cells are the 18 playable races' sprites, addressed through a
+confirmed 19-byte lookup table (file `0x299D8`) — **not** race index used
+directly as the cell index (6 of 18 races share a cell with another race).
+See [Data Tables](../../phantasieiii/data-tables/) for the full
+race-to-cell table and the disassembly evidence.
 
 <SpriteGallery
 	manifest="heros"

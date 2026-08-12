@@ -21,6 +21,7 @@ import { buildWorldMap } from './build-map.ts';
 import { buildCastleMaps } from './build-castle-maps.ts';
 import { buildMusicAssets } from './build-music.ts';
 import { buildDungeons } from './build-dungeons.ts';
+import { buildDataTables } from './build-data-tables.ts';
 // getGameConfig is dynamically imported inside main() (CLI-only) to avoid a
 // static circular import — game-config.ts imports buildAssets from this
 // file to register the pipeline step.
@@ -38,9 +39,12 @@ export interface ManifestEntry {
    * browser (see `tools/phantasieiii/build-music.ts`). `'dungeon'` is a
    * decoded dungeon level (grid + star/action tables + messages) —
    * `<name>.json` holds the full document; see `build-dungeons.ts` and
-   * `scripting-engine.md`.
+   * `scripting-engine.md`. `'data-table'` is a browsable data table
+   * (monsters/races/items/spells/skills, no PNG) — `<name>.json` holds a
+   * flat array of row objects; see `build-data-tables.ts` and the public
+   * site's `DataTable.astro`.
    */
-  type?: 'atlas' | 'map' | 'music' | 'dungeon';
+  type?: 'atlas' | 'map' | 'music' | 'dungeon' | 'data-table';
 }
 
 /** Upsert-by-name merge into an existing manifest.json, since multiple
@@ -163,6 +167,7 @@ export function buildAssets(config: PlatformConfig, dataDir: string): void {
   const castleMapEntries = buildCastleMaps(dataDir, outDir);
   const musicEntries = buildMusicAssets(dataDir, outDir);
   const dungeonEntries = buildDungeons(dataDir, outDir);
+  const dataTableEntries = buildDataTables(dataDir, outDir);
 
   const entries = [
     ...cmpEntries,
@@ -171,6 +176,7 @@ export function buildAssets(config: PlatformConfig, dataDir: string): void {
     ...castleMapEntries,
     ...musicEntries,
     ...dungeonEntries,
+    ...dataTableEntries,
   ];
   upsertManifest(outDir, entries);
 

@@ -275,10 +275,14 @@ implementing the `spriteIndex==27 → bank 0 cell 10` special case exactly.
 > updated to match, guarded by a regression test.
 
 The per-race `bankSpriteIndex` table this same formula needs for the 18
-playable races was searched for and **not found** — see [Status & Open
-Work](../../phantasieiii/status/) for the three approaches tried. Race sprites
-currently render using race index directly as the bank-0 cell index, an
-**unverified working hypothesis**, not a located table.
+playable races is now **located and confirmed** (a correction — three
+earlier search approaches came back empty, see [Status & Open
+Work](../../phantasieiii/status/) for why each was structurally blind to
+it): 19 bytes at file `0x299D8`, found by disassembling the party-sprite
+cell extractor at `0x1B2DA` directly. It is **not** an identity mapping —
+6 of 18 races share a cell with another race — confirmed against 13
+rendered `heros.cmp` cell crops, 13/13 matching. See [Data
+Tables](../../phantasieiii/data-tables/) for the full table.
 
 ## The open bits
 
@@ -286,8 +290,6 @@ currently render using race index directly as the bank-0 cell index, an
   unknown; simple checksums were tested and ruled out.
 - The exact picture row `.SET`'s map renderer samples — not determined, no
   consuming code located.
-- The per-race sprite-index table — not located, three search approaches
-  tried.
 
 Full detail and the paths already tried: [Status & Open
 Work](../../phantasieiii/status/).

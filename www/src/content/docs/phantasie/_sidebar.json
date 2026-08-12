@@ -5,6 +5,7 @@
 			{ "label": "Home", "slug": "phantasie" },
 			{ "label": "Status & Open Work", "slug": "phantasie/status" },
 			{ "label": ".pic & .pat — Graphics Formats", "slug": "phantasie/graphics" },
+			{ "label": "Data Tables", "slug": "phantasie/data-tables" },
 			{ "label": "GetStat & Combat", "slug": "phantasie/characters-and-combat" },
 			{ "label": "Sprite Galleries", "slug": "phantasie/sprites" },
 			{ "label": "Screens", "slug": "phantasie/screens" }

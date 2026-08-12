@@ -6,10 +6,12 @@ import {
   parseHunks,
   readP1MonsterNames,
   readP1RaceNames,
+  readP1ItemNames,
   readP1Palette,
   readP3SkillTables,
   readP2MonsterNames,
   readP2RaceNames,
+  readP2ItemNames,
   readP2Palette,
   readP2CoverPalette,
   readP2TownPalette,
@@ -20,6 +22,7 @@ import {
   readP3ItemStats,
   readP3ItemPrices,
   readP3ShopMarkups,
+  readP3Items,
 } from '../exe-data.ts';
 
 const GAME_PATH = resolve('data/phantasie/amiga/game');
@@ -105,6 +108,18 @@ describe('readP1RaceNames — data-tables.md §1.4', () => {
       'MINOTAUR',
       'UNDEAD',
     ]);
+  });
+});
+
+describe('readP1ItemNames — data-tables.md §1.5', () => {
+  it('reads all 181 item names, index 0 the "NOTHING" placeholder', () => {
+    const game = new Uint8Array(readFileSync(GAME_PATH));
+    const names = readP1ItemNames(game);
+    expect(names).toHaveLength(181);
+    expect(names[0]).toBe('NOTHING');
+    // §1.5's own cross-check narrative: item 51 = "SM AXE", matching the
+    // confirmed example action record in scripting-engine.md §2 (opcode 0x06).
+    expect(names[51]).toBe('SM AXE');
   });
 });
 
@@ -206,6 +221,17 @@ describe('readP2RaceNames — data-tables.md §2.4', () => {
       'MINOTAUR',
       'UNDEAD',
     ]);
+  });
+});
+
+describe('readP2ItemNames — data-tables.md §2.6', () => {
+  it('reads all 181 item names, index 0 the "NOTHING" placeholder', () => {
+    const exe = new Uint8Array(readFileSync(P2_EXE_PATH));
+    const names = readP2ItemNames(exe);
+    expect(names).toHaveLength(181);
+    expect(names[0]).toBe('NOTHING');
+    // §2.6's own cross-check narrative names these as resolving real items.
+    expect(names).toContain('DIAMOND');
   });
 });
 
@@ -369,5 +395,36 @@ describe('readP3ItemStats / readP3ItemPrices / readP3ShopMarkups — data-tables
     expect(readP3ShopMarkups(exe)).toEqual([
       100, 150, 145, 140, 130, 125, 200, 115, 200, 105, 100, 88, 95, 90, 123, 100, 100, 100,
     ]);
+  });
+});
+
+describe('readP3Items — data-tables.md §3.1/§7', () => {
+  it('merges name/stats/price by item id, and returns shopMarkups alongside', () => {
+    const exe = new Uint8Array(readFileSync(P3_EXE_PATH));
+    const { items, shopMarkups } = readP3Items(exe);
+    expect(items).toHaveLength(181);
+    expect(shopMarkups).toHaveLength(18);
+
+    expect(items[0]).toEqual({ index: 0, name: '0', pointValue: 0, attributesRequired: 0, basePrice: 0 });
+    expect(items[1]).toEqual({ index: 1, name: 'Glove', pointValue: 1, attributesRequired: 1, basePrice: 1 });
+    expect(items[100]).toEqual({
+      index: 100,
+      name: 'God Sword',
+      pointValue: 25,
+      attributesRequired: 60,
+      basePrice: 12401,
+    });
+  });
+
+  it('has null stats (not fabricated zeros) for item ids past 100, which the stats table does not cover', () => {
+    const exe = new Uint8Array(readFileSync(P3_EXE_PATH));
+    const { items } = readP3Items(exe);
+    // Wand of Nikademus, the endgame artifact — has a real price but no
+    // combat-equipment stats row (data-tables.md §7 only covers ids 0-100).
+    const wand = items[180];
+    expect(wand.name).toBe('Wand of Nikademus');
+    expect(wand.pointValue).toBeNull();
+    expect(wand.attributesRequired).toBeNull();
+    expect(wand.basePrice).toBe(13006);
   });
 });

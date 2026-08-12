@@ -9,7 +9,12 @@ import { resolve } from 'node:path';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { writeJson, findFileCI, type PlatformConfig } from '@seer-project/pipeline';
-import { readP1MonsterNames, readP1RaceNames, readP1Palette } from '../../src/assets/formats/exe-data.ts';
+import {
+  readP1MonsterNames,
+  readP1RaceNames,
+  readP1ItemNames,
+  readP1Palette,
+} from '../../src/assets/formats/exe-data.ts';
 import { readP1MonsterSpriteTable } from '../../src/assets/formats/sprite-bank.ts';
 // getGameConfig is dynamically imported inside main() (CLI-only) to avoid a
 // static circular import — game-config.ts imports exportGameData from this
@@ -22,6 +27,11 @@ export interface P1MonsterEntity {
 }
 
 export interface P1Race {
+  index: number;
+  name: string;
+}
+
+export interface P1Item {
   index: number;
   name: string;
 }
@@ -48,14 +58,16 @@ export function exportGameData(config: PlatformConfig, dataDir: string): void {
   }));
 
   const races: P1Race[] = readP1RaceNames(game).map((name, index) => ({ index, name }));
+  const items: P1Item[] = readP1ItemNames(game).map((name, index) => ({ index, name }));
   const palette = readP1Palette(game);
 
   writeJson(resolve(outDir, 'entities.json'), entities);
   writeJson(resolve(outDir, 'races.json'), races);
+  writeJson(resolve(outDir, 'items.json'), items);
   writeJson(resolve(outDir, 'palette.json'), { colors: palette });
 
   console.log(
-    `Wrote ${entities.length} monster entities, ${races.length} races, and the confirmed palette to ${outDir}`,
+    `Wrote ${entities.length} monster entities, ${races.length} races, ${items.length} items, and the confirmed palette to ${outDir}`,
   );
 }
 

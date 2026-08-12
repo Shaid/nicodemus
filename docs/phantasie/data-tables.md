@@ -16,6 +16,27 @@ below was independently re-read and checked against this project's own
 verification note under each table. No code from that tool is reproduced
 here.
 
+> **Pipeline status (2026-08-12, `game-re`):** every table in this document
+> that has a decoder function is now also republished as browsable JSON —
+> not just extracted to `data/extracted/` (Stage 1) but written into
+> `public/assets/<game>/<platform>/` (Stage 2, `tools/<game>/
+> build-data-tables.ts`, additive to each game's existing `build-assets.ts`)
+> with `type: 'data-table'` manifest entries, and rendered on the public
+> docs site (`www/`) via a new `DataTable.astro` component —
+> `phantasie/data-tables`, `phantasieii/data-tables`,
+> `phantasieiii/data-tables`. This closes the "real data tables, not just
+> prose" gap the site previously had. §1.5/§2.6 (P1/P2 item names) gained
+> new `readP1ItemNames()`/`readP2ItemNames()` decoder functions this pass
+> (same `readSequentialCStrings` helper `readP3ItemNames()` already used) —
+> the offsets and confirmation evidence documented below were already
+> present, only the decoder function itself was missing before this pass.
+> §7's `readP3ItemStats()`/`readP3ItemPrices()`/`readP3ShopMarkups()` are
+> now also exposed as a single merged `readP3Items()` (item id → name +
+> stats + price, `attributesRequired`/`pointValue` correctly `null` rather
+> than a fabricated `0` for ids 101-180, which the stats table doesn't
+> cover — shop markups stay a separate armoury-indexed array since they
+> don't share the item-id axis).
+
 ## 1. Phantasie I (Amiga) — monster and race tables
 
 All offsets in this section are **file-relative offsets into

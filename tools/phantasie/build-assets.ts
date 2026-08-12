@@ -31,6 +31,7 @@ import {
 import { readScrollDocuments } from '../../src/assets/formats/scrolls.ts';
 import { buildWorldMap } from './build-map.ts';
 import { buildDungeons } from './build-dungeons.ts';
+import { buildDataTables } from './build-data-tables.ts';
 // getGameConfig is dynamically imported inside main() (CLI-only) to avoid a
 // static circular import — game-config.ts imports buildAssets from this
 // file to register the pipeline step.
@@ -48,9 +49,12 @@ export interface ManifestEntry {
    * the decoded document list directly; see `scrolls.dtx` (§8.4).
    * `'dungeon'` is a decoded dungeon level (grid + star/action tables +
    * messages) — `<name>.json` holds the full document; see
-   * `build-dungeons.ts` and `scripting-engine.md`.
+   * `build-dungeons.ts` and `scripting-engine.md`. `'data-table'` is a
+   * browsable data table (monsters/races/items, no PNG) — `<name>.json`
+   * holds a flat array of row objects; see `build-data-tables.ts` and the
+   * public site's `DataTable.astro`.
    */
-  type?: 'atlas' | 'map' | 'text' | 'dungeon';
+  type?: 'atlas' | 'map' | 'text' | 'dungeon' | 'data-table';
 }
 
 export function upsertManifest(outDir: string, entries: ManifestEntry[]): void {
@@ -275,6 +279,8 @@ export function buildAssets(config: PlatformConfig, dataDir: string): void {
 
   // Dungeons: dngN/messN -> dungeon-N.json (Phase 3).
   entries.push(...buildDungeons(dataDir, outDir));
+
+  entries.push(...buildDataTables(dataDir, outDir));
 
   upsertManifest(outDir, entries);
   console.log(`Wrote ${entries.length} asset(s) to ${outDir}`);

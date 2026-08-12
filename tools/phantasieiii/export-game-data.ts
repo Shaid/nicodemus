@@ -16,7 +16,14 @@ import {
   P3_SPRITE_BANKS,
   type SpriteCellRect,
 } from '../../src/assets/formats/sprite-bank.ts';
-import { readP3SkillTables } from '../../src/assets/formats/exe-data.ts';
+import {
+  readP3SkillTables,
+  readP3RaceNames,
+  readP3RaceSpriteCells,
+  readP3Items,
+  readP3SpellNames,
+  type P3ItemsData,
+} from '../../src/assets/formats/exe-data.ts';
 // Dynamically imported inside main() (CLI-only) to avoid a static circular
 // import: game-config.ts imports exportGameData from this file to register
 // the pipeline step, so this file must not statically import game-config.ts
@@ -57,6 +64,43 @@ function resolveEntitySprite(spriteIndex: number): EntitySpriteRef | null {
   }
 }
 
+export interface RaceSpriteRef {
+  bankIndex: number;
+  bankFile: string;
+  cellIndex: number;
+  normalRect: SpriteCellRect;
+  attackingRect: SpriteCellRect;
+}
+
+export interface RaceRecord {
+  index: number;
+  name: string;
+  /** Idle-pose bank-0 cell index (data-tables.md §4.2's confirmed
+   *  `readP3RaceSpriteCells()` table — several races deliberately share a
+   *  cell, this is NOT an identity mapping with `index`). */
+  sprite: RaceSpriteRef;
+}
+
+/**
+ * Races always resolve to bank 0 (`heros.cmp`), unlike monsters — see
+ * `readP3RaceSpriteCells()`'s doc comment (data-tables.md §4.2).
+ */
+function resolveRaceSprite(cellIndex: number): RaceSpriteRef {
+  const bank = P3_SPRITE_BANKS[0];
+  return {
+    bankIndex: 0,
+    bankFile: bank.file,
+    cellIndex,
+    normalRect: spriteCellRect(bank, cellIndex, false),
+    attackingRect: spriteCellRect(bank, cellIndex, true),
+  };
+}
+
+export interface SpellRecord {
+  index: number;
+  name: string;
+}
+
 /** Stage 1 entrypoint — registered as `exportGameData` in `game-config.ts`. */
 export function exportGameData(config: PlatformConfig, dataDir: string): void {
   const outDir = resolve('data/extracted', config.assetDir);
@@ -77,11 +121,36 @@ export function exportGameData(config: PlatformConfig, dataDir: string): void {
 
   const exeName = config.executable ?? 'PhantasieIII';
   const exePath = resolve(dataDir, findFileCI(dataDir, exeName));
-  const skills = existsSync(exePath) ? readP3SkillTables(new Uint8Array(readFileSync(exePath))) : [];
-  if (skills.length === 0) console.warn(`  ⚠ ${exePath} not found — writing empty skills.json`);
+  const exeExists = existsSync(exePath);
+  const exe = exeExists ? new Uint8Array(readFileSync(exePath)) : null;
+  if (!exeExists) console.warn(`  ⚠ ${exePath} not found — writing empty skills/races/items/spells JSON`);
+
+  const skills = exe ? readP3SkillTables(exe) : [];
   writeJson(resolve(outDir, 'skills.json'), skills);
 
-  console.log(`Wrote ${entities.length} entities and ${skills.length} skill tables to ${outDir}`);
+  let races: RaceRecord[] = [];
+  if (exe) {
+    const raceCells = readP3RaceSpriteCells(exe);
+    races = readP3RaceNames(exe).map((name, index) => ({
+      index,
+      name,
+      sprite: resolveRaceSprite(raceCells[index]),
+    }));
+  }
+  writeJson(resolve(outDir, 'races.json'), races);
+
+  const itemsData: P3ItemsData = exe ? readP3Items(exe) : { items: [], shopMarkups: [] };
+  writeJson(resolve(outDir, 'items.json'), itemsData);
+
+  const spells: SpellRecord[] = exe
+    ? readP3SpellNames(exe).map((name, index) => ({ index, name }))
+    : [];
+  writeJson(resolve(outDir, 'spells.json'), spells);
+
+  console.log(
+    `Wrote ${entities.length} entities, ${skills.length} skill tables, ${races.length} races, ` +
+      `${itemsData.items.length} items, and ${spells.length} spells to ${outDir}`,
+  );
 }
 
 async function main() {

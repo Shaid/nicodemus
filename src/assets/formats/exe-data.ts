@@ -172,6 +172,22 @@ export function parseHunks(exe: Uint8Array): ParsedHunks {
   return { code, data };
 }
 
+/** Read `count` sequential NUL-terminated C strings starting at `offset`,
+ *  each starting immediately after the previous one's NUL terminator (no
+ *  fixed per-entry stride) — the shared convention behind every P1/P2/P3
+ *  item/race/spell name table in this file (data-tables.md §1.4/§1.5/
+ *  §2.4/§2.6/§3.1). */
+function readSequentialCStrings(data: Uint8Array, offset: number, count: number): string[] {
+  const names: string[] = [];
+  let pos = offset;
+  for (let i = 0; i < count; i++) {
+    const name = readCString(data, pos);
+    names.push(name);
+    pos += name.length + 1; // + NUL terminator
+  }
+  return names;
+}
+
 // ---------------------------------------------------------------------------
 // Phantasie I (Amiga) tables — data-tables.md §1
 // ---------------------------------------------------------------------------
@@ -210,6 +226,21 @@ export function readP1RaceNames(gameExe: Uint8Array): string[] {
     offset += name.length + 1; // + NUL terminator
   }
   return names;
+}
+
+const P1_ITEM_NAME_TABLE_OFFSET = 0x5efc;
+const P1_ITEM_NAME_COUNT = 181;
+
+/**
+ * 181 sequential NUL-terminated item names (data-tables.md §1.5), same
+ * back-to-back "no fixed stride" convention as the race table above. Index
+ * 0 is `"NOTHING"`, the empty-item-slot sentinel; indices 1-180 are real
+ * items. Confirmed byte-exact and cross-validated against 63 distinct
+ * real dungeon-script item references (0 out of the 0-180 range) —
+ * data-tables.md §1.5.
+ */
+export function readP1ItemNames(gameExe: Uint8Array): string[] {
+  return readSequentialCStrings(gameExe, P1_ITEM_NAME_TABLE_OFFSET, P1_ITEM_NAME_COUNT);
 }
 
 /**
@@ -355,6 +386,21 @@ export function readP2RaceNames(exe: Uint8Array): string[] {
   return names;
 }
 
+const P2_ITEM_NAME_TABLE_OFFSET = 0x1e9cc;
+const P2_ITEM_NAME_COUNT = 181;
+
+/**
+ * 181 sequential NUL-terminated item names (data-tables.md 2.6), same
+ * layout as P1's item table (§1.5) — index 0 is `"NOTHING"`, indices
+ * 1-180 are real items. P2's roster differs from P1's past the shared
+ * early-game armor/weapon list. Confirmed byte-exact and cross-validated
+ * against 44 distinct real dungeon-script item references (0 out of the
+ * 0-180 range) — data-tables.md §2.6.
+ */
+export function readP2ItemNames(exe: Uint8Array): string[] {
+  return readSequentialCStrings(exe, P2_ITEM_NAME_TABLE_OFFSET, P2_ITEM_NAME_COUNT);
+}
+
 /**
  * The confirmed 16-colour P2 palette (data-tables.md 2.3). Decoded via the
  * plain `st` 3-bit-per-channel lookup, *not* the `AmigaToST` even-nibble
@@ -452,17 +498,6 @@ const P3_SPELL_NAME_COUNT = 58; // index 0 is the "0" empty-slot placeholder
 const P3_RACE_NAME_POINTER_TABLE_OFFSET = 0x28e84;
 const P3_RACE_NAME_COUNT = 18;
 const P3_HUNK0_DATA_START = 0x28;
-
-function readSequentialCStrings(data: Uint8Array, offset: number, count: number): string[] {
-  const names: string[] = [];
-  let pos = offset;
-  for (let i = 0; i < count; i++) {
-    const name = readCString(data, pos);
-    names.push(name);
-    pos += name.length + 1; // + NUL terminator
-  }
-  return names;
-}
 
 /**
  * 181 sequential NUL-terminated item names (data-tables.md §3.1). Index 0 is
@@ -607,4 +642,59 @@ export function readP3ShopMarkups(exe: Uint8Array): number[] {
     markups.push(r16(exe, P3_SHOP_MARKUP_TABLE_OFFSET + i * 2, 'be'));
   }
   return markups;
+}
+
+/** One item catalogue row — see `readP3Items()`'s doc comment for why the
+ *  combat fields are nullable rather than parallel-array-shaped. */
+export interface P3ItemRecord {
+  index: number;
+  name: string;
+  /** `null` for item ids 101-180 (potions, scrolls, valuables — not
+   *  combat equipment, data-tables.md §7's `readP3ItemStats()` only
+   *  covers ids 0-100). */
+  pointValue: number | null;
+  attributesRequired: number | null;
+  /** `null` only if `readP3ItemPrices()`'s own 181-entry table were ever
+   *  shorter than the name table — never happens in practice (both are
+   *  confirmed 181 entries), kept nullable for symmetry with the other
+   *  two fields and defensive against a future truncated read. */
+  basePrice: number | null;
+}
+
+export interface P3ItemsData {
+  items: P3ItemRecord[];
+  /** Per-armoury price markup, percent (data-tables.md §7) — indexed by
+   *  *armoury* (0-17), not by item, so it can't be folded into a per-item
+   *  record; returned alongside the item list instead. */
+  shopMarkups: number[];
+}
+
+/**
+ * All 181 items, one record per item id, combining `readP3ItemNames()`
+ * (§3.1), `readP3ItemStats()` and `readP3ItemPrices()` (§7) by shared
+ * item-id index. **Not simply three parallel arrays of the same length**:
+ * the name table has 181 entries (ids 0-180), the price table has 181
+ * (ids 0-180), but the stats table (point value / attributes required)
+ * has only 101 (ids 0-100 — potions/scrolls/valuables past id 100 aren't
+ * combat equipment and carry no stats row, data-tables.md §7). Items
+ * 101-180 get `pointValue: null, attributesRequired: null` rather than a
+ * fabricated zero. The 18-entry armoury markup table (§7) is indexed by
+ * armoury, not item, and is returned as a sibling field rather than
+ * merged into each item row.
+ */
+export function readP3Items(exe: Uint8Array): P3ItemsData {
+  const names = readP3ItemNames(exe);
+  const stats = readP3ItemStats(exe);
+  const prices = readP3ItemPrices(exe);
+  const shopMarkups = readP3ShopMarkups(exe);
+
+  const items: P3ItemRecord[] = names.map((name, index) => ({
+    index,
+    name,
+    pointValue: index < stats.length ? stats[index].pointValue : null,
+    attributesRequired: index < stats.length ? stats[index].attributesRequired : null,
+    basePrice: index < prices.length ? prices[index] : null,
+  }));
+
+  return { items, shopMarkups };
 }
