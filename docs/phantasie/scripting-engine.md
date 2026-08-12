@@ -325,6 +325,135 @@ single-sized records).
 > executable). This P1 finding does not by itself resolve the P2/P3
 > shared-vs-differing-code-path question the original row/paragraph
 > raised — only P1's `game` was traced.
+>
+> **Correction (P3 opcode 0x12/0x13 trace, 2026-08-12) —
+> `scripting-p2p3-stat-opcode-path`, P3 half resolved.** P3's own
+> `ExecuteAction` dispatcher was located directly: `PhantasieIII` file
+> offset `0x1D1BC`-`0x1D1CA`, the classic SAS/C bounded-switch pattern
+> (`CMP.L #0x1C,D0; BCC.B default; ASL.L #1,D0; MOVE.W tbl(PC,D0.W),D0;
+> JMP (PC,D0.W)`, byte-verified), fed by a 28-entry jump table at
+> `0x1D184`-`0x1D1BB` whose entries 0x01-0x04 all resolve to the same
+> target (matching the documented "trap flavor" shared handler) and whose
+> entry 0x00 matches entry 0x16's fallback (a bare terminator) —
+> independent structural confirmation this is the right dispatcher.
+>
+> **P3's `0x12` (`0x1CCBE`-`0x1CDC4`) is genuinely different from P1's**:
+> it loops `charIndex = 0..<[0x2850].w` (party size) calling
+> `GetCharBase(charIndex)` and, for the general case (default switch arm,
+> `0x1CDA0`), **unconditionally** writes `charBase[statIndex*2] = Param2`
+> — a plain `SetStat` with **no alive-flag check and no
+> `GetStat`/compare at all**. P1's `0x12` is `if GetStat(char,Param1) <
+> Param2: SetStat(...)`, gated on `char.+0x18 != 0` (alive). Real engine
+> divergence, not a documentation gap.
+>
+> **P3's `0x13` (`0x1CDC8`-`0x1CE7A`)** is structurally parallel (same
+> remap, same `GetCharBase` loop): for each member it reads `stat =
+> charBase[statIndex*2]`, and if `stat >= Param2` sets the loop counter to
+> a sentinel (400) that breaks the loop early; after the loop, `goto
+> Action Param3` fires **iff the sentinel was never hit** — i.e. iff
+> **zero** members ever had `stat >= Param2`. P1's `0x13` proceeds (calls
+> `ShowMessage`) iff zero members are **below** the threshold. Both are
+> party-wide AND-gates, but with **inverted polarity**.
+>
+> **This also corrects §5's stat-index remap-rule paragraph below** (the
+> "`>= 0x3D`... practically reduces to just `>= 0x3D`" text): the two
+> source conditions are **`AND`'d, not redundant** — the real guard is
+> `statIndex > 0x3C` **and** `statIndex > 0x78`, so the subtraction only
+> actually fires for `statIndex > 0x78` (**≥ 0x79/121**), confirmed by two
+> chained compares in `0x12`'s handler (`0C6D003CFFEC/6F0E/
+> 0C6D0078FFEC/6F06/046D003DFFEC`, byte-verified). Every real P3
+> `statIndex >= 61` value checked against this project's own script corpus
+> (§6.3(a)) happens to also be `< 121`, which is why the wrong "reduces to
+> `>=0x3D`" reading never produced an observably wrong remap against real
+> data — a case of a bug staying silent because the corpus never exercised
+> the discriminating range.
+>
+> **P2 (`PHANT.PRG`) traced separately, inconclusive — real dispatch
+> mechanism found, but not the `0x12`/`0x13` handlers themselves.** P1's
+> `JMP (PC,D0.L)` dispatch form (opcode `4EFB`) and its `GetStat` resolver's
+> `CMPI.W` boundary-chain fingerprint both have **zero** matches anywhere in
+> `PHANT.PRG` — P2 does not share P1's addressing idiom. A candidate found
+> by filtering character-record-stride-multiply sites for one targeting
+> `D2` (logical addr `0x9536`-`0x9546`, part of a dispatcher at
+> `0x9420`-`0x95AE` calling a shared per-party-member helper at `0x95E8`
+> with a literal "type" argument `0x12`) was traced fully and **ruled
+> out**: its `type==0x12` branch toggles `char.+0x18` (the confirmed
+> "Status" field, §6.3(d)) and never reads Param1/Param2 as a stat-index/
+> value pair — a coincidental numeric collision with an unrelated
+> trap-flavor dispatch subsystem (case values 1/2/`0x12` etc. all appear
+> as sibling literal call-site arguments), not `ExecuteAction`'s stat
+> opcode. **Genuinely useful negative, plus one new lead**: P2's real
+> jump-table idiom was located structurally — `subq/cmp #0x20,D0; bhi
+> →default; asl.w #2,D0; movea.w D0,A0; adda.l #0x213AE,A0; movea.l
+> (A0),A0; jmp (A0)` at logical addr `0x95C6`-`0x95DC`, a 32-entry
+> absolute-pointer table at `$213AE` — almost certainly the same idiom
+> `ExecuteAction`'s own outer dispatcher uses (different table base, not
+> yet located). P2 remains **open**; a future pass should start from the
+> action-record byte reader (opcode+Param unpack) and work outward to
+> whichever `ADDA.L #table,An`/`JMP (An)` site consumes it, rather than
+> searching for character-record base constants (too broad — 348 hits) or
+> small immediate compares (too collision-prone, as this pass found).
+>
+> **Correction (2026-08-12) — P2 resolved, `scripting-p2p3-stat-opcode-path`
+> now fully closed.** A fresh trace, anchored via §7.4's own technique
+> (locate a known string's logical-address literal in the code, `fileOffset
+> - 0x1C`), found the real dispatcher directly from the gold-message
+> strings `"THE PARTY GETS SOME GOLD"`/`"SOME OF YOUR GOLD IS TAKEN"`
+> (opcodes `0x07`-`0x0A`'s handlers), rather than searching for
+> character-record base constants: bound-check/jump at logical `0x12018`,
+> a 23-entry jump table at logical `0x22E10` (opcodes `0x01`-`0x17`,
+> independently confirmed by opcodes `0x01`-`0x04` all resolving to the
+> same shared trap-flavor handler, matching the documented convention).
+>
+> **P2's `0x12` (handler at logical `0x11F0C`) is an unconditional set**,
+> the same shape as P3's: for every living member (`char.+0x18 != 0`, P2's
+> own 318-byte/`0x13E` stride), `SetStat(char,Param1,Param2)` runs directly
+> — byte-verified at logical `0x1241C` (`3F2E FFFA 3F03 3F2E FFF2 4EB9
+> 0001241C`, push value/statIndex/charIndex then `JSR SetStat`) — **no
+> `GetStat` call and no comparison anywhere in the loop**. Matches the
+> reference tool's *unconditional* P2 display string.
+>
+> **P2's `0x13` (handler at logical `0x11F54`) is the same inverse-quorum
+> gate as P3's**, with one structural difference from its own `0x12`
+> sibling: the qualifying loop (logical `0x11F62`-`0x11F8A`) has **no
+> alive-flag filter at all**, unlike `0x12`'s loop in the same function. It
+> counts members with `GetStat(char,Param1) >= Param2` (`>=`, matching
+> P3's polarity, not P1's `<`); if that count is **zero**, it performs
+> `goto Action Param3` — byte-verified at logical `0x11F9A`-`0x11FAA`
+> (`302E FFF8 E340 48C0 2A40 DBF9 0002 5F62`) as **byte-identical** to
+> P2's own dedicated `0x14` "goto Action Param1" handler's addressing
+> sequence (logical `0x11FB4`). If ≥1 member qualifies, the chain simply
+> continues — no message, matching P3 and diverging from P1's
+> `ShowMessage`-only behavior. **This resolves the "aspirational or bug"
+> question the original table row raised**: P2's own compiled code really
+> does `goto Action Param3`, exactly matching the reference tool's P2
+> display text — the earlier "always calls `ShowMessage`, never a goto"
+> finding describes only P1's own traced code path and never applied to
+> P2's binary.
+>
+> **Refinement (2026-08-12, independent re-trace):** the zero-qualifiers
+> branch doesn't *only* `goto Action Param3` — it first calls
+> `fcn.000110f0` (logical `0x110F0`), confirmed by disassembly to restore
+> the party's pre-move position (`$25E56`/`$25E58` copied back to
+> `$25D1A`/`$25D1C`) and re-run `GetDungeonCell`/the cell dispatch — a
+> genuine "move party back" side effect, the same shape P1's `0x13`
+> performs (§4/§6.3(b)) before *its* `ShowMessage`. So P2's `0x13` is
+> "move party back, **then** goto Action `Param3`," not a bare goto; the
+> `MoveBack()` call was missed by the trace that produced the paragraph
+> above and should be folded into `opcodes.ts`'s P2 `0x13` description
+> alongside this doc.
+>
+> **All three games now code-level confirmed for both opcodes — P1 is the
+> outlier, not the shared baseline.** `0x12`: P1 conditionally floor-raises
+> (`if GetStat<value then SetStat`, alive members only); P2/P3
+> unconditionally set (P2: alive members only; P3: occupied slots,
+> `0..partySize`, no alive filter observed). `0x13`: P1 gates on *zero
+> members below* threshold (`<`) then `ShowMessage`; P2/P3 gate on *zero
+> members meeting* threshold (`>=`) then `goto Action Param3` — inverted
+> comparison **and** inverted action, both consistent within each of P2/P3.
+> `src/assets/formats/opcodes.ts`'s `unverifiedFor` flags on these two
+> entries are cleared accordingly — see that file's own updated
+> descriptions.
 
 | `0x14`* | 1 | (P2 only) Unconditional "goto Action `Param1`" | Sets next action index directly |
 | `0x15`* | 1 | (P2 only) `Param1`=percent chance to **not** jump; on success, "goto Action `Param2`" | Conditional jump |
@@ -360,11 +489,20 @@ values for different effects past `0x13`):
 | `0x1B` | 1 | Increment a stat for every living party member (capped at 30, per the reference source's inline comment) |
 
 For opcodes `0x12`, `0x13`, `0x18`, `0x19` in Phantasie III, a raw stat-index
-`Param` value `>= 0x3D` (and `>= 0x79`, per the source's literal — but
-practically this reduces to just `>= 0x3D` since `0x79 > 0x3D`) is remapped
-by subtracting `0x3D` before use as a stat-table index — this rebasing
-convention is specific to Phantasie III and has no equivalent in the P1/P2
-opcode set.
+`Param` value `>= 0x3D` (and `>= 0x79`, per the source's literal) is
+remapped by subtracting `0x3D` before use as a stat-table index — this
+rebasing convention is specific to Phantasie III and has no equivalent in
+the P1/P2 opcode set.
+
+> **Correction (2026-08-12):** the two source conditions above are **`AND`'d,
+> not redundant** — disassembly of `0x12`'s real handler (`0x1CCBE`, see §5's
+> "Correction (P3 opcode 0x12/0x13 trace)" block above) shows the
+> subtraction only fires when `statIndex > 0x3C` **and** `statIndex > 0x78`,
+> i.e. effectively `statIndex > 0x78` (**≥ 121**) alone — not `>= 0x3D`
+> (61) as previously read. Every real P3 `statIndex >= 61` value in this
+> project's own script corpus (§6.3(a)) happens to also be `< 121`, so the
+> wrong reading never diverged from real data; it's corrected here on code
+> evidence, not a data contradiction.
 
 ## 6. Character stat / item / monster name tables
 
@@ -929,6 +1067,29 @@ consumer, not a proof that they have only one reader each.
 >
 > No comparable lead exists for `statIndex 7` (`char.+0x0C`); the naive
 > "AGE" reading is refuted above.
+
+> **Blocking-oracle status (2026-08-12) — the WHDLoad live oracle exists
+> but was not used this pass, gated on explicit user permission.** The
+> WHDLoad install at `~/Development/amigagames/Phantasie/` (confirmed
+> present, `Phantasie.Slave` + a `data/` tree byte-identical to this
+> project's own) makes `mcp__amiberry__launch_whdload` and the
+> `mcp__amiberry__runtime_*` tools a viable live test for both `statIndex`
+> 7 and 8 (poke `char.+0xC`/`char.+0xE` mid-game, watch the inn/combat
+> screens for a change). This project's `game-re` agent conventions
+> (`~/.claude/agents/game-re.md`, "amiberry MCP" entry) make amiberry
+> access a **hard permission gate** — "ask before you touch it, every
+> time," explicit user grant required, not assumed from a task brief that
+> merely *suggests* using it. No `AskUserQuestion`-equivalent channel to
+> the user was available in this pass (a backgrounded sweep with no
+> interactive turn), so per that same convention's fallback ("state the
+> exact blocker in your report if you're backgrounded and can't block on a
+> reply") no `mcp__amiberry__*` tool was called. Both `statIndex` 7 and 8
+> remain open for exactly this reason — not for lack of a viable technique,
+> but for lack of a granted permission. A future pass with direct user
+> interaction available should ask to drive (or be handed control of) the
+> WHDLoad session before re-attempting; the two concrete pokes to try are
+> spelled out above (`char.+0xE` vs `char.+0x10` at the Inn for `statIndex`
+> 8; `char.+0xC` mid-combat hit-chance for `statIndex` 7, §7.3).
 
 **Confidence:** every row of the two binding tables above is
 **confirmed** — instruction-level trace, 51/51 bytes re-read from the
@@ -2276,6 +2437,96 @@ sub-item of the character record still open. Note also that the three
 `Air`/`Mist`/`Mud` elemental records carry word 1 = `0` with word 0 up to
 `255`, which independently rules out the alternative "word 1 is the
 current value" reading.
+
+> **Correction (2026-08-12) — Fire Bow's maximum formula, disassembly-
+> confirmed.** An initial data-fit pass (exhaustive integer-coefficient
+> search against the six shipped `gamesave.dat` characters, all
+> conveniently level 1) found `Strength + 4×Dexterity + 12` plus two
+> class/race bonuses named by the P3 manual (`~/Development/amigagames/
+> Phantasie3/Manual`, lines 1746-1749: *"Thieves get a free +30 to their
+> Fire Bow Skill, Elves receive a +15 to Fire Bow Skill"*) fit all 6/6
+> exactly — but the constant `+12` was a level-blind artifact of every
+> sample character happening to be level 1. A follow-up disassembly pass
+> located the real character-creation/level-up routine that computes this
+> field, file offset `0x13B4E`-`0x13B74` (called via `JSR` at file offset
+> `0xE6E4`), and confirmed the actual formula byte-exact:
+>
+> ```
+> FireBowMax = Strength + 4 × Dexterity + 2 × Level + 10
+>            + 30 if class == Thief
+>            + 15 if race == Elven
+> ```
+>
+> — the `2×Level+10` term collapses to the data-fit's `+12` constant
+> exactly at level 1 (`2×1+10 = 12`), which is why the level-blind version
+> agreed with all six samples despite being wrong in general.
+>
+> | Char | Str | Dex | Lvl | Race | Class | Base (`Str+4·Dex+2·Lvl+10`) | Bonus | Predicted | Shipped |
+> |---|---|---|---|---|---|---|---|---|---|
+> | THIEF | 8 | 21 | 1 | Sprite | Thief | 104 | +30 | 134 | 134 |
+> | FIGHTER | 19 | 15 | 1 | Minotaur | Fighter | 91 | +0 | 91 | 91 |
+> | WIZARD | 11 | 11 | 1 | Elven | Wizard | 67 | +15 | 82 | 82 |
+> | MONK | 12 | 18 | 1 | Gnome | Monk | 96 | +0 | 96 | 96 |
+> | PRIEST | 20 | 12 | 1 | Dwarven | Priest | 80 | +0 | 80 | 80 |
+> | RANGER | 16 | 9 | 1 | Gnome | Ranger | 64 | +0 | 64 | 64 |
+>
+> The equipped-bow item id was checked and ruled out as an input (5 of the
+> 6 characters share bow id 41 but have 5 different Fire Bow maxima). The
+> existing `current = max − 49` relation (§7.5.1's `0xe67a` level-up
+> formula, `new = old/2 + max − 49` with `old = 0` at creation) still holds
+> for all six records using this *bonused* max, consistent with the bonus
+> being baked into the stored max before that formula ever runs.
+>
+> **Confidence: confirmed** — disassembly-traced (`LINK`/`CLR`/`CMPI`/
+> `BNE`/`ADDI` sequence, raw hex byte-verified against the real
+> `PhantasieIII` executable at `0x13B4E`-`0x13B74`), not just a data fit.
+> All six available `gamesave.dat` characters happen to be level 1, so the
+> `2×Level` term itself is not independently exercised against real save
+> data — its coefficient rests on the disassembly alone, not a
+> level-varying sample. This is the last sub-item of the P3 262-byte
+> character record; every field is now named and confirmed.
+
+> **Correction (2026-08-12) — Fire Bow's maximum formula, upgraded to
+> disassembly-confirmed, refining the data-fit above.** The char-gen/
+> level-up skill-maxima recompute routine the previous correction couldn't
+> locate is now found: `§7.5.3`'s already-documented `0xe67a` function
+> calls it via `JSR $13A6E.L` at file offset `0xe6e4` (raw bytes `4E B9 00
+> 01 3A 6E`); resolving the pre-relocation operand with this project's
+> confirmed `target = rawOperand + 0x28` rule lands at real **file offset
+> `0x13A96`**, a `LINK.W A5,#-2` … `UNLK A5/RTS` function running
+> `0x13A96`-`0x13B76`. The other eight skills' `2×attr+30` computation
+> lives in the same function (`0x13ABE`-`0x13B4E`), independently
+> confirming §7.5.3's 48/48 finding at the instruction level, not just via
+> data. Fire Bow's own block, `0x13B4E`-`0x13B74`, byte-verified:
+>
+> ```
+> d0 = Level($3154) << 1        ; 2 × Level
+> d1 = Dexterity($30EE) << 2    ; 4 × Dexterity
+> d0 = d0 + d1 + Strength($30EA) + bonus + 10
+> store d0 -> char.+0x4A
+> ```
+>
+> with `bonus` computed just above it (`0x13A9A`-`0x13ABE`): `+0x1E (30)`
+> if `classIndex($3174) == 1` (Thief), `+0x0F (15)` if `race($3188) == 2`
+> (Elven) — exactly the manual-derived bonuses above, now code-confirmed
+> rather than manual-sourced. The real formula is:
+>
+> ```
+> FireBowMax = Strength + 4 × Dexterity + 2 × Level + 10
+>            + 30 if class == Thief
+>            + 15 if race == Elven
+> ```
+>
+> which **refines, not contradicts**, the data-fit's `Str + 4×Dex + 12`:
+> every shipped `gamesave.dat` character is level 1, so `2×Level + 10 =
+> 12` for all six — the flat constant and the level-scaled term were
+> numerically indistinguishable from this sample alone, exactly as the
+> prior correction's confidence caveat anticipated. Verified 0 residual
+> across all six characters using the level-aware form. **Confidence:
+> confirmed** — disassembly byte-verified end to end (call site, target
+> function, both bonus branches, the arithmetic itself), superseding the
+> data-fit block's "hypothesis-grade" caveat. `scripting-p3-firebow-max`
+> closed in `TODO.md`.
 
 **`+0x08` is the character's combat Rank — confirmed.** §7.5.1 recorded
 it only as "value averaged across the party and ×30'd in the to-hit

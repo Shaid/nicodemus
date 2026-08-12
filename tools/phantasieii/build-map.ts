@@ -29,7 +29,7 @@ import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writeJson, findFileCI, writePNG } from '@seer-project/pipeline';
 import { indicesToRGBA } from '../../src/assets/formats/palette.ts';
-import { readP2OutdoorPalette } from '../../src/assets/formats/exe-data.ts';
+import { readP2MonsterNames, readP2OutdoorPalette } from '../../src/assets/formats/exe-data.ts';
 import {
   OUTDOOR_SECTION_HEIGHT,
   OUTDOOR_SECTION_WIDTH,
@@ -123,10 +123,34 @@ export interface WorldPoi {
   type: WorldPoiType;
   /** Revealed (fog-flag-stripped) tile code the record sits on. */
   tile: number;
-  /** Record byte `+2`: message index, town id (1-10, confirmed clean) or dungeon id (1-8) by type. */
+  /**
+   * Record byte `+2`: message index (text), town id (1-10, confirmed
+   * clean), dungeon id (1-8), or — for `type === 'bump'` (variant 7) — the
+   * **0-based** monster-table row, i.e. exactly `SetupEncounter`'s own
+   * `d4` (`PHANT.PRG` addr `0xA7EC`/`0xA826`/`0xA84A`, dungeon-format.md
+   * §8.6.4b): the resolved 1-based in-game encounter id is `index + 1`,
+   * exposed separately as `monsterIndex` below.
+   */
   index: number;
-  /** Record byte `+3`: non-zero only on class-5 records, meaning unknown. */
+  /**
+   * Record byte `+3`: dungeon-entry column `x` (0-32) for `type ===
+   * 'dungeon'` records (class-5, confirmed §8.6.4a); zero/unused otherwise.
+   * See `dungeonEntry` below for the paired `(x, y)`.
+   */
   param: number;
+  /**
+   * Dungeon-entry `(x, y)` in the target `DNGn`'s 33 x 38 grid — `param`
+   * (`+3`) and the record's own `+4` byte, read together at `PHANT.PRG`
+   * addr `0x106DA`-`0x1072A` (dungeon-format.md §8.6.4a). Only set for
+   * `type === 'dungeon'` records.
+   */
+  dungeonEntry?: { x: number; y: number };
+  /**
+   * Resolved 1-based fixed-encounter monster id (`index + 1`) for
+   * `type === 'bump'` (variant 7) records — dungeon-format.md §8.6.4b.
+   * Only set for `type === 'bump'`.
+   */
+  monsterIndex?: number;
   /** Short marker caption — see `labelFor` for why towns/dungeons stay index-only. */
   label: string;
   /** Resolved text lines, for the records that address the text block. */
@@ -199,7 +223,12 @@ export function poiTypeForTile(code: number): WorldPoiType {
 
 const LABEL_MAX = 30;
 
-function labelFor(type: WorldPoiType, index: number, message: string[] | undefined): string {
+function labelFor(
+  type: WorldPoiType,
+  index: number,
+  message: string[] | undefined,
+  monsterNames?: readonly string[],
+): string {
   if (type === 'text') {
     const line = message?.find((l) => l !== '');
     if (line) return line.length > LABEL_MAX ? `${line.slice(0, LABEL_MAX - 1)}…` : line;
@@ -215,8 +244,14 @@ function labelFor(type: WorldPoiType, index: number, message: string[] | undefin
       return `Dungeon ${index}`;
     case 'text':
       return `Text ${index}`;
-    case 'bump':
-      return `Event ${index}`;
+    case 'bump': {
+      // Variant 7 is a fixed encounter, not a generic "event" — `index` is
+      // `SetupEncounter`'s own 0-based monster-table row (dungeon-format.md
+      // §8.6.4b), so `monsterNames[index]` is the exact same lookup the
+      // engine performs.
+      const name = monsterNames?.[index];
+      return name && name !== '' ? name : `Encounter ${index + 1}`;
+    }
     case 'silent':
       return `Marker ${index}`;
     default:
@@ -225,7 +260,11 @@ function labelFor(type: WorldPoiType, index: number, message: string[] | undefin
 }
 
 /** Convert one decoded section's POI records into world-coordinate markers. */
-export function sectionPoisToWorld(section: number, decoded: OutdoorSection): WorldPoi[] {
+export function sectionPoisToWorld(
+  section: number,
+  decoded: OutdoorSection,
+  monsterNames?: readonly string[],
+): WorldPoi[] {
   return decoded.pois.map((poi) => {
     const tile = revealedTileCode(tileAt(decoded.grid, poi.col, poi.row));
     const type = poiTypeForTile(tile);
@@ -241,7 +280,9 @@ export function sectionPoisToWorld(section: number, decoded: OutdoorSection): Wo
       tile,
       index: poi.index,
       param: poi.param,
-      label: labelFor(type, poi.index, message),
+      label: labelFor(type, poi.index, message, monsterNames),
+      ...(type === 'dungeon' ? { dungeonEntry: { x: poi.param, y: poi.unused } } : {}),
+      ...(type === 'bump' ? { monsterIndex: poi.index + 1 } : {}),
       ...(message && message.length > 0 ? { message } : {}),
     };
   });
@@ -256,14 +297,19 @@ export function sectionPoisToWorld(section: number, decoded: OutdoorSection): Wo
  * pristine master (§8.6.2) and is preferred, otherwise the grids embedded
  * in the `OUT*.DAT` files are used. Either way the grids must be in
  * `SECTION_NUMBER_BY_BLOCK_P2` order.
+ *
+ * `monsterNames` is optional (needs `PHANT.PRG`, per `readP2MonsterNames`):
+ * without it, variant-7 ("fixed encounter") markers fall back to a numeric
+ * `Encounter N` label rather than the resolved monster name.
  */
 export function buildWorldFromSections(
   sections: readonly { section: number; decoded: OutdoorSection }[],
   sectionGrids?: readonly Uint8Array[],
+  monsterNames?: readonly string[],
 ): WorldMapOutput {
   const grids = sectionGrids ?? sections.map((s) => s.decoded.grid);
   const world = assembleWorld(grids, PHANTASIE2_OUTDOOR);
-  const pois = sections.flatMap((s) => sectionPoisToWorld(s.section, s.decoded));
+  const pois = sections.flatMap((s) => sectionPoisToWorld(s.section, s.decoded, monsterNames));
   pois.sort((a, b) => a.y - b.y || a.x - b.x);
   return { world, pois };
 }
@@ -388,18 +434,25 @@ export function buildWorldMap(dataDir: string, outDir: string): ManifestEntry[] 
     console.warn('  ⚠ MAPS.INT not found — assembling from the OUT*.DAT grids instead');
   }
 
-  const { world, pois } = buildWorldFromSections(sections, grids);
+  // `PHANT.PRG` also carries the 80-entry monster-name table, needed to
+  // resolve variant-7 ("fixed encounter") POI markers to a real monster
+  // name (dungeon-format.md §8.6.4b) — read it up front so
+  // `buildWorldFromSections` can use it below.
+  const exePath = resolveP2File(dataDir, 'PHANT.PRG');
+  const exeForNames = exePath ? new Uint8Array(readFileSync(exePath)) : undefined;
+  const monsterNames = exeForNames ? readP2MonsterNames(exeForNames) : undefined;
+
+  const { world, pois } = buildWorldFromSections(sections, grids, monsterNames);
 
   mkdirSync(outDir, { recursive: true });
 
   // Real terrain art: the icon bank and its palette both live in
   // `PHANT.PRG` (dungeon-format.md §8.6.8). Without the executable we still
   // emit the gameplay grid and POIs, just no picture.
-  const exePath = resolveP2File(dataDir, 'PHANT.PRG');
   let worldPng = '';
   let iconsPng = '';
-  if (exePath) {
-    const exe = new Uint8Array(readFileSync(exePath));
+  if (exePath && exeForNames) {
+    const exe = exeForNames;
     const palette = readP2OutdoorPalette(exe);
     const icons = decodeOutdoorIconBank(exe, OUTDOOR_ICON_BANK_OFFSET_P2);
 

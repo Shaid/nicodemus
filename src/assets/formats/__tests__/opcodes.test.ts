@@ -6,7 +6,8 @@ import {
   ACTION_DOUBLE_SIZED_OPCODES,
   actionRecordSizeBytes,
   p3RemapStatIndex,
-  P3_STAT_INDEX_REMAP_THRESHOLD,
+  P3_STAT_INDEX_REMAP_GUARD,
+  P3_STAT_INDEX_REMAP_AMOUNT,
 } from '../opcodes.ts';
 
 describe('opcodes.ts — opcode tables as data (scripting-engine.md §5)', () => {
@@ -49,20 +50,42 @@ describe('opcodes.ts — opcode tables as data (scripting-engine.md §5)', () =>
     expect(P1_OPCODES.get(0x06)!.forcesStop).toBe(false);
   });
 
-  it('0x12/0x13 carry an unverifiedFor:[p2,p3] flag (P1 alone is disassembly-confirmed, §6.3(b))', () => {
-    // The flag describes the opcode's own verification status, not "which
-    // table you looked it up from" — all three tables share the same
-    // underlying core-opcode definitions, so it's visible from any of them.
-    expect(P1_OPCODES.get(0x12)!.unverifiedFor).toEqual(['p2', 'p3']);
-    expect(P1_OPCODES.get(0x13)!.unverifiedFor).toEqual(['p2', 'p3']);
-    expect(P2_OPCODES.get(0x12)!.unverifiedFor).toEqual(['p2', 'p3']);
-    expect(P3_OPCODES.get(0x13)!.unverifiedFor).toEqual(['p2', 'p3']);
-    // No other opcode carries this flag.
+  it('0x12/0x13 carry no unverifiedFor flag anywhere — all three games are now disassembly-confirmed (2026-08-12)', () => {
+    // P2's own ExecuteAction handlers for 0x12/0x13 were the last unverified
+    // holdout (PHANT.PRG logical addr 0x11F0C/0x11F54, scripting-engine.md
+    // §5's 2026-08-12 "P2 resolved" correction block) — P1's, P2's and P3's
+    // 0x12/0x13 are each distinct override objects now (CORE_OPCODES for
+    // P1, P2_OVERRIDE_OPCODES for P2, P3_EXTENSION_OPCODES for P3) and none
+    // carry the flag.
+    expect(P1_OPCODES.get(0x12)!.unverifiedFor).toBeUndefined();
+    expect(P1_OPCODES.get(0x13)!.unverifiedFor).toBeUndefined();
+    expect(P2_OPCODES.get(0x12)!.unverifiedFor).toBeUndefined();
+    expect(P2_OPCODES.get(0x13)!.unverifiedFor).toBeUndefined();
+    expect(P3_OPCODES.get(0x12)!.unverifiedFor).toBeUndefined();
+    expect(P3_OPCODES.get(0x13)!.unverifiedFor).toBeUndefined();
+    // No opcode anywhere carries this flag any more.
     for (const table of [P1_OPCODES, P2_OPCODES, P3_OPCODES]) {
       for (const def of table.values()) {
-        if (def.opcode !== 0x12 && def.opcode !== 0x13) expect(def.unverifiedFor).toBeUndefined();
+        expect(def.unverifiedFor).toBeUndefined();
       }
     }
+  });
+
+  it('P2\'s and P3\'s 0x12/0x13 are distinct objects from P1\'s and from each other, with real behavioral differences documented (unconditional set, inverted-polarity gate)', () => {
+    expect(P2_OPCODES.get(0x12)).not.toBe(P1_OPCODES.get(0x12));
+    expect(P2_OPCODES.get(0x13)).not.toBe(P1_OPCODES.get(0x13));
+    expect(P3_OPCODES.get(0x12)).not.toBe(P1_OPCODES.get(0x12));
+    expect(P3_OPCODES.get(0x13)).not.toBe(P1_OPCODES.get(0x13));
+    expect(P2_OPCODES.get(0x12)!.description).toMatch(/unconditional/i);
+    expect(P2_OPCODES.get(0x13)!.description).toMatch(/opposite polarity/i);
+    expect(P3_OPCODES.get(0x12)!.description).toMatch(/unconditional/i);
+    expect(P3_OPCODES.get(0x13)!.description).toMatch(/opposite polarity/i);
+    // Same `kind` across all three games though — the shape (setStat/
+    // statGate) is shared, only the exact runtime semantics differ.
+    expect(P2_OPCODES.get(0x12)!.kind).toBe('setStat');
+    expect(P2_OPCODES.get(0x13)!.kind).toBe('statGate');
+    expect(P3_OPCODES.get(0x12)!.kind).toBe('setStat');
+    expect(P3_OPCODES.get(0x13)!.kind).toBe('statGate');
   });
 
   it('actionRecordSizeBytes: the confirmed double-sized set gives 4 bytes, else 2', () => {
@@ -85,10 +108,17 @@ describe('opcodes.ts — opcode tables as data (scripting-engine.md §5)', () =>
     }
   });
 
-  it('p3RemapStatIndex subtracts the threshold only when raw >= it', () => {
+  it('p3RemapStatIndex subtracts the remap amount only when raw > the guard (0x78) — corrected 2026-08-12, was >= 0x3D', () => {
     expect(p3RemapStatIndex(10)).toBe(10);
-    expect(p3RemapStatIndex(P3_STAT_INDEX_REMAP_THRESHOLD)).toBe(0);
-    expect(p3RemapStatIndex(117)).toBe(117 - P3_STAT_INDEX_REMAP_THRESHOLD);
-    expect(p3RemapStatIndex(126)).toBe(126 - P3_STAT_INDEX_REMAP_THRESHOLD);
+    // At and just below the old (wrong) 0x3D threshold: no remap now.
+    expect(p3RemapStatIndex(0x3d)).toBe(0x3d);
+    expect(p3RemapStatIndex(117)).toBe(117); // < 0x79, no remap under the corrected rule
+    expect(p3RemapStatIndex(120)).toBe(120); // < 0x79, no remap under the corrected rule
+    // At and above the real guard (0x78, i.e. > 0x78 remaps):
+    expect(p3RemapStatIndex(P3_STAT_INDEX_REMAP_GUARD)).toBe(P3_STAT_INDEX_REMAP_GUARD); // == guard, no remap (strict >)
+    expect(p3RemapStatIndex(P3_STAT_INDEX_REMAP_GUARD + 1)).toBe(P3_STAT_INDEX_REMAP_GUARD + 1 - P3_STAT_INDEX_REMAP_AMOUNT);
+    expect(p3RemapStatIndex(122)).toBe(122 - P3_STAT_INDEX_REMAP_AMOUNT);
+    expect(p3RemapStatIndex(126)).toBe(126 - P3_STAT_INDEX_REMAP_AMOUNT);
+    expect(p3RemapStatIndex(127)).toBe(127 - P3_STAT_INDEX_REMAP_AMOUNT);
   });
 });

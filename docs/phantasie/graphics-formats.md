@@ -737,6 +737,41 @@ and 14, and `scroll` differs from `dng` only at slot 8 — so this was left
 alone rather than guessed at. Tracked as `gfx-p3-csh-host-palette` in
 `docs/phantasie/TODO.md`.
 
+> **Correction (2026-08-12, `game-re`) — both doc candidates were wrong;
+> both files render under the transient `palScratch` global, not a fixed
+> slot.** A full reconstruction of every `setPalette` (`LAB_0073`) call
+> site found **18**, not the 13 originally cited — 2 local-stack-buffer
+> installs and one extra `anatomy`-slot install (hunk `0x3A9E`) were
+> missed — but the existing label→`DATA`-offset mapping (`LAB_1597`
+> black, `LAB_176E` `palScratch` `+0x2AEE`, `LAB_169D` `anatomy` `+0x2780`,
+> `LAB_1774` `dungeon` `+0x2C4E`, `LAB_1770` `encounter` `+0x2C4E`)
+> re-confirmed byte-exact. **`Anatomy2.csh`**'s icon range (loaded-icon
+> table slots `0x1F`-`0x2C`) is drawn by a shared numeric/stat-glyph HUD
+> widget (`LAB_0977`, invoked via `LAB_0962` from **12** call sites spread
+> across combat/encounter/dungeon code, hunk offsets `0x7AB2`-`0x1F408`) —
+> it is composited over whatever screen is already active at each site, not
+> installed under one dedicated screen's palette. **`Scroll.csh`**'s icon
+> range (slots `0x36`-`0x42`) is drawn by `LAB_1366`/`LAB_136E`, confirmed
+> called from inside the dungeon-view redraw routine (hunks `0x1D9BA`,
+> `0x1C8EE`, `0x1CC08`, `0x1F018`). At the `0x1F018` site — the decisive
+> one — the *last* `setPalette` call before the routine returns is a
+> `palScratch` reinstall at hunk `0x1F132` (file `0x1F15A`), only 38 bytes
+> **after** the `dungeon` slot's own reinstall at hunk `0x1F10C` (file
+> `0x1F134`), with zero intervening `setPalette` calls between the two.
+> Amiga colour-register writes take effect immediately, so the frame
+> actually visible when this routine returns is under `palScratch`'s
+> content at that moment — `dungeon`'s install two calls earlier is
+> transient and overwritten before control returns to the caller. Neither
+> file has one fixed host palette: both resolve to whatever is currently in
+> the shared `palScratch` global at the moment of the draw, which in real
+> play depends on the most recently loaded `.cmp`/`.csh` (plausibly
+> `Dng.csh` reloading its own palette into `palScratch` on dungeon entry,
+> but this was not traced — out of this pass's bounded scope).
+> **Confidence: confirmed** for the control-flow mechanism (exact address
+> matches, zero intervening `setPalette` calls in both cited windows);
+> **open** for `palScratch`'s exact runtime content at those moments during
+> actual play.
+
 ## 5. World map + tileset container (`.SET`, Phantasie III)
 
 File: `Graphics/phantasy.set` (35,840 bytes). This is **not** a generic

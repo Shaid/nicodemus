@@ -63,13 +63,69 @@ that isn't otherwise noted is a single unsigned byte.
 | `0x0000` | 1254 | Cell grid | 33×38, row-major, `y*33+x` |
 | `0x04E7` | 1 | Dungeon level | 0-based; used to compute the roster for random/door encounters (see §4) |
 | `0x04E8` | 10 | Fixed-encounter monster index table | Indexed by `cell − 0x80` for cell values 0x80–0x89 |
-| `0x04F2` | 9 | **Unidentified** | Gap between the encounter table and the star table. Sample bytes observed in `dng1`: `01 08 10 00 00 00 00 00 00`. Not read by the reference parser; open question. |
+| `0x04F2` | 9 | **Dungeon-exit destination table** (2026-08-12, resolved — see correction below) | 3 × 3-byte records `{worldSection, exitY, exitX}`, indexed by `cell − 0xD7` for the three "Stairs (exit dungeon)" cell values `0xD7`-`0xD9` (§4). Sample bytes observed in `dng1`: `01 08 10 00 00 00 00 00 00` (record 0 = section 1, y=8, x=16; records 1/2 all-zero — `dng1` has only one `0xD7`-class exit cell). Not read by the reference parser (a real, checked negative — see below), but is read by the real game. |
 | `0x04FB` | up to 175 (35×5) | Star (trigger) table | Fixed-size 35-slot array, 5 bytes/slot nominal, see `scripting-engine.md` §1 |
 | `0x05AA` | variable, terminated | Action (script) table | 2-byte-aligned slots (1 or 2 slots per record), see `scripting-engine.md` §2. **No fixed end offset** — parsing stops at the first 2-byte-aligned `0x0D 0x0D` pair. |
 | after terminator | variable | **Leftover/unused region** | Not read by the parser. Content varies per file — see §3.1. |
 
 All file offsets above are **file-relative**, not segment-relative (these
 are flat data files with no executable header).
+
+> **Correction (2026-08-12) — the `0x04F2`-`0x04FA` gap, resolved.** Traced
+> the real game executables' own "exit dungeon" handlers rather than the
+> reference parser (which genuinely never reads this region — that negative
+> was real, just not evidence the *game* ignores it too). P1 (`game`, hunk 99,
+> file offset `0x0F888`-`0x11940`, the same hunk containing `GetStat`/
+> `SetStat`) confirmed byte-exact in a dedicated exit-handler subroutine at
+> file offset `0xFC9C` (called from `ReadCell`'s `0xD7`-`0xD9` dispatch arm,
+> file offset `0x101D0`-`0x101E2`; the index/read sequence itself runs
+> `0xFCF2`-`0xFD7E`):
+>
+> ```
+> 0xFCF2  move.w  0xa(a6),d0        ; cell value
+> 0xFCF6  subi.w  #$D7,d0           ; index = cell - 0xD7  (0/1/2)
+> 0xFCFE  muls.w  #3,d0             ; 3-byte stride
+> 0xFD0C  addi.l  #$4F2,d0          ; + table base
+>         movea.l 0x78.l,a0         ; dungeon-buffer base
+>         adda.l  d0,a0
+>         move.b  (a0),d0           ; -> $5C.l   world section
+> 0xFD30  [same index, +$4F3]       ; -> $7BE.l  party y (outdoor)
+> 0xFD54  [same index, +$4F4]       ; -> $7BC.l  party x (outdoor)
+> 0xFD74  moveq   #$19,d2 ; sub.w d1,d2  ; the documented "25 -" outdoor flip -> $166.l
+> 0xFD7E  move.w  d0,$168.l         ; y, unflipped
+> ```
+>
+> (Correction, 2026-08-12, address fix: an earlier draft of this block cited
+> file offset `0xFC6E`-`0xFC7C` for this fingerprint; those bytes are
+> actually part of the unrelated dungeon-level-byte read a few instructions
+> earlier in the same `EnterDungeon` function, not the `0xD7`-`0xD9` exit
+> handler. Independently re-derived and re-verified byte-exact against the
+> real file this pass; P2/P3's addresses and semantics below were already
+> correct and are unchanged.)
+>
+> Cell values `0xD7`-`0xD9` ("Stairs, exit dungeon", §4) subtract `0xD7`,
+> multiply by 3, and index this table to get `{worldSection, exitY, exitX}`
+> — the overworld destination the party lands on when leaving the dungeon
+> through that specific stairs cell. This is an **independent, self-
+> contained copy** of the entry coordinates, not a reuse of the original
+> POI record that placed the dungeon on the map (§8.6.4a). **P2**
+> (`PHANT.PRG`, file offset `0x10806`-`0x1086E`) uses the byte-identical
+> `subi #0xD7` / `muls #3` / `+0x4F2`/`+0x4F3`/`+0x4F4` idiom against globals
+> `0x25B92.l`/`0x25EA4.l`/`0x25EA2.l`, then the same 25-flip into
+> `0x25D1A.l`/`0x25D1C.l`. **P3** (`PhantasieIII`, file offset
+> `0x1BE8C`-`0x1BEF4`) adapts the same fingerprint but only reads the first
+> of the 3 record bytes, as a selector for the already-documented
+> `0x28C2.l` active-special-map global (`{0,1,2,4}`,
+> `world-p3-castle-netherworld-maps`): raw value `0x1D`→Castle of Light,
+> `0x1F`→Castle of Dark, `0x29`→Netherworld, else untouched (a regular
+> dungeon exit). An exhaustive re-scan for real consumers of P3's bytes 2-3
+> (`+0x2DC`/`+0x2DD`) found none — they appear genuinely unused there,
+> consistent with P3's special destinations being small fixed layouts
+> needing no explicit x/y. **Confidence: confirmed** — every address/byte
+> above was read directly from the three real executables (P1: `dd`-extracted
+> hunk 99 + `r2 -a m68k`; P2/P3: raw file-offset disassembly, both
+> position-independent), and the `subi #0xD7`/`muls #3` fingerprint is
+> unique (single occurrence) in each binary.
 
 ### 3.1 Star/action table boundary — confirmed structurally
 
@@ -158,7 +214,7 @@ Grid: **24 columns × 30 rows = 720 bytes**, same row-major layout as P1/P2.
 | `0x0000` | 720 | Cell grid | 24×30, row-major |
 | `0x02D0` | 1 | Dungeon level | Same role as P1/P2's `0x04E7` |
 | `0x02D1` | 10 | Fixed-encounter monster index table | Same role as P1/P2's `0x04E8` |
-| `0x02DB` | 9 | **Unidentified** | Same relative position/size as the P1/P2 gap. Sample bytes observed in `dnga.dat`: `0D 05 09 00 00 00 00 00 00`. The presence of an identically-sized, identically-positioned gap in both engines' independently-derived header layouts suggests a real (if unidentified) shared field rather than padding, but this is not confirmed. |
+| `0x02DB` | 9 | **Dungeon-exit destination table, P3 variant** (2026-08-12, resolved — see §3's correction block) | Same 3×3-byte record layout as P1/P2's `0x04F2` table, but P3 reads only byte 0 of each record, as a selector for the `0x28C2.l` active-special-map global (`0x1D`→Castle of Light, `0x1F`→Castle of Dark, `0x29`→Netherworld, else no special destination). Sample bytes observed in `dnga.dat`: `0D 05 09 00 00 00 00 00 00` — `0x0D` matches none of the three special values, correctly leaving a regular dungeon exit untouched. Bytes 1-2 of each record appear genuinely unused in P3 (no consumer found for `+0x2DC`/`+0x2DD`). |
 | `0x02E4` | up to 175 (35×5) | Star table | Same 35-slot/5-byte-slot format as P1/P2 |
 | `0x0393` | exactly 512 (256×2) | Action table | Same slot format as P1/P2, but **fixed capacity, no terminator scan** — see §5.1 |
 | `0x0593` | 220 (110×2) | Message pointer table | 110 slots, 2-byte big-endian file offsets, **not** used directly — see §5.2 |
@@ -329,14 +385,14 @@ handing a region's start address to a pointer slot in BSS hunk 19:
 
 | # | Offset | Size | Pointer | Contents |
 |---|--------|------|---------|----------|
-| 1 | `0x0000` | 90 | `h19+0x00` | open |
-| 2 | `0x005A` | 360 | `h19+0x04` | open |
-| 3 | `0x01C2` | 90 | `h19+0x08` | open |
-| 4 | `0x021C` | 1800 | `h19+0x0C` | open |
+| 1 | `0x0000` | 90 | `h19+0x00` | narrowed — `[6 class][15 level]` monotonic byte curve, see correction below |
+| 2 | `0x005A` | 360 | `h19+0x04` | open — sparse 24×15 byte matrix, hypothesis only |
+| 3 | `0x01C2` | 90 | `h19+0x08` | narrowed — a second `[6 class][15 level]` monotonic byte curve |
+| 4 | `0x021C` | 1800 | `h19+0x0C` | **identified** — `[6 class][15 level] × 10-word` skill-progression table, see correction below |
 | 5 | `0x0924` | 30 | `h19+0x10` | open |
 | 6 | `0x0942` | 76 | `h19+0x14` | open |
 | 7 | **`0x098E`** | **3504** | `h19+0x1C` | **12 × 292-byte town records** |
-| 8 | `0x173E` | 7050 | `h13+0x00` | open |
+| 8 | `0x173E` | 7050 | `h13+0x00` | **identified** — 25 × 282-byte monster/encounter-template array, see correction below |
 
 `90+360+90+1800+30+76+3504+7050 = 13000` — **every byte of the file
 accounted for, zero slack**, and region 7 is exactly `12 × 292`. The read
@@ -418,10 +474,134 @@ restock list is all zeros. **Confidence: confirmed** that the record is
 inert in the shipped data; **open** whether some event teleports the party
 there.
 
-Regions 1-6 and 8 of the container are still **open**. Region 8 holds the
-`"FIRE  ELE"`/`"WATER ELEM"`/`"EARTH ELEM"` fragments an earlier pass noticed
-near `0x3088`; the readable-string clustering is real, the structure is not
-yet determined.
+> **Correction (2026-08-12) — `PHANTASIA`'s coordinates resolved as genuine,
+> unreachable data, not a sentinel.** Its `(section 14, B=11, A_file=20)`
+> address a real, in-bounds cell in the actually-shipped `out14.dat` — tile
+> value 35 (class 3, "Mountain"), not a placeholder value outside any file's
+> range. Tracing §8.3.3's cell-dispatch tables shows **no code path fires an
+> event on this cell**: class dispatch only special-cases classes `{5, 7,
+> 10, 11}` (3 isn't one), variant dispatch only special-cases variants
+> `{6, 7, 8}` (this cell's variant, 5, isn't one), and the two whole-tile
+> specials only fire for tiles `{40, 41}` (35 isn't either). `PHANTASIA` is
+> real, valid, shipped town data describing a location the engine never
+> surfaces to the player during normal play — defined-but-unreachable
+> content, consistent with its empty shop and all-zero restock list, not an
+> encoding error or an unresolved teleport hook. **Confidence: confirmed.**
+> `world-p1-twns-int-fields`'s `PHANTASIA` sub-question is closed.
+
+Regions 1-6 and 8 of the container were **open**; four are now narrowed or
+identified. Region 8 holds the `"FIRE  ELE"`/`"WATER ELEM"`/`"EARTH ELEM"`
+fragments an earlier pass noticed near `0x3088`; the readable-string
+clustering is real, and the structure is now determined (below).
+
+> **Correction (2026-08-12) — regions 1, 3, 4 and 8 identified/narrowed.**
+> **Region 4** (`h19+0x0C`, 1800 bytes) is a **90-record (6 class × 15
+> level) × 10 big-endian words** (20 bytes/record) skill-progression table.
+> Word 0 (Attack) is **byte-exact against Phantasie III's independently-
+> confirmed Attack skill table** (`data-tables.md` §5.1-5.2) for 2 of the 6
+> classes checked: P1 class 0 = `70, 75, 80, …, 140` = P3's Thief curve
+> exactly; P1 class 3 = `100, 110, 120, 135, …, 255` = P3's Fighter curve
+> exactly — a cross-game byte-exact match, strong confirmation this is P1's
+> own class/level skill-progression table (the remaining 8 word columns are
+> presumably the other 8 skills in some order, not yet disambiguated;
+> columns 6 and 8 are always zero across all 90 records, consistent with a
+> reserved slot or a Fire-Bow-has-no-table pattern as in P3). **Regions 1**
+> (`h19+0x00`, 90 bytes) **and 3** (`h19+0x08`, 90 bytes) are each their own
+> `[6 class][15 level]` monotonic byte curve, matching region 4's table
+> shape but with distinct values from region 4 and from each other — two
+> more stat curves in the same family; which stat each represents is still
+> open. **Region 2** (`h19+0x04`, 360 bytes) is a sparse 24×15 byte matrix
+> (values 0-15, mostly zero) — hypothesis: a spell-availability-by-level
+> table, unconfirmed; no clean sub-block boundary was found against the
+> region-1/3/4 shape. **Regions 5** (30 bytes) **and 6** (76 bytes) remain
+> fully unidentified: narrow-range, non-monotonic bytes with no stride that
+> divides evenly against town count (12), skill count (9), class count (6),
+> or level count (15). **Region 8** (`h13+0x00`, 7050 bytes) is confirmed as
+> a **25 × 282-byte (`0x11A`) monster/encounter-template array**, with a
+> real code consumer: `MULS #$011a,D0` at `game` file offsets `0x1CF0`,
+> `0x1D66`, `0x1D9C`, `0x1F18`, indexing this region inside an 8-slot
+> "encounter" staging routine (file `0x1C8E`-`0x1EB8`) that copies whole
+> 282-byte records into a working buffer via a helper at file `0x14A2`. Only
+> 3 of the 25 slots are populated — `"FIRE  ELE"`, `"WATER ELEM"`, `"EARTH
+> ELEM"` at record offset `+270` (12 bytes) — the other 22 are all-zero
+> reserved capacity. This is a **town-file-local elemental-encounter
+> template pool**, structurally distinct from the main 58-byte monster
+> roster (`scripting-engine.md` §6.1/§6.2). *(Loader-address note: this
+> pass's independent trace located the loader via `game.asm`/Capstone
+> re-disassembly at file offset `0x68D0`, rather than the `game+0x7280`
+> already cited above; the read sizes and pointer-slot layout match exactly
+> either way, so this is left as an unreconciled addressing-convention
+> discrepancy — not something this pass could resolve — rather than
+> silently overwriting the existing citation.)* **Confidence:** region 4 and
+> region 8 — **confirmed** (cross-game byte match; live code consumer with
+> byte-verified indexing). Regions 1 and 3 — **narrowed** (real structure,
+> semantic label open). Regions 2, 5, 6 — **still open**, no consumer found
+> and no confirmed structure this pass.
+
+> **Correction (2026-08-12) — regions 2, 5, 6 identified/narrowed; regions
+> 1, 3, 4, 8 independently re-confirmed by a fresh trace.** A second,
+> independent pass traced `LoadTownsInt` (`game+0x7280`) forward, this time
+> reconstructing IRA's mis-rendered `DC.L`/`DC.W` block (the same one that
+> caused the earlier pass's grep-based consumer search to undercount) as a
+> raw byte blob from `game.asm`'s own resolved-comment values and
+> disassembling it directly with `r2` — real instructions, not data, were
+> hiding in that span for all seven regions. All addresses below are raw
+> `game` file offsets (re-verified against the real file with `r2`'s `/x`
+> byte-pattern search).
+>
+> - **Region 2** (`+0x005A`, 360 bytes) is **not** a spell-availability
+>   matrix — it's a **`[6 class][60]` "ability/spell unlocked at level N"**
+>   table: `game+0x397E`-`0x3986` (`MULS.W #$3C,D1` = ×60) indexes
+>   `region2[class*60 + slotIndex]`, compares the stored byte against the
+>   character's current level, and on a match writes `2` into the character
+>   record's own ability array at `+0x60 + 2*slotIndex`. Thematically
+>   corroborated by adjacent strings `"WHICH SPELL?"` / `"GUILD TRAINING"`
+>   (`game+0x8C80`/`0x8C8D`) and `"YOU NEED %ld MORE|EXPERIENCE
+>   POINTS|...|GO AND LEARN!"` right after (`0x8C9C`). **Confidence:
+>   identified** (real code consumer, byte-verified indexing).
+> - **Region 5** (`+0x0924`, 30 bytes) is a **`[6 class][5]` ability-score
+>   roll modifier**: the same character-generation routine that reads
+>   region 4 also does `MOVE.W -0xC(A6),D1` (class), `MULS.W #5,D1`, then
+>   indexes this region, adding the result into a dice-roll base to produce
+>   one of the character's five non-HP/MP ability scores (clamped 3-18,
+>   classic D&D-style stat generation). **Confidence: identified.**
+> - **Region 6** (`+0x0942`, 76 bytes = `15*5 + 1`) is a **second `[≤15][5]`
+>   roll modifier**, read by the same generation loop but indexed by
+>   `MOVE.W -0x8(A6),D1` — a different selector than region 5's class index
+>   (plausibly a race or origin choice, not independently confirmed; the
+>   `15` row count is inferred from the byte count dividing evenly, not
+>   directly observed as a bound in the traced code). **Confidence:
+>   narrowed** (real consumer and arithmetic shape confirmed; selector
+>   semantics and its exact valid range are a hypothesis).
+> - **Regions 1, 3, 4** (re-confirmed): consumer addresses `game+0x38C4`
+>   (region 1, training-cost roll), `game+0x37D0` (region 3, a level-gated
+>   ≤15 cap on a character-record `+0xE` field — the earlier pass's "6-20
+>   ceiling" observation), and `game+0x37EC` (region 4, the `new =
+>   (old+table)/2 + roll − 49` stat-improvement formula) all independently
+>   re-derived, matching the original correction block above exactly.
+> - **Region 8** (re-confirmed, plus new detail): the 25-slot pool's normal
+>   (non-elemental) portion is scanned with an explicit bound of **22**
+>   (`0x16`), not 25 — precisely excluding slots 22-24 (the three fixed
+>   FIRE/WATER/EARTH ELEMENTAL hires, class code `0x0F`/15, outside the
+>   normal 0-5 class range) from the regular Tavern recruit roll. Confirmed
+>   thematically via `"NOVICE ADVENTURERS."` / `"EXPERIENCED
+>   ADVENTURERS."` / `"NOT READY TO VISIT"` at `game+0x7BA0`/`0x7BB4`+.
+>
+> **The `PHANTASIA` anomaly is now further narrowed, not resolved: none of
+> the seven container regions can be the explanation.** Every region's
+> index is class (0-5), level (0-14), a spell/ability slot (0-59), a
+> roll-modifier selector, or a hireling slot (0-24) — none carries a
+> section/coordinate/town-index field of any kind, so it is now
+> code-verified impossible for `twns.int`'s own container to encode a
+> per-town marker that would explain why `PHANTASIA` is inert. Whatever
+> makes `PHANTASIA` unreachable (if anything beyond the already-confirmed
+> "no dispatch table fires on its cell", §8.1's earlier correction) must
+> live outside this file — an event script or a hardcoded town-index check
+> elsewhere, out of `twns.int`'s scope.
+>
+> **Overall region status:** 1, 2, 3, 4, 5, 8 — **identified or
+> re-confirmed**; 6 — **narrowed** (structure and consumer real, selector
+> semantics open). `world-p1-twns-int-fields` closed in `TODO.md`.
 
 ### 8.2 `out1.dat`..`out19.dat` (2500 bytes each) — layout confirmed
 
@@ -735,6 +915,40 @@ cells sit on a clean 2 × 4 lattice (`fileRow` 5/10/15/20 × `col` 10/15) —
 a ring of set-piece encounters. Phantasie II's `PHANT.PRG` reaches the same
 "variant-7 `+2` is a fixed-encounter monster index" conclusion
 independently (§8.6.4b).
+
+> **Correction (2026-08-12) — the `+2 = 79` record is a genuine SSI data
+> slip, not a decoding ambiguity.** The single record (`out18.dat`, POI
+> slot 7 of 15, file offset `0x22B`; the `+2` byte itself at `0x22D`) was
+> traced through the real variant-7 handler in `data/phantasie/amiga/game`,
+> byte-verified at `game+0x18132`-`0x18148`:
+> ```
+> 0x18132  bsr.w  0x18340        ; POIScan() -> a0
+> 0x18138  move.b 0x2(a0),d1     ; record[+2]
+> 0x1813c  ext.w  d1
+> 0x1813e  ext.l  d1
+> 0x18140  addq.l #1,d1
+> 0x18142  andi.l #$ff,d1
+> 0x18148  move.w d1,$58.l       ; encounter index = (record[+2]+1) & 0xFF
+> ```
+> (independently re-verified byte-exact this pass, including the `ext.w
+> d1` step at `0x1813c` omitted from the original transcript — it doesn't
+> change the result, `record[+2]` is already a small unsigned byte)
+> This is a **single unconditional path** — identical for every one of the
+> 19 real variant-7 records project-wide (all 8 in `out18.dat` included),
+> with no branch that treats any `+2` value differently. The 80-entry
+> monster name table (`data-tables.md` §1.1/§1.2, cross-checked
+> independently in `scripting-engine.md` §6.2 against every real
+> dungon-script monster reference in all three games, zero out-of-range
+> hits) has **no** slot 80 or sentinel: the byte position a slot-80 name
+> would occupy, `0x0C88 + 80*58 = 0x1EA8`, is exactly where the sprite
+> width/height table (§1.2) begins — reading it as a name yields mostly
+> NUL bytes (raw `u16` sprite dimensions), not a plausible dummy string.
+> **Confirmed: the encounter roster is 0-based project-wide with no
+> alternate 1-based code arm; `out18.dat`'s eighth lattice cell (the one
+> completing its 2×4 set-piece pattern alongside WATER ELEMENTAL/STORM
+> GIANT/GREAT TROLL/ZEUS×2/SPLAT BEAST/ORANGE DRAGON) simply carries an
+> off-by-one monster byte — a real, shipped SSI authoring slip, not a
+> reference-decoder or documentation error.**
 
 Of the 23 records with `+2 ≥ 30`, **19 sit on a variant-7 or variant-8
 cell**; the remaining four (`out3.dat` ×2, `out13.dat`, `out15.dat`) are
@@ -1180,12 +1394,58 @@ the line stride and encoding.
 > which reads a fixed length per scroll and special-cases the one outlier
 > (`S6`) that needs more.
 >
-> **Not resolved this pass**: whether the game addresses a scroll by this
-> same 0-19 slot index at runtime (with slot 3 simply never requested) — no
-> P1 code trace was done for the scroll loader/reader, so the *data-layout*
-> finding above is confirmed but the *addressing* scheme is still a
-> hypothesis, consistent with the P3 `S1`-`S20` analogy rather than
-> independently verified in P1's own disassembly.
+> **Correction (2026-08-12): the addressing scheme is now code-confirmed —
+> P1 does address `scrolls.dtx` by this same 0-19 slot index at runtime.**
+> Traced from the item-use dispatcher in `data/phantasie/amiga/game`
+> (`GetStat`-adjacent function, same hunk-29/hunk-8 region as the
+> character-record resolver in `scripting-engine.md` §6.3(c)), using a
+> `HUNK_RELOC32`-target-scan of the whole 240-hunk executable (every reloc
+> entry across every hunk checked for one whose stored pre-relocation value
+> equals a callee's own hunk-relative offset — the same technique already
+> validated for `LoadTownsInt`'s callers):
+>
+> - The item-name table (`scripting-engine.md` §6.1) has item indices
+>   **121-140** as `"SCROLL 1"`-`"SCROLL 20"` (file `0x632C`-`0x63E9`,
+>   9-byte fixed stride per label) — including a genuine shipped typo,
+>   `"SROLL 19"` at index 139 (file `0x63D7`), missing its `C`. Confirmed
+>   this is the game's own scroll-item range, not a coincidence: it is
+>   *exactly* the `121`-`140` id space Phantasie III's own `D/S1`-`S20`
+>   loader uses (§9.0.4) for the identical purpose, in a completely
+>   separate binary.
+> - The item-use dispatcher, file offset `0x5542`: `CMPI.W #0x79,-0x6(a6);
+>   BGE.W 0x56A0` (bytes `0C 6E 00 79 FF FA 6C 00 01 56`) — branches into
+>   the scroll-read arm for any used item index `>= 121` (0x79), reached
+>   only after an outer bracket already narrows the dispatch to items
+>   `101`-`150` (`0x65`-`0x96`, file `0x552C`-`0x5536`).
+> - At `0x56A0`: `MOVE.W -0x6(a6),D0; EXT.L D0; CMPI.L #0x8D,D0; BGE.W
+>   0x56C0` (bytes `30 2E FF FA 48 C0 0C 80 00 00 00 8D 6C 12`) — upper
+>   bound, item index `< 141` (0x8D), giving the exact `121-140` range.
+>   `SUBI.L #0x79,D0` (bytes `04 80 00 00 00 79`) then converts the item
+>   index to a **0-based 0-19 slot number** before the call.
+> - That slot number is passed to a small wrapper at file offset `0xA35A`
+>   (`MOVE.W 0xA(a6),D0; EXT.L D0; PEA -0x322(a6); JSR 0xA0.l` — bytes
+>   `30 2E 00 0A 48 C0 2F 00 48 6E FC DE 4E B9 00 00 00 A0`), which forwards
+>   it unchanged as the second argument to `LoadScroll(buffer, slot)` at
+>   file offset `0x7564`.
+> - `LoadScroll`, byte-verified: opens `"scrolls.dtx"` (filename string at
+>   file `0x773C`, via `Open()` at `+0x7564`-`0x757A`, bytes `4E 56 FF F8
+>   48 E7 03 00 42 A7 48 79 00 00 00 00 4E B9 00 00 00 64`), computes
+>   `Seek(slot * 800, ...)` — `MOVE.W 0xE(a6),D0; MULS.W #0x320,D0` (bytes
+>   `30 2E 00 0E C1 FC 03 20`, `0x320` = 800 decimal, the exact confirmed
+>   slot stride) — then `Read()`s exactly 800 bytes into the caller's
+>   buffer and `Close()`s the file.
+>
+> **This fully confirms the hypothesis**: P1 addresses `scrolls.dtx` by the
+> identical 0-19 slot index the data-layout finding above established, via
+> `itemIndex − 121`. **Bonus finding, not chased further**: item index 124
+> (`"SCROLL 4"`) resolves to slot 3 — the slot the data-layout analysis
+> showed carries no *independent* scroll (it's the NUL-tail-adjacent second
+> half of "THE HISTORY OF GELNOR, PART 3", slots 2-3). Using item
+> `"SCROLL 4"` in-game would therefore `Seek`/`Read` real, legible bytes
+> (Part 3's continuation text), not garbage or an error — whether that item
+> is ever actually reachable/given to the player in the shipped game was
+> not investigated. All cited bytes re-read directly from
+> `data/phantasie/amiga/game` this pass, 0 mismatches.
 >
 > Decoder: `src/assets/formats/scrolls.ts` (`readScrollLines`,
 > `readScrollDocuments`), 10 real-byte tests in
@@ -1784,6 +2044,22 @@ after removing the `+120` fog bank) and looking each up in its section's POI
 table: **69 of 69 have a record, 0 misses.** The POI tables hold exactly 71
 non-empty in-range records; 69 live + the two above. There is no third
 category.
+
+> **Pipeline wiring (2026-08-12).** §8.6.4a/§8.6.4b's semantics are now fed
+> into `tools/phantasieii/build-map.ts`'s `world-map-pois.json` output, not
+> just documented: `WorldPoi` carries an explicit `dungeonEntry: {x, y}`
+> (record `+3`/`+4`, only set for `type === 'dungeon'`) and `monsterIndex`
+> (record `+2` resolved to the 1-based in-game encounter id `index + 1`,
+> only set for `type === 'bump'`), and `bump`-type labels now resolve
+> through `readP2MonsterNames(PHANT.PRG)` to the real monster name (e.g.
+> `"PLUTO'S UNDEAD SNAKE"`) instead of a generic `Event N` placeholder.
+> Verified: `tools/phantasieii/__tests__/build-map.test.ts` checks every
+> `dungeon` record's `dungeonEntry` is in-range (`x` 0-32, `y` 0-37, per
+> §8.6.4a), the `OUT28.DAT` ring's eight entries match the table above
+> exactly, no non-`dungeon` record carries a `dungeonEntry`, both real
+> `bump` records resolve to `monsterIndex` 73/74 (matching the table
+> above), and no non-`bump` record carries a `monsterIndex` — 14/14 tests
+> green. Closes `world-p2-poi-semantics-into-pipeline` in `TODO.md`.
 
 #### 8.6.5 `TWNS.INT` (13,900 bytes) — same record array as P1
 
@@ -3290,8 +3566,8 @@ in-executable character-record layout, which was out of scope here.
 
 | Item | What's known | What's missing |
 |------|-------------|-----------------|
-| P1/P2 header gap `0x04F2`-`0x04FA` (9 bytes) | Fixed position/size, sample bytes recorded | Field meaning |
-| P3 header gap `0x02DB`-`0x02E3` (9 bytes) | Same position/size as P1/P2's gap | Field meaning |
+| ~~P1/P2 header gap `0x04F2`-`0x04FA` (9 bytes)~~ | **Resolved (2026-08-12), see §3's correction block.** The dungeon-exit destination table: 3×3-byte `{worldSection, exitY, exitX}` records, indexed by `cell − 0xD7` for the three "Stairs (exit dungeon)" cell values, consumed by both P1's and P2's own exit-dungeon handlers (byte-verified disassembly) | n/a |
+| ~~P3 header gap `0x02DB`-`0x02E3` (9 bytes)~~ | **Resolved (2026-08-12), see §5's row/§3's correction block.** Same table layout, but P3 reads only byte 0 as a selector into the already-confirmed `0x28C2.l` active-special-map global | n/a |
 | P1/P2 trailing bytes after the action-table terminator | Position varies per file; often holds an `"...ENDING SEQUENCE"` string | Whether this is meaningful game content or a development artifact |
 | ~~Phantasie II dungeon/message files~~ | **Resolved** — byte-level decode confirmed against all 8 real extracted `DNG1`-`DNG8`/`MESS1`-`MESS8` files, see §7 | n/a |
 | Phantasie III `a`-`k` dungeon-file letter-to-level-number mapping | **Resolved** (§9.0.5.4): the word table at hunk-1 `0x22AC` maps dungeon index 1-11 to the letters `J H E D A C B K I F G`; `EnterDungeon()` at addr `0x1BB58` patches the letter into `"D/DNGX.DAT"` and reads 4,224 of the 4,352 bytes. §9.0.5.5 binds every letter to its named entrance | n/a |

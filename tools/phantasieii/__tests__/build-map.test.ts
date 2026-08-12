@@ -18,6 +18,7 @@ import {
   decodeOutdoorSection,
   type OutdoorSection,
 } from '../../../src/assets/formats/outdoor.ts';
+import { readP2MonsterNames } from '../../../src/assets/formats/exe-data.ts';
 
 const DISK1 = resolve('data/phantasieii/atarist/extracted/disk1');
 const DISK2 = resolve('data/phantasieii/atarist/extracted/disk2');
@@ -34,7 +35,9 @@ const SECTIONS: { section: number; decoded: OutdoorSection }[] = OUTDOOR_FILE_NA
   }),
 );
 const GRIDS = decodeMapsInt(new Uint8Array(readFileSync(resolve(DISK1, 'MAPS.INT'))), PHANTASIE2_OUTDOOR);
-const BUILT = buildWorldFromSections(SECTIONS, GRIDS);
+const EXE = new Uint8Array(readFileSync(resolve(DISK1, 'PHANT.PRG')));
+const MONSTER_NAMES = readP2MonsterNames(EXE);
+const BUILT = buildWorldFromSections(SECTIONS, GRIDS, MONSTER_NAMES);
 
 describe('outdoor file list (dungeon-format.md §8.6.1/§8.6.2)', () => {
   it('is the 17 shipped sections in MAPS.INT block order, sparse over a 32-slot mosaic', () => {
@@ -139,6 +142,42 @@ describe('world POI table built from real bytes', () => {
     expect(Object.keys(idCounts)).toHaveLength(8);
     // OUT28.DAT (id 7): a ring of 8 cells around one entrance.
     expect(idCounts[7]).toBe(8);
+  });
+
+  it('exposes the dungeon-entry (x, y) for every dungeon marker, in the 33x38 DNGn grid domain (dungeon-format.md §8.6.4a)', () => {
+    const dungeons = BUILT.pois.filter((p) => p.type === 'dungeon');
+    expect(dungeons).toHaveLength(15);
+    for (const d of dungeons) {
+      expect(d.dungeonEntry).toBeDefined();
+      expect(d.dungeonEntry!.x).toBeGreaterThanOrEqual(0);
+      expect(d.dungeonEntry!.x).toBeLessThanOrEqual(32);
+      expect(d.dungeonEntry!.y).toBeGreaterThanOrEqual(0);
+      expect(d.dungeonEntry!.y).toBeLessThanOrEqual(37);
+    }
+    // The OUT28.DAT ring (dungeon id 7): one worked example from the doc.
+    const ring = dungeons.filter((d) => d.index === 7);
+    expect(ring).toHaveLength(8);
+    expect(ring.map((d) => `${d.dungeonEntry!.x},${d.dungeonEntry!.y}`).sort()).toEqual(
+      ['0,18', '16,0', '16,37', '29,0', '29,37', '3,0', '3,37', '32,18'].sort(),
+    );
+    // No non-dungeon marker carries a dungeonEntry.
+    for (const p of BUILT.pois) {
+      if (p.type !== 'dungeon') expect(p.dungeonEntry).toBeUndefined();
+    }
+  });
+
+  it('resolves the two variant-7 fixed-encounter markers to their real monster names (dungeon-format.md §8.6.4b)', () => {
+    const bumps = BUILT.pois.filter((p) => p.type === 'bump');
+    expect(bumps).toHaveLength(2);
+    const byIndex = new Map(bumps.map((b) => [b.index, b]));
+    expect(byIndex.get(72)?.monsterIndex).toBe(73);
+    expect(byIndex.get(72)?.label).toBe("PLUTO'S UNDEAD SNAKE");
+    expect(byIndex.get(73)?.monsterIndex).toBe(74);
+    expect(byIndex.get(73)?.label).toBe("PLUTO'S DEMON-FLY");
+    // No non-bump marker carries a monsterIndex.
+    for (const p of BUILT.pois) {
+      if (p.type !== 'bump') expect(p.monsterIndex).toBeUndefined();
+    }
   });
 
   it('never invents a town or dungeon name', () => {
