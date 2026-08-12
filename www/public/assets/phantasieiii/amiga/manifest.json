@@ -124,5 +124,82 @@
     "sprites": 0,
     "hasPalette": false,
     "png": "screens/netherworld.png"
+  },
+  {
+    "name": "dungeon-a",
+    "type": "dungeon",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
+  },
+  {
+    "name": "dungeon-b",
+    "type": "dungeon",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
+  },
+  {
+    "name": "dungeon-c",
+    "type": "dungeon",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
+  },
+  {
+    "name": "dungeon-d",
+    "type": "dungeon",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
+  },
+  {
+    "name": "dungeon-e",
+    "type": "dungeon",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
+  },
+  {
+    "name": "dungeon-f",
+    "type": "dungeon",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
+  },
+  {
+    "name": "dungeon-g",
+    "type": "dungeon",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
+  },
+  {
+    "name": "dungeon-h",
+    "type": "dungeon",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
+  },
+  {
+    "name": "dungeon-i",
+    "type": "dungeon",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
+  },
+  {
+    "name": "dungeon-j",
+    "type": "dungeon",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
+  },
+  {
+    "name": "dungeon-k",
+    "type": "dungeon",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
   }
 ]

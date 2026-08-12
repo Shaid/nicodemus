@@ -1,0 +1,532 @@
+{
+  "sourceFile": "OUT.RSC",
+  "treeCount": 44,
+  "trees": [
+    {
+      "index": 0,
+      "objectCount": 27,
+      "strings": [
+        " Info     ",
+        "   Options  ",
+        "  Speed  ",
+        "  About Phantasie...",
+        "--------------------",
+        "  Desk Accessory 1  ",
+        "  Desk Accessory 2  ",
+        "  Desk Accessory 3  ",
+        "  Desk Accessory 4  ",
+        "  Desk Accessory 5  ",
+        "  Desk Accessory 6  ",
+        "  Inspect     ",
+        "  Health      ",
+        "  Cast spell  ",
+        "  Use potion  ",
+        "--------------",
+        "  Look",
+        "   fast   ",
+        "   normal ",
+        "   slow   "
+      ]
+    },
+    {
+      "index": 1,
+      "objectCount": 29,
+      "strings": [
+        " Info     ",
+        " Party options ",
+        " Speed ",
+        "  About Phantasie...",
+        "--------------------",
+        "  Desk Accessory 1  ",
+        "  Desk Accessory 2  ",
+        "  Desk Accessory 3  ",
+        "  Desk Accessory 4  ",
+        "  Desk Accessory 5  ",
+        "  Desk Accessory 6  ",
+        "  Beg mercy   ",
+        "  Threaten    ",
+        "  Greetings   ",
+        "  Fight       ",
+        "  Flee        ",
+        "---------------",
+        "  Show names  ",
+        "  Party health ",
+        "   fast  ",
+        "   normal ",
+        "   slow    "
+      ]
+    },
+    {
+      "index": 2,
+      "objectCount": 8,
+      "strings": [
+        "THRUST",
+        "ATTACK",
+        "SLASH",
+        "LUNGE",
+        "CAST",
+        "PARRY",
+        "TOSS"
+      ]
+    },
+    {
+      "index": 3,
+      "objectCount": 5,
+      "strings": [
+        "THRUST AT RANK: ",
+        "1",
+        "2",
+        "3"
+      ]
+    },
+    {
+      "index": 4,
+      "objectCount": 8,
+      "strings": [
+        " A MAGICAL POOL ",
+        " 123456789 IS CHANGED ",
+        " 123456789 IS CHANGED ",
+        " 123456789 IS CHANGED ",
+        " 123456789 IS CHANGED ",
+        " 123456789 IS CHANGED ",
+        " 123456789 IS CHANGED "
+      ]
+    },
+    {
+      "index": 5,
+      "objectCount": 4,
+      "strings": [
+        " AN INN. ENTER ? ",
+        "YES",
+        "NO"
+      ]
+    },
+    {
+      "index": 6,
+      "objectCount": 9,
+      "strings": [
+        "123456789 HP:256/256 MP:256/S56 SLEEPING",
+        "123456789 HP:256/256 MP:256/S56 SLEEPING",
+        "123456789 HP:256/256 MP:256/S56 SLEEPING",
+        "123456789 HP:256/256 MP:256/S56 SLEEPING",
+        "123456789 HP:256/256 MP:256/S56 SLEEPING",
+        "123456789 HP:256/256 MP:256/S56 SLEEPING",
+        "123456789 HP:256/256 MP:256/S56 SLEEPING",
+        "O.K."
+      ]
+    },
+    {
+      "index": 7,
+      "objectCount": 5,
+      "strings": [
+        " BLACK KNIGHTS !!! ",
+        "RUN",
+        "FIGHT",
+        "SURRENDER"
+      ]
+    },
+    {
+      "index": 8,
+      "objectCount": 4,
+      "strings": [
+        " YOU SPOT SLEEPING MONSTERS ! ",
+        "ATTACK",
+        "LEAVE"
+      ]
+    },
+    {
+      "index": 9,
+      "objectCount": 3,
+      "strings": [
+        " OKAY ",
+        " 123456789 IS HEALED "
+      ]
+    },
+    {
+      "index": 10,
+      "objectCount": 4,
+      "strings": [
+        "RUN",
+        "FIGHT",
+        "123456789 HEARS MONSTERS "
+      ]
+    },
+    {
+      "index": 11,
+      "objectCount": 2,
+      "strings": [
+        "1234567890123456789012345678901234567890"
+      ]
+    },
+    {
+      "index": 12,
+      "objectCount": 3,
+      "strings": [
+        "1234567890123456789012345678901234567890",
+        "1234567890123456789012345678901234567890"
+      ]
+    },
+    {
+      "index": 13,
+      "objectCount": 4,
+      "strings": [
+        "1234567890123456789012345678901234567890",
+        "1234567890123456789012345678901234567890",
+        "1234567890123456789012345678901234567890"
+      ]
+    },
+    {
+      "index": 14,
+      "objectCount": 9,
+      "strings": [
+        "123456789 M=256 P=256 THRUST AT RANK 226",
+        "123456789 M=256 P=256 THRUST AT RANK 223",
+        "123456789 M=256 P=256 THRUST AT RANK 223",
+        "123456789 M=256 P=256 THRUST AT RANK 223",
+        "123456789 M=256 P=256 THRUST AT RANK 223",
+        "123456789 M=256 P=256 THRUST AT RANK 223",
+        "123456789 M=256 P=256 THRUST AT RANK 223",
+        " F  I  G  H  T "
+      ]
+    },
+    {
+      "index": 15,
+      "objectCount": 2,
+      "strings": [
+        " THE RIVER STYX "
+      ]
+    },
+    {
+      "index": 16,
+      "objectCount": 3,
+      "strings": [
+        " 123456789 RECEIVES MAGICS ",
+        " OKAY "
+      ]
+    },
+    {
+      "index": 17,
+      "objectCount": 2,
+      "strings": [
+        " THAT IS THE OCEAN "
+      ]
+    },
+    {
+      "index": 18,
+      "objectCount": 2,
+      "strings": [
+        "OK"
+      ]
+    },
+    {
+      "index": 19,
+      "objectCount": 8,
+      "strings": [
+        " SWIMMING : ",
+        "123456789 SINKS AND TAKES 123 DAMAGE",
+        "123456789 SINKS AND TAKES 123 DAMAGE",
+        "123456789 SINKS AND TAKES 123 DAMAGE",
+        "123456789 SINKS AND TAKES 123 DAMAGE",
+        "123456789 SINKS AND TAKES 123 DAMAGE",
+        "123456789 SINKS AND TAKES 123 DAMAGE"
+      ]
+    },
+    {
+      "index": 20,
+      "objectCount": 8,
+      "strings": [
+        "IN THE INN :",
+        "123456789 'S MAGICS INCREASES ",
+        "123456789 'S MAGICS INCREASES ",
+        "123456789 'S MAGICS INCREASES ",
+        "123456789 'S MAGICS INCREASES ",
+        "123456789 'S MAGICS INCREASES ",
+        "123456789 'S MAGICS INCREASES "
+      ]
+    },
+    {
+      "index": 21,
+      "objectCount": 3,
+      "strings": [
+        " MONSTERS ARE LEVEL 12 ",
+        " SORRY "
+      ]
+    },
+    {
+      "index": 22,
+      "objectCount": 3,
+      "strings": [
+        " YOU CAN'T AFFORD IT. ",
+        " SORRY "
+      ]
+    },
+    {
+      "index": 23,
+      "objectCount": 3,
+      "strings": [
+        "123456789 HAS NO POTIONS ",
+        " SORRY "
+      ]
+    },
+    {
+      "index": 24,
+      "objectCount": 10,
+      "strings": [
+        "WHO WILL SHOP?                        ",
+        "123456789 SLEEP HP 123/123 MP 123/123",
+        "123456789 SLEEP HP 123/123 MP 123/123",
+        "123456789 SLEEP HP 123/123 MP 123 123",
+        "123456789 SLEEP HP 123/123 MP 123/123",
+        "123456789 SLEEP HP 123/123 MP 123/123",
+        "123456789 SLEEP HP 123/123 MP 123/123",
+        "123456789 SLEEP HP 123/123 MP 123/123",
+        "CANCEL"
+      ]
+    },
+    {
+      "index": 25,
+      "objectCount": 12,
+      "strings": [
+        "12345678901234567899012345678",
+        "12345678901234567890123456789",
+        "12345678901234567890123456789",
+        "12345678901234567890123456789",
+        "12345678901234567890123456789",
+        "01234567890123456789890123456",
+        "CANCEL",
+        "Spells :                     "
+      ]
+    },
+    {
+      "index": 26,
+      "objectCount": 22,
+      "strings": [
+        "Jozefinka",
+        "LEVEL XX WIZARD HALFLING OKAY",
+        "STRENGTH     XXx",
+        "INTELLIGENCE XXX",
+        "DEXTERITY    XXX",
+        "CONSTITUTION XXX",
+        "AGE        XXXXXXX ",
+        "CHARISMA     XXX",
+        "HIT POINTS XXX/XXX",
+        "MAGIC      XXX/XXX ",
+        "GOLD IN BANK XXXXX ",
+        "EX. PTS XXXXXXXXXX",
+        "LUCK         XXX",
+        "SCORE          XXX ",
+        "SPELLS",
+        "EQUIPMENT",
+        "SKILLS",
+        "EXIT",
+        "POTIONS",
+        "Origin: xxxxxxxxxxx",
+        "BEAST RUNES: 1 2 3 4 5 6 7 8"
+      ]
+    },
+    {
+      "index": 27,
+      "objectCount": 5,
+      "strings": [
+        "SM SHIELD      XXX ",
+        "SM SHIELD      XXX ",
+        "SM SHIELD      XXX ",
+        "EXIT"
+      ]
+    },
+    {
+      "index": 28,
+      "objectCount": 13,
+      "strings": [
+        "fire blast 1984    ",
+        "fire blast 1984    ",
+        "fire blast 1984    ",
+        "fire blast 1984    ",
+        "fire blast 1984    ",
+        "fire blast 1984    ",
+        "fire blast 1984    ",
+        "fire blast 1984    ",
+        "fire blast 1984    ",
+        "CANCEL",
+        "Items carried:"
+      ]
+    },
+    {
+      "index": 29,
+      "objectCount": 11,
+      "strings": [
+        "ATTACK XXX ",
+        "SWIM   XXX ",
+        "PARRY  XXX ",
+        "SPOT TRAP   XXX ",
+        "LISTEN XXX ",
+        "DISARM TRAP XXX ",
+        "FIND ITEM   XXX ",
+        "PICK LOCK   XXX ",
+        "EXIT",
+        "TOSS   XXX "
+      ]
+    },
+    {
+      "index": 30,
+      "objectCount": 4,
+      "strings": [
+        " A DUNGEON. ENTER ? ",
+        " YES ",
+        "  NO  "
+      ]
+    },
+    {
+      "index": 31,
+      "objectCount": 7,
+      "strings": [
+        "1234567890123456789012345678901234567890",
+        "1234567890123456789012345678901234567890",
+        "1234567890123456789012345678901234567890",
+        "1234567890123456789012345678901234567890",
+        "1234567890123456789012345678901234567890",
+        "1234567890123456789012345678901234567890"
+      ]
+    },
+    {
+      "index": 32,
+      "objectCount": 11,
+      "strings": [
+        "12345678901",
+        "12345678901",
+        "12345678901",
+        "12345678901",
+        "12345678901",
+        "12345678901",
+        "12345678901",
+        "12345678901",
+        "12345678901",
+        "12345678901"
+      ]
+    },
+    {
+      "index": 33,
+      "objectCount": 15,
+      "strings": [
+        "DAY OUT           12345",
+        "EXPERIENCE POINTS 1234567890",
+        "GOLD PIECES       1234567890",
+        "GOOD TREASURE(S) 123",
+        "GOOD TREASURE(S) 123",
+        "GOOD TREASURE(S) 123",
+        "GOOD TREASURE(S) 123",
+        "GOOD TREASURE(S) 123",
+        "GOOD TREASURE(S) 123",
+        "GOOD TREASURE(S) 123",
+        "GOOD TREASURE(S) 123",
+        "GOOD TREASURE(S) 123",
+        "INSPECT MEMBER",
+        "EXIT"
+      ]
+    },
+    {
+      "index": 34,
+      "objectCount": 10,
+      "strings": [
+        "123456789 SLEEP HP 123/123 MP 123/123",
+        "123456789 SLEEP HP 123/123 MP 123/123",
+        "123456789 SLEEP HP 123/123 MP 123/123",
+        "123456789 SLEEP HP 123/123 MP 123/123",
+        "123456789 SLEEP HP 123/123 MP 123/123",
+        "123456789 SLEEP HP 123/123 MP 123/123",
+        "123456789 SLEEP HP 123/123 MP 123/123",
+        " HEALTH REPORT : ",
+        " OK "
+      ]
+    },
+    {
+      "index": 35,
+      "objectCount": 4,
+      "strings": [
+        "1234567890123456789012345678901234567890",
+        "YES",
+        "NO"
+      ]
+    },
+    {
+      "index": 36,
+      "objectCount": 8,
+      "strings": [
+        "XX HL POTIONS  XX MG POTIONS",
+        "XX SCROLL(S)   XX TREASURES",
+        "XX AMULET(S)              ",
+        "  - THE ORB -   ",
+        "OK",
+        "- FILMON WAND - ",
+        "- WAND OF NIK - "
+      ]
+    },
+    {
+      "index": 37,
+      "objectCount": 4,
+      "strings": [
+        " A TOWN. ENTER ? ",
+        " YES ",
+        "  NO  "
+      ]
+    },
+    {
+      "index": 38,
+      "objectCount": 5,
+      "strings": [
+        "ROW 1 : 1 1234567890123456789012(S)",
+        "ROW 1 : 1 1234567890123456789012(S)",
+        "ROW 1 : 1 1234567890123456789012(S)",
+        "O.K."
+      ]
+    },
+    {
+      "index": 39,
+      "objectCount": 8,
+      "strings": [
+        "WE DID IT AGAIN FOR YOU !",
+        "WINSTON  D. WOOD  WROTE  IT  FOR  APPLE.",
+        "WE CONVERTED IT FOR C-64. NOW ST VERSION",
+        "IS READY. WLODEK P. KUBALSKI 'KUBA'  AND",
+        "JACEK KLEPACKI DID  ALL THE PROGRAMMER'S",
+        "WORK AND MACIEJ MARKUSZEWSKI - GRAPHICS.",
+        "LOGICAL DESIGN WORKS, INC."
+      ]
+    },
+    {
+      "index": 40,
+      "objectCount": 2,
+      "strings": [
+        "1234567890123456789012345678901234"
+      ]
+    },
+    {
+      "index": 41,
+      "objectCount": 3,
+      "strings": [
+        "1234567890123456789012345678901234",
+        "1234567890123456789012345678901234"
+      ]
+    },
+    {
+      "index": 42,
+      "objectCount": 4,
+      "strings": [
+        "YOU FIND 12345678901234. KEEP IT ?",
+        " YES ",
+        "NO"
+      ]
+    },
+    {
+      "index": 43,
+      "objectCount": 4,
+      "strings": [
+        "ENCOUNTER WITH ONE",
+        "OF PLUTO'S MINIONS"
+      ]
+    }
+  ],
+  "freeStrings": [
+    "[0][Not enough Magic     ][ SORRY ]"
+  ]
+}

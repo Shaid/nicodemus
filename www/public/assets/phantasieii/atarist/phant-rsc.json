@@ -1,0 +1,393 @@
+{
+  "sourceFile": "PHANT.RSC",
+  "treeCount": 26,
+  "trees": [
+    {
+      "index": 0,
+      "objectCount": 23,
+      "strings": [
+        " Info  ",
+        " Town options  ",
+        "  About Phantasie...",
+        "--------------------",
+        "  Desk Accessory 1  ",
+        "  Desk Accessory 2  ",
+        "  Desk Accessory 3  ",
+        "  Desk Accessory 4  ",
+        "  Desk Accessory 5  ",
+        "  Desk Accessory 6  ",
+        "  Cast spell",
+        "  Use item",
+        "  Printout",
+        "  Show party ",
+        "  Save game",
+        "-----------------",
+        "  Auto save "
+      ]
+    },
+    {
+      "index": 1,
+      "objectCount": 20,
+      "strings": [
+        " Info  ",
+        " Bank options  ",
+        "  About Phantasie...",
+        "--------------------",
+        "  Desk Accessory 1  ",
+        "  Desk Accessory 2  ",
+        "  Desk Accessory 3  ",
+        "  Desk Accessory 4  ",
+        "  Desk Accessory 5  ",
+        "  Desk Accessory 6  ",
+        "  Deposit        ",
+        "  Withdraw       ",
+        "-----------------",
+        "  Exit Bank      "
+      ]
+    },
+    {
+      "index": 2,
+      "objectCount": 26,
+      "strings": [
+        " Info  ",
+        " Guild options  ",
+        "  About Phantasie...",
+        "--------------------",
+        "  Desk Accessory 1  ",
+        "  Desk Accessory 2  ",
+        "  Desk Accessory 3  ",
+        "  Desk Accessory 4  ",
+        "  Desk Accessory 5  ",
+        "  Desk Accessory 6  ",
+        "  Spells         ",
+        "  Training       ",
+        "  Add member     ",
+        "  New member     ",
+        "  Drop member    ",
+        "  Rename         ",
+        "  Inspect        ",
+        "  Purge          ",
+        "  Exit Guild     ",
+        "-----------------"
+      ]
+    },
+    {
+      "index": 3,
+      "objectCount": 10,
+      "strings": [
+        "HUMAN",
+        "DWARF",
+        "ELF",
+        "HALFLING",
+        "GNOME",
+        "RANDOM",
+        "Pick race:",
+        "O.K.",
+        "EXIT"
+      ]
+    },
+    {
+      "index": 4,
+      "objectCount": 10,
+      "strings": [
+        "THIEF",
+        "MONK",
+        "RANGER",
+        "FIGHTER",
+        "PRIEST",
+        "WIZARD",
+        "O.K.",
+        "CANCEL",
+        "Pick class:"
+      ]
+    },
+    {
+      "index": 5,
+      "objectCount": 3,
+      "strings": [
+        "_________",
+        "O.K."
+      ]
+    },
+    {
+      "index": 6,
+      "objectCount": 4,
+      "strings": [
+        "Do You want :",
+        " - start this turn in Pippacott ",
+        " - continue saved game    "
+      ]
+    },
+    {
+      "index": 7,
+      "objectCount": 11,
+      "strings": [
+        "The wise old mystic peers",
+        "The wise old mystic peers",
+        "into his crystal ball and",
+        "speaks:",
+        "Your score is",
+        "not ready to destroy the orb.",
+        " XXX",
+        ". You are ",
+        "You are heroes of Gelnor also.",
+        " OK "
+      ]
+    },
+    {
+      "index": 8,
+      "objectCount": 13,
+      "strings": [
+        "123456789 is shopping              ",
+        "Cash->XXXXXXXXX",
+        "NAME         GP:XXX   PTS:YYY",
+        "12345678=GP:XXXXXXX PTS:XXXXXX",
+        "123456789012345678901234567890",
+        "123456789012345678901234567890",
+        "123456789012345678901234567890",
+        "ANOTHER SHOPPER",
+        "EXIT"
+      ]
+    },
+    {
+      "index": 9,
+      "objectCount": 10,
+      "strings": [
+        "WHO WILL SHOP?                        ",
+        "123456789 HALFLING  WIZARD  OKAY   ",
+        "123456789 HALFLING  WIZARD  OKAY   ",
+        "123456789 HALFLING  WIZARD  OKAY   ",
+        "123456789 HALFLING  WIZARD  OKAY   ",
+        "123456789 HALFLING  WIZARD  OKAY   ",
+        "123456789 HALFLING  WIZARD  OKAY   ",
+        "123456789 HALFLING  WIZARD  OKAY   ",
+        "EXIT"
+      ]
+    },
+    {
+      "index": 10,
+      "objectCount": 12,
+      "strings": [
+        "12345678901234567899012345678",
+        "12345678901234567890123456789",
+        "12345678901234567890123456789",
+        "12345678901234567890123456789",
+        "12345678901234567890123456789",
+        "01234567890123456789890123456",
+        "EXIT",
+        "Spells :                     "
+      ]
+    },
+    {
+      "index": 11,
+      "objectCount": 13,
+      "strings": [
+        "fire blast 1984    ",
+        "fire blast 1984    ",
+        "fire blast 1984    ",
+        "fire blast 1984    ",
+        "fire blast 1984    ",
+        "fire blast 1984    ",
+        "fire blast 1984    ",
+        "fire blast 1984    ",
+        "fire blast 1984    ",
+        "EXIT",
+        "Items carried:"
+      ]
+    },
+    {
+      "index": 12,
+      "objectCount": 2,
+      "strings": [
+        "Shares for:"
+      ]
+    },
+    {
+      "index": 13,
+      "objectCount": 6,
+      "strings": [
+        "123456789 ",
+        "0",
+        "1",
+        "2",
+        "3"
+      ]
+    },
+    {
+      "index": 14,
+      "objectCount": 5,
+      "strings": [
+        "Each share is: ",
+        " 12345 gold  ",
+        "and 123456789 XP. ",
+        "O.K."
+      ]
+    },
+    {
+      "index": 15,
+      "objectCount": 3,
+      "strings": [
+        "_____",
+        "O.K."
+      ]
+    },
+    {
+      "index": 16,
+      "objectCount": 10,
+      "strings": [
+        "123456789 is resting  Magic increases",
+        "123456789 is resting  Magic increases",
+        "123456789 is resting  Magic increases",
+        "123456789 is resting  Magic increases",
+        "123456789 is resting  Magic increases",
+        "123456789 is resting  Magic increases",
+        "123456789 is resting  Magic increases",
+        "Distribute",
+        "Exit Inn"
+      ]
+    },
+    {
+      "index": 17,
+      "objectCount": 17,
+      "strings": [
+        "123456789 WIZARD XXX XXX XXX",
+        "123456789 WIZARD XXX XXX XXX",
+        "123456789 WIZARD XXX XXX XXX",
+        "123456789 WIZARD XXX XXX XXX",
+        "123456789 WIZARD XXX XXX XXX",
+        "123456789 WIZARD XXX XXX XXX",
+        "NAME       CLASS  WPN ARM SHD ",
+        "123456789 WIZARD XXX XXX XXXxx",
+        "123456789 WIZARD XXX XXX XXXXX",
+        "123456789 WIZARD XXX XXX XXXXX",
+        "123456789 WIZARD XXX XXX XXXXX",
+        "123456789 WIZARD XXX XXX XXXXX",
+        "123456789 WIZARD XXX XXX XXXXX",
+        "SELL ITEM"
+      ]
+    },
+    {
+      "index": 18,
+      "objectCount": 5,
+      "strings": [
+        " EXAMINE ",
+        "  WEAR  ",
+        " LEAVE "
+      ]
+    },
+    {
+      "index": 19,
+      "objectCount": 22,
+      "strings": [
+        "Jozefinka",
+        "LEVEL XX WIZARD HALFLING OKAY",
+        "STRENGTH     XXx",
+        "INTELLIGENCE XXX",
+        "DEXTERITY    XXX",
+        "CONSTITUTION XXX",
+        "AGE        XXXXXXX ",
+        "CHARISMA     XXX",
+        "HIT POINTS XXX/XXX",
+        "MAGIC      XXX/XXX ",
+        "GOLD IN BANK XXXXX ",
+        "EX. PTS XXXXXXXXXX",
+        "LUCK         XXX",
+        "SCORE          XXX ",
+        "SPELLS",
+        "EQUIPMENT",
+        "SKILLS",
+        "EXIT",
+        "BEAST RUNES: 1 2 3 4 5 6 7 8 ",
+        "POTIONS",
+        "Origin: Xxxxxxxxxxx"
+      ]
+    },
+    {
+      "index": 20,
+      "objectCount": 11,
+      "strings": [
+        "ATTACK XXX ",
+        "SWIM   XXX ",
+        "PARRY  XXX ",
+        "SPOT TRAP   XXX ",
+        "LISTEN XXX ",
+        "DISARM TRAP XXX ",
+        "FIND ITEM   XXX ",
+        "PICK LOCK   XXX ",
+        "EXIT",
+        "TOSS   XXX "
+      ]
+    },
+    {
+      "index": 21,
+      "objectCount": 5,
+      "strings": [
+        "SM SHIELD      XXX ",
+        "SM SHIELD      XXX ",
+        "SM SHIELD      XXX ",
+        "EXIT"
+      ]
+    },
+    {
+      "index": 22,
+      "objectCount": 7,
+      "strings": [
+        "The cost is",
+        "You can learn ",
+        "XX ",
+        "more spells",
+        " 123456789 GP    "
+      ]
+    },
+    {
+      "index": 23,
+      "objectCount": 8,
+      "strings": [
+        "XX HL POTIONS  XX MG POTIONS",
+        "XX SCROLL(S)   XX TREASURES",
+        "XX AMULET(S)              ",
+        "  - THE ORB -  ",
+        "OK",
+        "- FILMON WAND -",
+        "- WAND OF NIK -"
+      ]
+    },
+    {
+      "index": 24,
+      "objectCount": 8,
+      "strings": [
+        "WINSTON  D. WOOD  WROTE  IT  FOR  APPLE.",
+        "WE DID IT AGAIN FOR YOU!",
+        "IS READY.  WLODEK P. KUBALSKI 'KUBA' AND",
+        "WORK AND MACIEJ MARKUSZEWSKI - GRAPHICS.",
+        "WE CONVERTED IT FOR C-64. NOW ST VERSION",
+        "JACEK KLEPACKI  DID ALL THE PROGRAMMER'S",
+        "LOGICAL DESIGN WORKS, INC."
+      ]
+    },
+    {
+      "index": 25,
+      "objectCount": 2,
+      "strings": [
+        "OK"
+      ]
+    }
+  ],
+  "freeStrings": [
+    "[0][                      |There is no room     |                ][ SORRY ]",
+    "[0][                  |You can not afford it    |                  ][ SORRY ]",
+    "[0][              |You are improved    |              ][ O.K. ]",
+    "[0][                        |You must assemble a group    |                            ][ SORRY ]",
+    "[0][                |You've learned     |                         ][ O.K. ]",
+    "[0][                    |No one is wise enough    |   to teach You       ][ SORRY ]",
+    "[0][                |Not in the   town    |it takes 2 months   |  to get here     ][ YES  | NO ]",
+    "[0][                  |You can't learn any more    |                        ][ SORRY ]",
+    "[0][                    |Not enough Magic     |                  ][ SORRY ]",
+    "[0][               | D O N E !      |            ][ O.K. ]",
+    "[0][                | UNUSABLE    |              ][SORRY]",
+    "[0][             |You've failed    |              ][ SORRY ]",
+    "[0][               |He has nine items    |               ][SORRY]",
+    "[0][                     |Do You want printout?     |                    ][ Yes | No ]",
+    "[0][              |Prepare printer    |               ][O.K.|ABORT]"
+  ]
+}

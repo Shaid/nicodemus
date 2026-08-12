@@ -65,5 +65,82 @@
     "sprites": 0,
     "hasPalette": true,
     "png": "screens/world-map.png"
+  },
+  {
+    "name": "phant-rsc",
+    "type": "text",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
+  },
+  {
+    "name": "out-rsc",
+    "type": "text",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
+  },
+  {
+    "name": "backup-rsc",
+    "type": "text",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
+  },
+  {
+    "name": "dungeon-1",
+    "type": "dungeon",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
+  },
+  {
+    "name": "dungeon-2",
+    "type": "dungeon",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
+  },
+  {
+    "name": "dungeon-3",
+    "type": "dungeon",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
+  },
+  {
+    "name": "dungeon-4",
+    "type": "dungeon",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
+  },
+  {
+    "name": "dungeon-5",
+    "type": "dungeon",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
+  },
+  {
+    "name": "dungeon-6",
+    "type": "dungeon",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
+  },
+  {
+    "name": "dungeon-7",
+    "type": "dungeon",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
+  },
+  {
+    "name": "dungeon-8",
+    "type": "dungeon",
+    "sprites": 0,
+    "hasPalette": false,
+    "png": ""
   }
 ]

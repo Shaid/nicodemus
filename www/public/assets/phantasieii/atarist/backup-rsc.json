@@ -1,0 +1,117 @@
+{
+  "sourceFile": "BACKUP.RSC",
+  "treeCount": 11,
+  "trees": [
+    {
+      "index": 0,
+      "objectCount": 10,
+      "strings": [
+        "PHANTASIE BACKUP UTILITY",
+        "OPTIONS :",
+        " GO BACK TO THE GAME                    ",
+        " TRANSFER CHARACTERS TO BACKUP DISK     ",
+        " TRANSFER CHARACTERS FROM BACKUP DISK   ",
+        " START NEW GAME FROM SCRATCH            ",
+        "TRANSFER CHARACTERS :",
+        " FROM PHANTASIE 1 TO PHANTASIE 2       ",
+        " FROM PHANTASIE 2 TO PHANTASIE 1        "
+      ]
+    },
+    {
+      "index": 1,
+      "objectCount": 4,
+      "strings": [
+        "INSERT PHANTASIE 2 DATA DISK INTO ",
+        " O.K. ",
+        "DISK DRIVE"
+      ]
+    },
+    {
+      "index": 2,
+      "objectCount": 4,
+      "strings": [
+        " O.K. ",
+        "INSERT PHANTASIE 2 GAME DISK INTO ",
+        "DISK DRIVE"
+      ]
+    },
+    {
+      "index": 3,
+      "objectCount": 4,
+      "strings": [
+        "INSERT YOUR BACKUP DISK INTO",
+        " O.K. ",
+        "DISK DRIVE"
+      ]
+    },
+    {
+      "index": 4,
+      "objectCount": 7,
+      "strings": [
+        "IF YOU WANT FORMAT THIS DISK CLICK ON",
+        "INSERT YOUR BACKUP DISK INTO",
+        "'FORMAT'.   IF NOT CLICK ON   'O.K.' .",
+        "FORMAT",
+        "    O.K.     ",
+        "DISK DRIVE."
+      ]
+    },
+    {
+      "index": 5,
+      "objectCount": 4,
+      "strings": [
+        "YOUR DISKETTE MAY BE UNUSABLE.",
+        "AN ERROR HAS OCCURRED DURING FORMAT.",
+        "     O.K.        "
+      ]
+    },
+    {
+      "index": 6,
+      "objectCount": 4,
+      "strings": [
+        "BACKUP DISK.",
+        "REMOVE WRITE PROTECTION FROM ",
+        "O.K."
+      ]
+    },
+    {
+      "index": 7,
+      "objectCount": 6,
+      "strings": [
+        "THIS WILL ERASE ANY CHARACTERS  ",
+        "ON THE PHANTASIE 1 DISK. OKAY ? ",
+        "  YES  ",
+        "  NO  "
+      ]
+    },
+    {
+      "index": 8,
+      "objectCount": 6,
+      "strings": [
+        "THIS WILL ERASE ANY CHARACTERS  ",
+        "ON THE PHANTASIE 2 DISK. OKAY ? ",
+        "  YES  ",
+        "  NO  "
+      ]
+    },
+    {
+      "index": 9,
+      "objectCount": 4,
+      "strings": [
+        "INSERT PHANTASIE 1 DATA DISK INTO ",
+        "DISK DRIVE",
+        "O.K."
+      ]
+    },
+    {
+      "index": 10,
+      "objectCount": 4,
+      "strings": [
+        "INSERT PHANTASIE 1 GAME DISK INTO ",
+        "DISK DRIVE",
+        "O.K."
+      ]
+    }
+  ],
+  "freeStrings": []
+}
