@@ -1,19 +1,27 @@
 /**
- * Dungeon cell rendering — cell-code → colour mapping, factored out of the
+ * Dungeon cell rendering — cell-code → tile mapping, factored out of the
  * scene so the A7 art swap touches this module and not the movement/
  * collision logic.
  *
- * Colours are Phantasie III's own dungeon palette: the values below are the
- * actual `Dng.csh` header palette (graphics-formats.md §4.5.4's "dungeon"
- * slot — the palette the game installs for the dungeon view). The original
- * view is a flat top-down shape render over that backdrop: walls/doors in
- * the tan family, floor black. The semantic markers (star / trap /
- * encounter / stairs) are *not* visible in the original — those cells look
- * like floor until stepped on — but are kept subtly tinted here so the
- * browser build stays legible and debuggable.
+ * > **Correction (2026-08-18, game-re):** the previous version of this
+ * > module rendered every cell as a flat colour rectangle, on the theory
+ * > that `Dng.csh` decodes to a mostly-empty backdrop picture with "no
+ * > per-cell tile set". That was wrong — see
+ * > `docs/phantasie/implementation.md`'s A7 status update and
+ * > `docs/phantasie/graphics-formats.md` §4.6 for the full disassembly
+ * > evidence. `Dng.csh` is a real 9-icon dungeon-view tile bank; the game
+ * > builds the on-screen dungeon grid by stamping one of those icons per
+ * > cell, exactly matching the confirmed 24-column × 30-row dungeon grid
+ * > (`dungeon-format.md` §3). `dngIconNameFor()` below is the real
+ * > cell-code → icon mapping, reverse-engineered from `LAB_1388`'s
+ * > dispatch table; `colorFor()`/`KIND_COLORS` are kept only as a
+ * > texture-load-failure fallback.
  */
 
 import { classifyCell, type CellClass, type DoorState } from '../assets/formats/dungeon.ts';
+import { dngIconNameFor } from '../assets/formats/dng-icons.ts';
+
+export { dngIconNameFor };
 
 /** `Dng.csh` header palette values (index → hex). See the module comment. */
 const DNG = {

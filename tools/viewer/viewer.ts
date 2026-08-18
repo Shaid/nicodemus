@@ -2,6 +2,7 @@ import { setHidden, type AtlasMeta, type PaletteData, type AtlasFrame } from './
 import { WorldMapViewer } from './map-viewer.ts';
 import { MusicPlayer } from './music-player.ts';
 import { DungeonViewer } from './dungeon-viewer.ts';
+import { setDataTabActive, isDataTabActive, renderDataList, setDataAssetBase } from './data-view.ts';
 import {
   GAME_IDS,
   GAME_DISPLAY_NAMES,
@@ -53,14 +54,24 @@ interface ManifestEntry {
    * decodes it in the browser — see `music-player.ts`. `'dungeon'` means
    * the dungeon grid view — fetches `<name>.json` and draws a flat-coloured
    * top-down cell grid, with click-to-inspect for star triggers — see
-   * `dungeon-viewer.ts`.
+   * `dungeon-viewer.ts`. `'data-table'` entries (written by each game's
+   * `build-data-tables.ts` for the public docs site's `DataTable.astro`)
+   * carry no atlas/palette JSON in this shape at all — they're filtered out
+   * of this list entirely and browsed instead through the Data tab
+   * (`data-view.ts`), which reads the same underlying JSON files directly.
    */
-  type?: 'atlas' | 'map' | 'music' | 'dungeon';
+  type?: 'atlas' | 'map' | 'music' | 'dungeon' | 'data-table';
 }
 
 const listEl = document.getElementById('list')!;
 const listMetaEl = document.getElementById('list-meta')!;
 const searchEl = document.getElementById('search') as HTMLInputElement;
+const dataSearchEl = document.getElementById('data-search') as HTMLInputElement;
+const tabAssetsBtn = document.getElementById('tab-assets') as HTMLButtonElement;
+const tabDataBtn = document.getElementById('tab-data') as HTMLButtonElement;
+const assetSidebarEl = document.getElementById('asset-sidebar')!;
+const dataSidebarEl = document.getElementById('data-sidebar')!;
+const assetViewEl = document.getElementById('asset-view')!;
 const pageTitleEl = document.getElementById('page-title')!;
 const gameSelectEl = document.getElementById('game-select') as HTMLSelectElement;
 const platformSelectEl = document.getElementById('platform-select') as HTMLSelectElement;
@@ -169,6 +180,7 @@ async function switchGamePlatform(game: GameId, platform: PlatformId) {
   currentGame = game;
   currentPlatform = platform;
   ASSET_BASE = assetBaseFor(currentGame, currentPlatform);
+  setDataAssetBase(ASSET_BASE, currentGame);
 
   pageTitleEl.textContent = `${GAME_DISPLAY_NAMES[currentGame]} (${currentPlatform}) — Asset Viewer`;
   document.title = pageTitleEl.textContent;
@@ -185,7 +197,9 @@ async function switchGamePlatform(game: GameId, platform: PlatformId) {
   musicPlayer?.hide();
   dungeonViewer?.hide();
 
-  manifest = await loadManifest();
+  // `data-table` entries have no atlas/palette shape and are browsed
+  // through the Data tab instead — see the `ManifestEntry.type` doc comment.
+  manifest = (await loadManifest()).filter((a) => a.type !== 'data-table');
   // `?asset=` is honoured once, on the load that the URL was parsed for —
   // switching game/platform afterwards starts from no selection again.
   const wanted = pendingAsset;
@@ -420,8 +434,32 @@ frameSlider.addEventListener('input', () => {
   drawAsset();
 });
 
+/** Switches between the "Assets" (image/map/music/dungeon manifest browser) and
+ *  "Data" (decoded JSON table browser) tabs — two entirely separate sidebar
+ *  lists and main-panel views, never both visible together. */
+function switchTab(tab: 'assets' | 'data'): void {
+  const toAssets = tab === 'assets';
+  tabAssetsBtn.classList.toggle('active', toAssets);
+  tabAssetsBtn.setAttribute('aria-selected', String(toAssets));
+  tabDataBtn.classList.toggle('active', !toAssets);
+  tabDataBtn.setAttribute('aria-selected', String(!toAssets));
+
+  setHidden(assetSidebarEl, !toAssets);
+  setHidden(searchEl, !toAssets);
+  setHidden(dataSidebarEl, toAssets);
+  setHidden(dataSearchEl, toAssets);
+  setHidden(assetViewEl, !toAssets);
+
+  setDataTabActive(!toAssets);
+  if (!toAssets) renderDataList();
+}
+
+tabAssetsBtn.addEventListener('click', () => switchTab('assets'));
+tabDataBtn.addEventListener('click', () => switchTab('data'));
+
 document.addEventListener('keydown', (e) => {
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+  if (isDataTabActive()) return; // Data tab has its own table, not the asset list — these shortcuts don't apply.
   if (e.code === 'ArrowLeft' && currentFrames.length > 0) {
     e.preventDefault();
     currentFrame = (currentFrame - 1 + currentFrames.length) % currentFrames.length;

@@ -772,6 +772,252 @@ alone rather than guessed at. Tracked as `gfx-p3-csh-host-palette` in
 > **open** for `palScratch`'s exact runtime content at those moments during
 > actual play.
 
+### 4.6 `Dng.csh` is a 9-icon dungeon-view tile bank, not a backdrop — confirmed (2026-08-18)
+
+> **Correction (2026-08-18, `game-re`):** `docs/implementation.md`'s A7
+> status update (also 2026-08-18) called `Dng.csh` "a 320×200 picture that
+> is ~99% flat black with a thin border frame", concluding the dungeon
+> view has "no per-cell tile set". That contradicts §4.4's own render
+> description two sections up ("`anatomy1.csh`, `dng.csh`, `scroll.csh` →
+> small icon sprites... scattered across an otherwise black 320×200
+> canvas near the top-left") — the A7 pass never cross-checked it. §4.4
+> was right. `Dng.csh` decodes to 403/64,000 non-black pixels (0.6%),
+> tightly bounded to `x∈[0,252], y∈[0,53]` — a cluster of small icons in
+> the top-left corner, not a border frame. This section replaces the A7
+> status update's characterization with the full mechanism, disassembly-
+> traced and pixel-verified. `src/dungeon/DungeonRenderer.ts` and
+> `DungeonScene.ts` have been updated to match (real tile sprites, not
+> flat colour fills) — see their own module-comment correction blocks.
+
+**Layout inside the decoded 320×200 canvas.** `Dng.csh` holds 9 individual
+icons, each 8px wide × 5px tall, packed 5 per row at
+`x = (i % 5) * 48`, row-groups 48 scanlines apart at
+`y = Math.floor(i / 5) * 48` (`i` = 0-8, local icon index). Confirmed by
+direct pixel inspection of the decoded image (`decodeCmp` on
+`Graphics/dng.csh`): every one of the 9 predicted slots has real,
+coherent glyph content; the 10th slot in the implied 5×2 grid
+(`x=192, y=48`) is empty — consistent with `Dng.csh` owning exactly 9
+icon-table entries (see below).
+
+**Row 0 of each 48-scanline band is not icon content — it's a hidden
+per-icon height byte.** `LAB_010D` (the icon-table builder's per-icon
+loop body, called from `LAB_010C`) reads each icon's height via
+`plane = i % 4; byteOffset = (i / 4) * 2`, i.e. one raw bitplane byte at
+row 0 of the picture — not an assembled 4bpp pixel value. This is why
+real icon content starts at `y = band + 1`, and why a naive full-canvas
+pixel scan (no code cross-check) shows a stray single-pixel dot near
+`(icon0.x, 0)` for the first 4 icons of each row-group: it's 4 icons'
+raw metadata bytes composited together into one throwaway "pixel" at
+`(x=0, y=0)`, `(x=2,y=0)` etc — an artifact of reading 4 unrelated
+bitplane bytes as if they were a real 4bpp pixel, not real art.
+Confirmed directly: `decodeCmp(dng.csh).indices` at `(x=0..7, y=0)` is
+all-zero except one stray nonzero pixel at `x=5`; rows 1-5 at the same
+slot are a clean, symmetric 8×5 glyph.
+
+**Icon-table construction — `LAB_010C`, called from the dungeon-entry
+init routine.** Three `PEA table; PEA filename; MOVE.W start,-(A7); JSR
+LAB_010C` sequences build a single shared runtime pointer table
+(`LAB_1804`, `DS.L 46`, contiguous with `LAB_1805`/`1806`/`1807` in BSS —
+one flat 300-entry array despite the four IRA-assigned labels):
+
+| Call | `start` | Loads | Icon range | Palette copy right after |
+|---|---|---|---|---|
+| 1 | `0x10` (16) | `Anatomy1.csh` | `0x10`-`0x1E` (15) | → `anatomy` slot (`LAB_169D`, `+0x2780`) |
+| 2 | `0x1F` (31) | `Anatomy2.csh` | `0x1F`-`0x2C` (14) | *(none — §4.5.6)* |
+| 3 | `0x2D` (45) | **`Dng.csh`** | `0x2D`-`0x35` (**9**) | → `dungeon` slot (`LAB_1774`, `+0x2C4E`) |
+| 4 | `0x36` (54) | `Scroll.csh` | `0x36`-`0x42` (13) | *(none — §4.5.6)* |
+
+The `copyPalette16(palScratch, LAB_1774)` call immediately after call 3
+is the same "dungeon" palette-slot install §4.5.4 already documented
+from a different angle (the `loadCmp`/`copyPalette16` call-site census) —
+this is an independent second confirmation that call 3's file really is
+`Dng.csh`. Call 3's icon-count (9, from the gap to call 4's `start`)
+matches the 9 real icon slots found by direct pixel inspection above,
+exactly.
+
+For each local icon `i` (0-8), the real pixel content lives at
+`row = Math.floor(i/5)*48 + 1`, `byteColumn = (i%5)*6` (i.e.
+`x = (i%5)*48`) within the *same* decoded `LAB_171D` picture buffer —
+computed at `LAB_010F` (`DIVS #5` / `MULS #48` / `MULS #40`
+byte-stride arithmetic) — and copied into a small malloc'd per-icon
+buffer (4-byte header + `height` rows × 8 bytes, one byte per bitplane,
+byte offsets 0/2/4/6 only — a 2-byte-per-plane stride whose odd bytes
+are never read, plausibly a leftover image+mask convention from a
+shared sprite tool; **not traced further, no gameplay effect since this
+blitter draws fully opaque**).
+
+**The blitter — `LAB_1391`.** Reads a 4-byte header (byte 1 = height,
+byte 2 = unused-here width field) then `height` rows of 8 source bytes
+(4 planes × 2, only the even offsets used), writing 1 byte per plane per
+row into the destination bitplane buffer at
+`destOffset = destY*40 + destX` (`destX` in **bytes**, i.e. 8px steps;
+`destY` in scanlines) — the same generic blitter every icon draw in the
+binary funnels through. Icon width is a hard-coded 8px (one source byte
+per plane row); height comes from the per-icon header.
+
+**The per-cell grid walker — `LAB_1374`/`LAB_1379`/`LAB_1380`.** Called
+once per dungeon-view redraw (`LAB_1239`, right after a 32×24 background
+wipe using icon `0x2E` as filler — the source of the old A7 pass's "24×30
+grid region" observation, misattributed to the raw file instead of a
+runtime tiling loop). `LAB_1374` double-loops **`col` 0..29 outer ×
+`row` 0..23 inner — 720 iterations, exactly the confirmed 24-column ×
+30-row P3 dungeon grid** (`dungeon-format.md` §3: "Grid: 24 columns × 30
+rows = 720 bytes"). Screen placement: `destX = row` (bytes, so pixel
+`row*8`), `destY = col*5 + 17` (scanlines) — a ~192×162px on-screen
+viewport. A 90-byte bitmask (`LAB_179C`, `col*3 + row/8` indexed, 1
+bit/cell) gates whether each cell draws at all (a reveal/fog-of-war
+mechanism, set via `LAB_1387`'s `OR.B` accumulation elsewhere in the
+movement code — not traced further this pass).
+
+**The cell-code → icon dispatcher — `LAB_1388`.** Reads the raw dungeon
+cell byte directly (`LAB_1390`: `row*24 + col` into `LAB_1736`, the same
+720-byte grid `dungeon-format.md` §3 already documents) and maps it to
+one of Dng.csh's 9 icons:
+
+| Cell code range | `CellClass` kind (`dungeon.ts`) | Icon | Local idx |
+|---|---|---|---|
+| `0x00`-`0x01` | `wall` / `secretWall` | `0x2E` | 1 |
+| `0xB9`-`0xC7` | `door` (horizontal, any state) | `0x2F` | 2 |
+| `0xC8`-`0xD6` | `door` (vertical, any state) | `0x30` | 3 |
+| `0xDD`-`0xFF` | `star` | `0x31` | 4 |
+| everything else (`0x02`-`0xB8`) | `trap`/`triggeredTrap`/`randomEncounter`/`specialMessage`/`fixedEncounter`/`unassigned`/`bottomMessage` | `0x32` | 5 |
+| `0xD7`-`0xD9` | `stairsExit` | `0x34` | 7 |
+
+This is a **near-exact** match to `dungeon.ts`'s already-confirmed
+`CellClass` boundaries — the "everything else" bucket collapsing every
+non-wall/door/star/stairs kind onto one generic icon (`0x32`) is itself
+meaningful: it's the code-level confirmation that traps, encounters and
+messages are deliberately indistinguishable from plain floor on the
+in-game map, matching the design note `DungeonRenderer.ts` already
+carried ("those cells look like floor until stepped on"). Icon `0x2D`
+(local index 0) is never assigned by `LAB_1388` — it's only used as
+`LAB_1379`'s clamp *floor*. Icon `0x33` is the clamp-*overflow* fallback
+(dead code in practice, since `LAB_1388`'s real outputs never leave
+`[0x2E, 0x34]`).
+
+> **Correction (2026-08-18, `game-re`, same pass) — `0x35` is not a
+> cursor icon; it's a pixel-identical duplicate of `0x2E`.** The
+> paragraph above originally speculated `0x35` was "plausibly a player
+> position cursor icon drawn by different code, not traced". Direct
+> pixel comparison refutes that: `decodeCmp(dng.csh)`'s icon `0x35` is
+> byte-for-byte identical to icon `0x2E` (`wall`) across all 40 pixels.
+> Likewise, `0x2D` — already known to be unassigned by `LAB_1388` — is
+> pixel-identical to `0x34` (`stairsExit`)'s icon. Both pairs are
+> confirmed by a real corpus test
+> (`src/assets/formats/__tests__/dng-icons.test.ts`). Practical
+> consequence: a revealed `stairsExit` cell looks *exactly* like
+> whatever `0x2D` represents (no distinct "stairs" glyph exists in this
+> file), and `0x35` is simply a spare copy of the wall texture, not a
+> separate marker. What (if anything) draws the party's own on-screen
+> position/facing indicator remains genuinely open — see the real-
+> screenshot cross-check below, item 4.
+
+**Extraction.** `src/assets/formats/dng-icons.ts`'s `extractDngIconFrames()`
+re-derives each icon's frame `{x, y, w, h}` directly from the decoded
+pixels (trimming the reserved metadata row and any trailing background
+rows) rather than hard-coding height=5, and `dngIconNameFor()` implements
+the `CellClass` → icon-name table above.
+`tools/phantasieiii/build-assets.ts` wires this into `dng.json`'s
+`frames` array (no separate atlas image needed — the frames slice
+directly into the existing `dng.png`).
+
+**Verification.**
+
+1. **Grid dimensions match independently on both sides.** The maze
+   walker's 30×24 loop bound and the icon table's 5-per-row/48px-stride
+   packing were both derived from disassembly alone, with no reference to
+   `dungeon-format.md`'s already-confirmed 24×30 grid — and they agree
+   with it exactly (720 = 24×30) and with each other (9 real icon slots
+   found by direct pixel inspection = the 9-icon-count implied by the
+   `0x2D`→`0x36` gap between build calls 3 and 4).
+2. **Coherent map renders from real corpus data.** A from-scratch
+   top-down render of two real, independently-decoded dungeon levels
+   (`dungeon-a.json` — 24×30, level 0; `dungeon-e.json` — 24×30, level 3;
+   both from `tools/phantasieiii/build-dungeons.ts`'s already-shipped
+   output) using nothing but `classifyCell` → `dngIconNameFor` →
+   `extractDngIconFrames`'s real pixel content produces legible,
+   structurally sensible dungeon corridors and rooms — connected
+   corridors, door openings at wall gaps, star markers clustered inside
+   rooms — for both levels, with icon-role counts in a plausible range
+   (`dungeon-a`: 293 wall / 395 floor / 14 doorVertical / 8
+   doorHorizontal / 9 star / 1 stairsExit; `dungeon-e`: similar). A
+   flat-colour or genuinely-wrong tile mapping would not produce this —
+   see `game-re-lessons/model-silhouette-render-confirmed-by-placement-layer.md`-
+   style reasoning: the *shape* of the assembled result is strong,
+   independent evidence for the per-piece decode being right, not just
+   for individual icons rendering without error.
+3. **Cross-check against the other three top-left-clustered `.csh`
+   files.** `Anatomy1.csh` (476/64,000 fg px, 0.7%), `Anatomy2.csh`
+   (401/64,000, 0.6%) and `Scroll.csh` (844/64,000, 1.3%) all show the
+   *same* signature as `Dng.csh` — sparse content tightly bounded to the
+   top-left corner (`x≤252, y≤105`), not a coherent full-screen scene.
+   None of the four `.csh` files this project has ever decoded are scene
+   backdrops; §4.4's original 2026-08-11 render description already got
+   three of them right, and §4.5.6 already disassembly-confirmed
+   `Anatomy2.csh`'s icons are drawn by a shared HUD glyph widget. The A7
+   status update's "backdrop" mischaracterization was isolated to
+   `Dng.csh` and did not reflect (or update) any of this existing
+   evidence.
+4. **Real Amiga dungeon-view screenshots — direct pixel cross-check
+   (2026-08-18).** The project owner supplied genuine emulator captures
+   of the real game (`data/default_72.png`, `data/default_74.png` — real
+   dungeon-walk views, `File`/`Options`/`Speed` menu bar + party-roster
+   HUD visible). Both confirm the mechanism, at the pixel level:
+   - **The walkable viewport's background texture has an exact 8px ×
+     5px repeat period.** Autocorrelation of a clean texture patch
+     (`default_72.png`, x∈[20,160), y∈[100,140)) peaks sharply at lag 8
+     horizontally and lag 5 (and its multiples, 10/15) vertically —
+     exactly `Dng.csh`'s icon dimensions, with **no** overlap or gap.
+     That rules out the separate 32-column×24-row *pixel*-space "fill"
+     loop found near `LAB_1239` (which uses a 5px column step against an
+     8px-wide icon, i.e. genuine overlap) as the dominant visible layer —
+     it only ever touches the top ~7 scanlines of `LAB_1374`'s much
+     taller 30-row cell grid, so in practice `LAB_1374`'s clean,
+     non-overlapping per-cell 8×5 stamps are what's on screen almost
+     everywhere. This also means the browser build's edge-to-edge,
+     identical-icon-per-wall-cell tiling (`DungeonScene.ts`'s
+     `redrawGrid()`) is already the *right* approach for reproducing
+     this look — no blur/overlap post-process needed.
+   - **A revealed door structure's colours match `Dng.csh`'s real
+     palette exactly.** `default_74.png` shows a small raised structure
+     built from several adjacent cells; sampling its non-grey pixels
+     gives `(137,104,70)` and `(171,137,104)` — matching palette
+     indices 3 (`136,102,68`) and 4 (`170,136,102`, both "tan") to
+     within display rounding — exactly the two indices
+     `dngIconNameFor`'s `doorHorizontal`/`doorVertical` icons use
+     exclusively (§4.1's confirmed palette; also present: index 1
+     darkbrown, index 9 orange, index 10 red, index 8 yellow, all real
+     `Dng.csh` palette entries, not arbitrary colours).
+   - **A small on-screen cross/diamond marker has the same *shape* as
+     the `star` icon (`0x31`) but not confirmed the same asset.** Both
+     screenshots show a tiny 7×5, 1-3-7-3-1-taper diamond mark near the
+     party (`default_72.png`: `x∈[126,132], y∈[41,45]`) — the same
+     taper `0x31`'s decoded pixels show once its background-coloured
+     (index-0, indistinguishable-from-black) cells are excluded. But its
+     *colours* (`(238,238,4)` yellow centre with orange/red/brown arms)
+     don't match `0x31`'s decoded greens (`(34,102,34)`/`(102,170,0)`,
+     indices 6/7) — only the yellow centre (index 8) agrees. **Left
+     open**: whether this is `0x31` displayed under a different palette
+     moment (c.f. §4.5.6's `palScratch` timing uncertainty) or a
+     genuinely separate "party position" marker sprite not sourced from
+     `Dng.csh` at all. Doesn't affect the cell-code → icon mapping
+     (`LAB_1388`'s dispatch table is a direct disassembly fact,
+     independent of this marker's identity) — tracked as
+     `gfx-p3-dng-party-marker-identity` in `docs/phantasie/TODO.md`.
+
+**Confidence: confirmed** — mechanism (full disassembly trace, `LAB_010C`
+through `LAB_1391`), grid geometry (byte-exact agreement with
+`dungeon-format.md` §3's independently-confirmed 24×30 grid), content
+(9/9 predicted icon slots have real pixel data, two independent
+full-dungeon renders are structurally coherent, `0x2D`≡`0x34` and
+`0x2E`≡`0x35` pixel-identity locked by a real-corpus test), and now cross-
+checked pixel-for-pixel against genuine Amiga screenshots (exact 8×5
+texture repeat period, exact door-icon palette match). **Open**: the
+`LAB_179C` reveal/fog-of-war bitmask's own write-side logic (not traced
+this pass — doesn't block the tile-art fix, since the browser build
+renders the full known grid rather than replicating fog-of-war), and the
+on-screen party-position marker's real identity (item 4 above).
+
 ## 5. World map + tileset container (`.SET`, Phantasie III)
 
 File: `Graphics/phantasy.set` (35,840 bytes). This is **not** a generic

@@ -1,11 +1,16 @@
 /**
  * Phantasie III dungeon scene (docs/implementation.md §A1): grid-stepped
- * movement, wall collision, and star triggering over a flat-colour top-down
+ * movement, wall collision, and star triggering over a top-down tile
  * render. Runs the real `executeStar`/`executeStarChain` interpreter
  * through the A0 `DungeonHost`, and drives the message/choice UI itself —
  * the star's message and choice are presented *before* the chain runs, so
  * the interpreter stays synchronous and unchanged (the presenter only
  * queues opcode-0x0B fullscreen messages raised mid-chain, shown after).
+ *
+ * Tile art (A7, corrected 2026-08-18): each cell is a real `Dng.csh` icon
+ * (`DungeonRenderer.ts`'s `dngIconNameFor()`), matching the original
+ * game's own per-cell tile stamp — see `graphics-formats.md` §4.6. A flat
+ * colour fill (`colorFor()`) is used only if the icon atlas fails to load.
  *
  * Known first-pass simplifications, all marked: secret walls block (no
  * secret-door pass-through), locked doors block (no pick-lock), encounters
@@ -15,7 +20,7 @@
  * `gotoStar` chain's later choices auto-resolve to 1.
  */
 
-import { Assets, Container, Graphics, Sprite, type Texture } from 'pixi.js';
+import { Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import type { Scene, SceneContext } from '../app/Scene.ts';
 import type { GameData } from '../data/GameDataLoader.ts';
 import type { PartyState } from '../state/PartyState.ts';
@@ -27,12 +32,26 @@ import {
 } from '../assets/formats/star-action.ts';
 import { p3TrapDamage, p3TrapMessageIndex } from '../assets/formats/dungeon-p3.ts';
 import { DungeonHost, type DungeonHostEvent } from './DungeonHost.ts';
-import { colorFor, cellClassAt } from './DungeonRenderer.ts';
+import { colorFor, cellClassAt, dngIconNameFor } from './DungeonRenderer.ts';
 import { makeButton, makeCentered, makeText, UI_COLOR_ACCENT, UI_COLOR_MUTED, UI_COLOR_PANEL } from '../ui/menu.ts';
 import { OverworldScene } from '../overworld/OverworldScene.ts';
 import { CombatScene } from '../combat/CombatScene.ts';
 import { loadGame, saveDungeonLocation } from '../state/save/SaveManager.ts';
 import { DEFAULT_GAME, DEFAULT_PLATFORM } from '../game-id.ts';
+
+interface AtlasFrame {
+  name: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+interface AtlasJson {
+  frames: AtlasFrame[];
+  width: number;
+  height: number;
+}
 
 interface DungeonData {
   name: string;
@@ -78,6 +97,9 @@ export class DungeonScene implements Scene {
   private actionsMap = new Map<number, DecodedAction>();
   private host: DungeonHost | null = null;
   private grid = new Graphics();
+  private readonly tileLayer = new Container();
+  private tilePool: Sprite[] = [];
+  private iconTextures = new Map<string, Texture>();
   private marker = new Graphics();
   private cellSize = 16;
   private originX = 0;
@@ -88,7 +110,6 @@ export class DungeonScene implements Scene {
   private notice = '';
   private ready = false;
   private readonly resumeAt: DungeonReturn | undefined;
-  private backdrop: Sprite | null = null;
 
   constructor(party: PartyState, data: GameData, dungeonName: string, returnTo: DungeonReturn, resumeAt?: DungeonReturn) {
     this.party = party;
@@ -126,7 +147,6 @@ export class DungeonScene implements Scene {
   handleResize(width: number, height: number): void {
     this.viewWidth = width;
     this.viewHeight = height;
-    if (this.backdrop) this.fitBackdrop(this.backdrop);
     if (this.ready) {
       this.layout();
       this.redrawGrid();
@@ -172,17 +192,17 @@ export class DungeonScene implements Scene {
       });
 
       this.grid = new Graphics();
-      this.gridLayer.addChild(this.grid);
+      this.gridLayer.addChild(this.grid, this.tileLayer);
       this.marker = new Graphics();
       this.gridLayer.addChild(this.marker);
 
+      await this.loadIconAtlas();
       this.findStart();
       this.layout();
       this.redrawGrid();
       this.updateMarker();
       this.renderHud();
       this.ready = true;
-      void this.loadBackdrop();
     } catch (e) {
       this.hud.removeChildren();
       this.hud.addChild(makeCentered(`Failed to load dungeon: ${String(e)}`, this.viewWidth / 2, this.viewHeight / 2, { color: 0xff7a7a }));
@@ -228,23 +248,31 @@ export class DungeonScene implements Scene {
     }
   }
 
-  private async loadBackdrop(): Promise<void> {
+  /**
+   * `dng.png` is not a backdrop — it's the real 320x200 canvas `Dng.csh`'s
+   * 9 dungeon-view icons are packed into (graphics-formats.md §4.6). Slice
+   * the named frames `dng.json` now carries (built by
+   * `extractDngIconFrames()`, `tools/phantasieiii/build-assets.ts`) into
+   * per-role `Texture`s for `redrawGrid()`. Failure just falls back to the
+   * flat-colour render (`colorFor()`).
+   */
+  private async loadIconAtlas(): Promise<void> {
     try {
-      const texture = await Assets.load<Texture>(`${this.base}/dng.png`);
-      const sprite = new Sprite(texture);
-      this.fitBackdrop(sprite);
-      this.backdrop = sprite;
-      this.root.addChildAt(sprite, 0);
+      const [texture, atlas] = await Promise.all([
+        Assets.load<Texture>(`${this.base}/dng.png`),
+        fetch(`${this.base}/dng.json`).then((r) => r.json() as Promise<AtlasJson>),
+      ]);
+      texture.source.scaleMode = 'nearest';
+      for (const f of atlas.frames) {
+        if (!f.name || f.name.startsWith('icon0x')) continue; // still-unassigned slots (§4.6)
+        this.iconTextures.set(
+          f.name,
+          new Texture({ source: texture.source, frame: new Rectangle(f.x, f.y, f.w, f.h) }),
+        );
+      }
     } catch {
-      // No backdrop — the black background is fine (the original is ~99% black too).
+      // No atlas — colorFor()'s flat fill is still a faithful fallback.
     }
-  }
-
-  private fitBackdrop(sprite: Sprite): void {
-    const tex = sprite.texture;
-    const scale = Math.max(this.viewWidth / tex.width, this.viewHeight / tex.height);
-    sprite.scale.set(scale);
-    sprite.position.set((this.viewWidth - tex.width * scale) / 2, (this.viewHeight - tex.height * scale) / 2);
   }
 
   private layout(): void {
@@ -258,12 +286,42 @@ export class DungeonScene implements Scene {
 
   private redrawGrid(): void {
     this.grid.clear();
+    if (this.iconTextures.size === 0) {
+      // Fallback: no atlas loaded, flat-colour fill per cell.
+      for (let yy = 0; yy < this.height; yy++) {
+        for (let xx = 0; xx < this.width; xx++) {
+          const cls = cellClassAt(this.cells, this.width, xx, yy, this.level);
+          this.grid.rect(xx * this.cellSize, yy * this.cellSize, this.cellSize, this.cellSize).fill(colorFor(cls));
+        }
+      }
+      this.tileLayer.removeChildren();
+      this.tilePool = [];
+      return;
+    }
+
+    // Real tile art: one pooled Sprite per cell, `Dng.csh`'s own icon
+    // (`dngIconNameFor`) scaled up to fill the cell, nearest-neighbour.
+    let i = 0;
     for (let yy = 0; yy < this.height; yy++) {
       for (let xx = 0; xx < this.width; xx++) {
         const cls = cellClassAt(this.cells, this.width, xx, yy, this.level);
-        this.grid.rect(xx * this.cellSize, yy * this.cellSize, this.cellSize, this.cellSize).fill(colorFor(cls));
+        const tex = this.iconTextures.get(dngIconNameFor(cls));
+        if (!tex) continue;
+        let sprite = this.tilePool[i];
+        if (!sprite) {
+          sprite = new Sprite();
+          this.tilePool[i] = sprite;
+          this.tileLayer.addChild(sprite);
+        }
+        sprite.texture = tex;
+        sprite.position.set(xx * this.cellSize, yy * this.cellSize);
+        sprite.width = this.cellSize;
+        sprite.height = this.cellSize;
+        sprite.visible = true;
+        i++;
       }
     }
+    for (; i < this.tilePool.length; i++) this.tilePool[i].visible = false;
   }
 
   private updateMarker(): void {
@@ -333,6 +391,7 @@ export class DungeonScene implements Scene {
   private launchCombat(monsterIndex: number): void {
     this.ctx.replace(
       new CombatScene(this.party, this.data, monsterIndex, {
+        kind: 'dungeon',
         dungeonName: this.dungeonName,
         returnTo: this.returnTo,
         resumeAt: { x: this.x, y: this.y },
