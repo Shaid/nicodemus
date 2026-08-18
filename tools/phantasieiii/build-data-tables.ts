@@ -34,6 +34,7 @@ import {
   readP3RaceSpriteCells,
   readP3Items,
   readP3SpellNames,
+  readP3ArmouryStock,
 } from '../../src/assets/formats/exe-data.ts';
 import type { ManifestEntry } from './build-assets.ts';
 
@@ -100,6 +101,15 @@ export function buildDataTables(dataDir: string, outDir: string): ManifestEntry[
   );
   writeJson(resolve(outDir, 'skills.json'), skillRows);
   entries.push({ name: 'skills', type: 'data-table', sprites: 0, hasPalette: false, png: '' });
+
+  const inititemPath = resolve(dataDir, findFileCI(dataDir, 'inititem.dat'));
+  if (existsSync(inititemPath)) {
+    const armouryStock = readP3ArmouryStock(new Uint8Array(readFileSync(inititemPath)));
+    writeJson(resolve(outDir, 'armoury-stock.json'), armouryStock);
+    entries.push({ name: 'armoury-stock', type: 'data-table', sprites: 0, hasPalette: false, png: '' });
+  } else {
+    console.warn(`  ⚠ ${inititemPath} not found — skipping armoury-stock data-table asset`);
+  }
 
   console.log(`  Data tables: ${entries.length} table(s) → ${outDir}`);
   return entries;

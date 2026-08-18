@@ -1,8 +1,17 @@
 /**
  * Combat scene — a modal, turn-based battle UI over the party (docs/
  * implementation.md §A2). Renders HP bars and a running combat log; "Fight"
- * runs one full round, "Flee"/victory/defeat return to the dungeon (or the
- * overworld on defeat).
+ * runs one full round, "Flee"/victory return to wherever combat was
+ * launched from (a dungeon cell or an overworld step — `CombatResume`),
+ * defeat always goes to `JudgmentScene`.
+ *
+ * Post-victory rewards (town-format.md §3.8, confirmed): gold is awarded
+ * instantly to `party.gold`; Experience is pooled into `party.pendingXp`
+ * rather than divided immediately — the real division happens later, in
+ * town, on arrival (`TownScene`'s auto-triggered XP-divide screen, §3.7
+ * mode 1). Item drops are NOT modeled — the monster drop-table/trigger
+ * logic was never traced (`town-format.md` §3.8's own "Open" note), so
+ * there's nothing confirmed to implement rather than guess.
  */
 
 import { Container, Graphics } from 'pixi.js';
@@ -10,17 +19,17 @@ import type { Scene, SceneContext } from '../app/Scene.ts';
 import type { GameData } from '../data/GameDataLoader.ts';
 import type { PartyState } from '../state/PartyState.ts';
 import type { CharacterState } from '../state/CharacterState.ts';
+import type { MonsterRecord } from '../assets/formats/monster-data.ts';
 import { createP3Rng } from './formulas/combat-rng.ts';
 import { createBattle, isVictory, isDefeat, runRound, type Battle } from './CombatEngine.ts';
 import { makeButton, makeCentered, makeText, UI_COLOR_ACCENT, UI_COLOR_MUTED, UI_COLOR_TEXT } from '../ui/menu.ts';
 import { DungeonScene } from '../dungeon/DungeonScene.ts';
 import { OverworldScene } from '../overworld/OverworldScene.ts';
+import { JudgmentScene } from '../app/JudgmentScene.ts';
 
-export interface CombatResume {
-  dungeonName: string;
-  returnTo: { x: number; y: number };
-  resumeAt: { x: number; y: number };
-}
+export type CombatResume =
+  | { kind: 'dungeon'; dungeonName: string; returnTo: { x: number; y: number }; resumeAt: { x: number; y: number } }
+  | { kind: 'overworld'; x: number; y: number };
 
 export class CombatScene implements Scene {
   name = 'combat';
@@ -30,6 +39,8 @@ export class CombatScene implements Scene {
   private readonly data: GameData;
   private readonly resume: CombatResume;
   private readonly rng = createP3Rng(Date.now() & 0x7fff);
+  /** The monster type this battle was created against — kept separately from `battle.monsters` because that array empties out on victory (every entry's `hp` reaches 0 and gets filtered), which would otherwise make post-victory reward lookup read from an empty array. */
+  private readonly monsterRecord: MonsterRecord;
   private battle: Battle;
   private over = false;
   private viewWidth = 0;
@@ -39,11 +50,11 @@ export class CombatScene implements Scene {
     this.party = party;
     this.data = data;
     this.resume = resume;
-    const record = data.monsters[monsterIndex] ?? data.monsters[0];
+    this.monsterRecord = data.monsters[monsterIndex] ?? data.monsters[0];
     this.battle = createBattle(
       party.members.filter((m): m is CharacterState => m !== null),
-      record,
-      record.encounterGroupSize,
+      this.monsterRecord,
+      this.monsterRecord.encounterGroupSize,
     );
   }
 
@@ -115,7 +126,10 @@ export class CombatScene implements Scene {
   private fight(): void {
     runRound(this.battle, this.data, this.rng);
     if (isVictory(this.battle)) {
-      this.party.gold += this.battle.monsters[0].record.gold; // TODO(combat-rewards): XP and per-monster loot
+      // town-format.md §3.8: gold is awarded instantly; XP is pooled, not
+      // divided until the party is back in town (TownScene's auto-trigger).
+      this.party.gold += this.monsterRecord.gold;
+      this.party.pendingXp += this.monsterRecord.experience;
       this.over = true;
     } else if (isDefeat(this.battle)) {
       this.over = true;
@@ -123,15 +137,23 @@ export class CombatScene implements Scene {
     this.render();
   }
 
+  private returnScene(): Scene {
+    if (this.resume.kind === 'dungeon') {
+      return new DungeonScene(this.party, this.data, this.resume.dungeonName, this.resume.returnTo, this.resume.resumeAt);
+    }
+    return new OverworldScene(this.party, this.data, { x: this.resume.x, y: this.resume.y });
+  }
+
   private flee(): void {
-    this.ctx.replace(new DungeonScene(this.party, this.data, this.resume.dungeonName, this.resume.returnTo, this.resume.resumeAt));
+    this.ctx.replace(this.returnScene());
   }
 
   private finish(): void {
     if (isDefeat(this.battle)) {
-      this.ctx.replace(new OverworldScene(this.party, this.data, this.resume.returnTo));
+      const returnTo = this.resume.kind === 'dungeon' ? this.resume.returnTo : { x: this.resume.x, y: this.resume.y };
+      this.ctx.replace(new JudgmentScene(this.party, this.data, returnTo));
     } else {
-      this.ctx.replace(new DungeonScene(this.party, this.data, this.resume.dungeonName, this.resume.returnTo, this.resume.resumeAt));
+      this.ctx.replace(this.returnScene());
     }
   }
 

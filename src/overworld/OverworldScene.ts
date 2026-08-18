@@ -25,6 +25,8 @@ import type { PartyState } from '../state/PartyState.ts';
 import { makeCentered, makeText, UI_COLOR_ACCENT, UI_COLOR_MUTED } from '../ui/menu.ts';
 import { TownScene } from '../town/TownScene.ts';
 import { DungeonScene } from '../dungeon/DungeonScene.ts';
+import { CombatScene } from '../combat/CombatScene.ts';
+import { rollOverworldEncounter } from './p3-encounter-formulas.ts';
 import { savePartyLocation } from '../state/save/SaveManager.ts';
 import { DEFAULT_GAME, DEFAULT_PLATFORM } from '../game-id.ts';
 
@@ -56,7 +58,9 @@ export interface OverworldStart {
 
 // TODO(overworld-start): Pendragon (town index 1) is assumed as the starting
 // town — the game's canonical new-party origin is not separately confirmed.
-export const STARTING_TOWN = { x: 24, y: 37, name: 'Pendragon' };
+// Pendragon is town-format.md §3.4's confirmed armoury 1 (cross-checked
+// against default_88.png's "THIEF is in the armoury" screenshot).
+export const STARTING_TOWN = { x: 24, y: 37, name: 'Pendragon', armouryIndex: 1 };
 const DEFAULT_START: OverworldStart = { x: STARTING_TOWN.x, y: STARTING_TOWN.y };
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -180,13 +184,29 @@ export class OverworldScene implements Scene {
     this.follow();
     this.renderHud();
     savePartyLocation(this.party, { kind: 'overworld', x: this.x, y: this.y });
+
+    // dungeon-format.md §9.0.6: no roll at all on a named location or on
+    // impassable/hazard terrain (rollOverworldEncounter's own exclusion).
+    if (!this.poiByCell.has(`${this.x},${this.y}`)) {
+      const encounter = rollOverworldEncounter(this.x, this.y, this.terrainClassAt(this.x, this.y));
+      if (encounter) {
+        this.ctx.replace(
+          new CombatScene(this.party, this.data, encounter.monsterIndex, { kind: 'overworld', x: this.x, y: this.y }),
+        );
+      }
+    }
   }
 
   private enterLocation(): void {
     const poi = this.poiByCell.get(`${this.x},${this.y}`);
     if (!poi) return;
     if (poi.type === 'town') {
-      this.ctx.replace(new TownScene(this.party, this.data, { x: poi.x, y: poi.y, name: poi.label }));
+      // `poi.index` is `LocateSpecial()`'s marker index — for the 14 real
+      // towns (index 1-14) this lines up exactly with the confirmed
+      // `inititem.dat` armoury row of the same number (town-format.md
+      // §3.4). Not derived for any other POI type, so this is safe even
+      // though `WorldPoi.index` is defined for dungeon/inn markers too.
+      this.ctx.replace(new TownScene(this.party, this.data, { x: poi.x, y: poi.y, name: poi.label, armouryIndex: poi.index }));
       return;
     }
     if (poi.type === 'dungeon') {
@@ -225,9 +245,14 @@ export class OverworldScene implements Scene {
     this.hud.addChild(makeText('Arrows / WASD to move', 12, this.viewHeight - 30, { size: 12, color: UI_COLOR_MUTED }));
   }
 
+  private terrainClassAt(x: number, y: number): number {
+    const map = this.mapData!;
+    return map.terrainClassByValue[map.cells[y * map.width + x]];
+  }
+
   private terrainName(x: number, y: number): string {
     const map = this.mapData!;
-    const cls = map.terrainClassByValue[map.cells[y * map.width + x]];
+    const cls = this.terrainClassAt(x, y);
     return cls >= 0 ? map.terrainClassNames[cls] : 'unclassified';
   }
 }

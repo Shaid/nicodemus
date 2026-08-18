@@ -20,7 +20,7 @@ export function resumeScene(save: SaveState, data: GameData): Scene {
     case 'overworld':
       return new OverworldScene(party, data, { x: loc.x, y: loc.y });
     case 'town':
-      return new TownScene(party, data, { x: loc.x, y: loc.y, name: loc.name });
+      return new TownScene(party, data, { x: loc.x, y: loc.y, name: loc.name, armouryIndex: loc.armouryIndex });
     case 'dungeon':
       return new DungeonScene(party, data, loc.dungeonName, loc.returnTo, { x: loc.x, y: loc.y });
   }

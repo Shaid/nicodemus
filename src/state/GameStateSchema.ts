@@ -15,7 +15,7 @@ export const SAVE_VERSION = 1;
 
 export type SaveLocation =
   | { kind: 'overworld'; x: number; y: number }
-  | { kind: 'town'; x: number; y: number; name: string }
+  | { kind: 'town'; x: number; y: number; name: string; armouryIndex?: number }
   | { kind: 'dungeon'; dungeonName: string; x: number; y: number; returnTo: { x: number; y: number } };
 
 export interface SaveState {

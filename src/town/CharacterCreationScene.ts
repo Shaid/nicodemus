@@ -1,9 +1,8 @@
 /**
  * Character creation — assemble a party (race + class + rolled attributes)
  * and hand it to the town. Data-backed from the real race/skill tables;
- * the roll and starting-HP formulas are placeholders (see the TODOs) since
- * the game's own character-generation math is not yet in this project's RE
- * corpus — docs/implementation.md §A4.
+ * the attribute-roll and starting-HP/MP formulas are the confirmed
+ * disassembly-traced math (town-format.md §4.2/§4.3), not placeholders.
  */
 
 import { Container } from 'pixi.js';
@@ -20,6 +19,7 @@ import { createCharacter, type CharacterState } from '../state/CharacterState.ts
 import { createParty } from '../state/PartyState.ts';
 import { TownScene } from './TownScene.ts';
 import { STARTING_TOWN } from '../overworld/OverworldScene.ts';
+import { rollAttributes, startingHp, startingMp } from './character-creation-formulas.ts';
 
 const ATTRIBUTE_NAMES = ['Strength', 'Intelligence', 'Dexterity', 'Constitution', 'Charisma', 'Luck'];
 
@@ -85,6 +85,7 @@ export class CharacterCreationScene implements Scene {
         label: race.name,
         onClick: () => {
           this.selectedRace = race.index;
+          this.attributes = [];
           this.render();
         },
         width: 150,
@@ -104,6 +105,7 @@ export class CharacterCreationScene implements Scene {
         label: cls,
         onClick: () => {
           this.selectedClass = i;
+          this.attributes = [];
           this.render();
         },
         width: 150,
@@ -118,15 +120,17 @@ export class CharacterCreationScene implements Scene {
     // Attributes
     const attrY = cy + 14;
     this.root.addChild(makeText('Attributes', midX, attrY, { size: 15, bold: true, color: UI_COLOR_MUTED }));
+    const canRoll = this.selectedRace >= 0 && this.selectedClass >= 0;
     const roll = makeButton({
       label: 'Roll',
       onClick: () => {
-        this.rollAttributes();
+        this.rerollAttributes();
         this.render();
       },
       width: 80,
       height: 28,
       accent: true,
+      disabled: !canRoll,
     });
     roll.position.set(midX + 150, attrY - 6);
     this.root.addChild(roll);
@@ -139,7 +143,9 @@ export class CharacterCreationScene implements Scene {
         ay += 20;
       });
     } else {
-      this.root.addChild(makeText('(roll to generate)', midX, ay, { size: 13, color: UI_COLOR_MUTED }));
+      this.root.addChild(
+        makeText(canRoll ? '(roll to generate)' : '(pick a race and class first)', midX, ay, { size: 13, color: UI_COLOR_MUTED }),
+      );
     }
 
     // Roster + actions
@@ -178,27 +184,25 @@ export class CharacterCreationScene implements Scene {
     this.root.addChild(begin);
   }
 
-  private rollAttributes(): void {
-    // TODO(character-creation-rolls): the game's real attribute-generation
-    // formula is not in this project's RE corpus; a uniform 3-18 roll is a
-    // placeholder so the loop is playable end to end.
-    this.attributes = ATTRIBUTE_NAMES.map(() => 3 + Math.floor(Math.random() * 16));
+  private rerollAttributes(): void {
+    if (this.selectedRace < 0 || this.selectedClass < 0) return;
+    this.attributes = rollAttributes(this.selectedClass, this.selectedRace);
   }
 
   private addMember(): void {
     if (this.roster.length >= 6) return;
     const raceName = this.races.find((r) => r.index === this.selectedRace)?.name ?? 'Human';
-    // TODO(character-creation-hp): starting HP is a flat placeholder (10).
-    // The real value is the manual's "Hit Points by Class and Level for
-    // Adventurers with 10 Constitution" chart (§7.5.2 quotes only the
-    // Fighter row) plus a Constitution modifier — not yet transcribed.
+    const hp = startingHp(this.selectedClass);
+    const mp = startingMp(this.selectedClass);
     this.roster.push(
       createCharacter({
         name: `${raceName} ${this.classes[this.selectedClass]} ${this.roster.length + 1}`,
         race: this.selectedRace,
         classId: this.selectedClass,
-        hp: 10,
-        maxHp: 10,
+        hp,
+        maxHp: hp,
+        mp,
+        maxMp: mp,
         attributes: [...this.attributes],
       }),
     );

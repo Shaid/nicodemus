@@ -698,3 +698,38 @@ export function readP3Items(exe: Uint8Array): P3ItemsData {
 
   return { items, shopMarkups };
 }
+
+/** One item id an armoury actually sells, and how many are in stock. */
+export interface P3ArmouryStockItem {
+  itemIndex: number;
+  qty: number;
+}
+
+/**
+ * Per-armoury item stock (data-tables.md §6.4, code-traced against the
+ * confirmed stock-builder at executable file `0x8b5a`): `inititem.dat`
+ * (3,328 bytes, a *separate* file from the executable — not embedded data)
+ * is 18 flat 181-byte rows, one per armoury. Row byte 0 is a self-check
+ * (the row's own declared distinct-item count — verified 18/18 against the
+ * real data); bytes 1-180 are the stock quantity for item id 1-180 (`0` =
+ * not sold by this armoury). Armoury 0 and armouries 15-17 are confirmed
+ * entirely empty (unused/reserved indices); armouries 1-14 correspond to
+ * the 14 real towns (`town-format.md` §3.4 confirms armoury 1 = Pendragon
+ * via `default_88.png`'s "THIEF is in the armoury" screenshot).
+ */
+const P3_ARMOURY_STOCK_ROW_BYTES = 181;
+const P3_ARMOURY_COUNT = 18;
+
+export function readP3ArmouryStock(inititemData: Uint8Array): P3ArmouryStockItem[][] {
+  const armouries: P3ArmouryStockItem[][] = [];
+  for (let armoury = 0; armoury < P3_ARMOURY_COUNT; armoury++) {
+    const rowStart = armoury * P3_ARMOURY_STOCK_ROW_BYTES;
+    const items: P3ArmouryStockItem[] = [];
+    for (let itemIndex = 1; itemIndex <= 180; itemIndex++) {
+      const qty = inititemData[rowStart + itemIndex];
+      if (qty > 0) items.push({ itemIndex, qty });
+    }
+    armouries.push(items);
+  }
+  return armouries;
+}

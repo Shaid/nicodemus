@@ -40,6 +40,11 @@ export interface ShopMarkupRow {
   markupPercent: number;
 }
 
+export interface ArmouryStockItem {
+  itemIndex: number;
+  qty: number;
+}
+
 export interface GameData {
   races: RaceData[];
   skills: SkillRow[];
@@ -47,6 +52,8 @@ export interface GameData {
   spells: SpellData[];
   monsters: MonsterRecord[];
   shopMarkups: ShopMarkupRow[];
+  /** `armouryStock[armoury]` = every item that armoury actually sells (data-tables.md §6.4). */
+  armouryStock: ArmouryStockItem[][];
 }
 
 /** The six P3 classes, in the skill-table order (`P3_SKILL_CLASS_ORDER`). */
@@ -62,13 +69,14 @@ async function fetchJson<T>(url: string): Promise<T> {
 
 export async function loadGameData(game: GameId, platform: PlatformId): Promise<GameData> {
   const base = `/assets/${game}/${platform}`;
-  const [races, skills, items, spells, monsters, shopMarkups] = await Promise.all([
+  const [races, skills, items, spells, monsters, shopMarkups, armouryStock] = await Promise.all([
     fetchJson<RaceData[]>(`${base}/races.json`),
     fetchJson<SkillRow[]>(`${base}/skills.json`),
     fetchJson<ItemData[]>(`${base}/items.json`),
     fetchJson<SpellData[]>(`${base}/spells.json`),
     fetchJson<MonsterRecord[]>(`${base}/monsters.json`),
     fetchJson<ShopMarkupRow[]>(`${base}/shop-markups.json`),
+    fetchJson<ArmouryStockItem[][]>(`${base}/armoury-stock.json`),
   ]);
-  return { races, skills, items, spells, monsters, shopMarkups };
+  return { races, skills, items, spells, monsters, shopMarkups, armouryStock };
 }

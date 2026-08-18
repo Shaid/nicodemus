@@ -23,10 +23,12 @@ import {
   readP3ItemPrices,
   readP3ShopMarkups,
   readP3Items,
+  readP3ArmouryStock,
 } from '../exe-data.ts';
 
 const GAME_PATH = resolve('data/phantasie/amiga/game');
 const P3_EXE_PATH = resolve('data/phantasieiii/amiga/PhantasieIII');
+const P3_INITITEM_PATH = resolve('data/phantasieiii/amiga/inititem.dat');
 const P2_EXE_PATH = resolve('data/phantasieii/atarist/extracted/disk1/PHANT.PRG');
 const P2_START_PATH = resolve('data/phantasieii/atarist/extracted/disk1/START.PRG');
 
@@ -426,5 +428,45 @@ describe('readP3Items — data-tables.md §3.1/§7', () => {
     expect(wand.pointValue).toBeNull();
     expect(wand.attributesRequired).toBeNull();
     expect(wand.basePrice).toBe(13006);
+  });
+});
+
+describe('readP3ArmouryStock — data-tables.md §6.4', () => {
+  it('returns 18 armouries, with the row-0-declared item count matching the real stocked-item count for every row', () => {
+    const inititem = new Uint8Array(readFileSync(P3_INITITEM_PATH));
+    const declaredCounts = Array.from({ length: 18 }, (_, i) => inititem[i * 181]);
+    const stock = readP3ArmouryStock(inititem);
+    expect(stock).toHaveLength(18);
+    stock.forEach((items, i) => expect(items).toHaveLength(declaredCounts[i]));
+  });
+
+  it('armouries 0 and 15-17 are entirely empty; armouries 1-14 are the real, stocked towns', () => {
+    const inititem = new Uint8Array(readFileSync(P3_INITITEM_PATH));
+    const stock = readP3ArmouryStock(inititem);
+    expect(stock[0]).toHaveLength(0);
+    expect(stock[15]).toHaveLength(0);
+    expect(stock[16]).toHaveLength(0);
+    expect(stock[17]).toHaveLength(0);
+    expect(stock.slice(1, 15).every((items) => items.length > 0)).toBe(true);
+  });
+
+  it('armoury 1 matches town-format.md §3.4\'s documented Pendragon stock exactly (cross-checked against default_88.png)', () => {
+    const inititem = new Uint8Array(readFileSync(P3_INITITEM_PATH));
+    const exe = new Uint8Array(readFileSync(P3_EXE_PATH));
+    const { items } = readP3Items(exe);
+    const stock = readP3ArmouryStock(inititem);
+    const named = stock[1].map((s) => `${items[s.itemIndex].name} x${s.qty}`);
+    expect(named).toEqual([
+      'Clothing x5',
+      'Robes x5',
+      'Leather x1',
+      'Knife x1',
+      'Club x1',
+      'Mace x1',
+      'Healing Potion 5 x5',
+      'Magic Potion 5 x5',
+      'Scroll IV x200',
+      'Scroll VIII x200',
+    ]);
   });
 });

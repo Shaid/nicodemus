@@ -1249,6 +1249,18 @@ The "next genuinely different approach" flagged at the end of §6.3 was
 taken: the routine that reads hunk 1 `+0x44BA` during gameplay was found
 and disassembled. It is the **armoury-stock builder at file `0x8b5a`**,
 reached from the "A) Armoury" town command, and its indexing settles the
+
+> **Addendum (this pass) — the "A) Armoury" attribution above is now
+> independently re-confirmed**, including the exact keystroke and the
+> full in-town command dispatcher it goes through (single 53-entry
+> jump-table command interpreter, one caller in the whole binary). Static
+> disassembly alone initially left `A` vs. a sibling `O`("Load") slot
+> ambiguous (both are reachable paths near this builder); a screenshot
+> already in this repo (`data/default_88.png`, `"THIEF is in the
+> armoury"`) settles it — its displayed item list matches armoury 1's
+> stock row below item-for-item. Full write-up, the rest of the town
+> command dispatcher, and the character-creation math traced in the same
+> pass: `town-format.md`.
 format outright:
 
 ```

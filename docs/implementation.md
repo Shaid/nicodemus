@@ -177,6 +177,56 @@ Ordered by dependency: A0 unblocks everything; A1/A2 are tightly coupled (encoun
 
 **Status update (2026-08-18):** built in gameplay order (last). `combat/formulas/combat-rng.ts` (the confirmed LCG `seed=(seed*25173+13849)&0xFFFF` → `&0x7FFF`, `Random(range)=1+seed%range`), `combat/formulas/p3-combat.ts` (`resolveAttack` implementing §7.5's two-branch to-hit formula with §7.5.1's corrected operands — die rolled before the strict-`>` percentile roll, rank-relative `×30` term, status/difficulty penalties — plus `combatStatsFor`/`fireBowMax`/`pointValue` derivations and a `monsterStatsFor` mapping), `combat/CombatEngine.ts` (party→monster uses the confirmed formula; turn loop, victory/defeat), and `combat/CombatScene.ts` (modal HP bars + log + Fight/Flee). `CharacterState` gained `attributes`/`rank`. Encounter cells (`randomEncounter`/`fixedEncounter`/`door:encounter`) now launch `CombatScene`, which returns to the dungeon (re-created at the resume cell) or to the overworld on defeat. `combat/formulas/__tests__/p3-combat.test.ts` locks the RNG sequence and two `resolveAttack` cases. **Marked approximations** (the open §1.7 items): `monsterStatsFor` maps `monster.+0x28` armor to `monsinfo.dat`'s `armorRating` (runtime combat record unmapped), and the monster→player mirror is a plain `attackRaw*10`%-chance approximation (P3's mirror was never traced); the Fire branch and combat-menu weapon selection are fixed to melee until the combat menu exists; XP reward is a TODO. Combat RNG is seeded from `Date.now()` (save/seed persistence is A6).
 
+> **Spell-casting research pointer (2026-08-18):** the non-combat "Cast
+> Spell" path (Options menu / character screen) is now fully traced and
+> ready to implement — `docs/phantasie/spell-format.md`. Healing I-IV's
+> HP-roll table and its point-budget body-location cure (confirmed:
+> Healing III/IV *can* clear a `Gone` location, unlike the Inn) and
+> Resurrection's full effect (revive at 1 HP, full MP, all six body
+> locations unconditionally cleared, `-1`/`-2` Constitution) are both
+> disassembly-confirmed against the real SSI manual with zero deviation.
+> MP cost is a fixed per-spell table, deducted only on success. **Not**
+> covered: the in-combat "Spell" menu option calls a still-unlocated,
+> separate implementation (the shared non-combat dispatcher this pass
+> traced has exactly 2 callers project-wide, neither the combat menu) —
+> the "Fire branch... fixed to melee until the combat menu exists" note
+> above is unaffected by this finding; combat spellcasting generally
+> (including the other 51 spells, all Combat-typed and explicitly
+> refused by the non-combat path) remains a real gap, not just Fire.
+
+> **Known gap, fixed with a debug placeholder (2026-08-18):** "returns... to
+> the overworld on defeat" above used to undersell what actually happened —
+> a defeated party was left with every member at `hp: 0, alive: false` and
+> dropped back onto the overworld with no game-over screen and no recovery
+> path at all (the Temple, which would fix this for real, is itself a
+> `TownScene` stub — §A4 above). `CombatScene` now routes defeat to
+> `src/app/JudgmentScene.ts`, which shows the real `w2.cmp` judgment
+> backdrop with honest framing (the real obliterate/undead/resurrect
+> mechanic isn't reverse-engineered — `scripting-p3-death-judgment` in
+> `TODO.md`, `dungeon-format.md` §9.0.1's correction block) and, on
+> "Continue", fully heals and revives the party (`reviveParty` in
+> `PartyState.ts`) rather than simulating any real outcome — a deliberately
+> generous debug/testing convenience (owner's call) so a wipe doesn't
+> require recreating characters every test run, not a claim about what the
+> real mechanic does.
+
+> **Status update (2026-08-18) — post-victory rewards wired to the
+> confirmed mechanic, and a real bug fixed along the way.** `CombatScene`
+> used to read the reward from `battle.monsters[0].record.gold` — but
+> `CombatEngine.partyRound()` filters `battle.monsters` down to the living
+> on every round, so by the time a battle is won the array is empty and
+> that read threw. Fixed by keeping the originating `MonsterRecord` as its
+> own field. Rewards now match `town-format.md` §3.8 exactly: gold is
+> awarded instantly to `party.gold`, Experience is pooled into the new
+> `PartyState.pendingXp` rather than divided immediately (division happens
+> in town — see the A4 status update below). Item drops are deliberately
+> NOT modeled — the monster drop-table/trigger logic was never traced
+> (§3.8's own "Open" note), so there's nothing confirmed to implement.
+> `CombatResume` is now a `{kind: 'dungeon' | 'overworld'}` discriminated
+> union rather than always assuming a dungeon origin — required for A3's
+> overworld encounters (below) to route `Flee`/victory/defeat back to
+> `OverworldScene` instead of crashing into a nonexistent dungeon return.
+
 ### A3 — Overworld / world-map traversal loop
 
 **New:** `src/render/tile-render.ts` (shared viewport-culled tile blit, generalized so `DungeonScene` doesn't duplicate it), `src/overworld/OverworldScene.ts` (render driven by `p3-overworld.ts`'s `p3TerrainClass`/`P3_TERRAIN_BANDS`, party token, camera follows via bounded `TopDownCamera` pan — not free WASD scroll), `src/overworld/OverworldInput.ts` (`KeyState`-based step movement across the 50×75 grid; each step checks `P3_OVERWORLD_LOCATIONS` for a coincident marker), `src/overworld/OverworldHost.ts` (thin for P3 — `LocateSpecial()`'s logic is just membership-testing `P3_OVERWORLD_LOCATIONS` against the party's `(x,y)`, already fully decoded as data).
@@ -185,11 +235,52 @@ Ordered by dependency: A0 unblocks everything; A1/A2 are tightly coupled (encoun
 
 **Open item — needs a short RE pass before this sub-phase is complete (not before it starts):** P3's random-overworld-encounter mechanism (trigger rate, monster roster, terrain dependence) is **not in this project's RE corpus at all** — no doc documents a P3 overworld encounter table the way `dungeon.ts`'s `randomEncounter` cell kind does for dungeons. A placeholder fixed-probability roll against a hand-picked monster subset can unblock rendering/movement/town-entry work in the meantime, clearly marked `// TODO: unverified encounter mechanism, see TODO.md`.
 
+> **Correction (2026-08-18, game-re):** resolved — this is no longer an
+> unresearched item. `dungeon-format.md` §9.0.6 traces the whole
+> mechanism from the overworld step handler through to combat entry:
+> gated on not standing at a named location and terrain class not being
+> Water/Lava/River Styx, a base **7% per-step trigger roll**
+> (`Random(100) <= 7`), a **5×5 region-grid danger-tier table** (confirmed
+> spatially — the capital Pendragon's own region carries the table's one
+> minimum value), a **terrain-dependent severity offset** (ordinary
+> terrain 0-5, Bridge/Dense Fog/Netherworld terrain 8-12, confirmed
+> byte-exact), and a shared **80-entry monster roster read wholesale from
+> `monsinfo.dat`** (13-byte name + 25 stat bytes per record, byte-exact
+> against the real file — `Skeleton` at index 0 through `Lord Wood` at
+> index 79). Confidence is **confirmed** for the trigger/gating/roster
+> plumbing and **narrowed** for the exact semantic split between outcome
+> branches (which produce "ambush" vs. an ordinary fight vs. a
+> party-member-flavoured vignette) — every branch traced this pass still
+> reaches the same combat-entry routine, so a genuinely non-combat
+> outcome was hypothesized but not demonstrated. See `TODO.md`'s
+> `world-p3-overworld-encounter-outcomes` row for what's still open.
+
 **Adapting vs. new:** terrain-tile render adapts `map-viewer.ts`'s blit logic directly. Party-token movement, camera-follow, location-entry dispatch: new.
 
 **Done when:** the party can walk the full P3 overworld, enter all 30 named locations, and (once the open item resolves or is stubbed) trigger combat mid-traversal.
 
-**Status update (2026-08-18):** built in gameplay order (after town). `src/overworld/OverworldScene.ts` renders the pre-baked `screens/world-map.png` under a bounded `TopDownCamera` (zoom 2, follows the party token), steps the party on arrow/WASD via `KeyState`, and resolves `world-map-pois.json`'s 30 `LocateSpecial()` markers — stepping onto a town hands back to `TownScene` (with the town's name/coords), dungeon/inn entry is a marked stub until A1's dungeon scene lands. Two deliberate consolidations vs. this section's file list: `OverworldInput.ts`/`OverworldHost.ts` are folded in (P3's input is a few `KeyState` presses and its "host" is a `(x,y)→POI` map lookup), and `render/tile-render.ts` is skipped (P3 ships a whole-world PNG, so the blit is one `Sprite`; the shared blitter is deferred to A7). Random overworld encounters are still the open item below, not implemented.
+**Status update (2026-08-18):** built in gameplay order (after town). `src/overworld/OverworldScene.ts` renders the pre-baked `screens/world-map.png` under a bounded `TopDownCamera` (zoom 2, follows the party token), steps the party on arrow/WASD via `KeyState`, and resolves `world-map-pois.json`'s 30 `LocateSpecial()` markers — stepping onto a town hands back to `TownScene` (with the town's name/coords), dungeon/inn entry is a marked stub until A1's dungeon scene lands. Two deliberate consolidations vs. this section's file list: `OverworldInput.ts`/`OverworldHost.ts` are folded in (P3's input is a few `KeyState` presses and its "host" is a `(x,y)→POI` map lookup), and `render/tile-render.ts` is skipped (P3 ships a whole-world PNG, so the blit is one `Sprite`; the shared blitter is deferred to A7).
+
+> **Status update (2026-08-18) — random encounters implemented, not just
+> documented.** `src/overworld/p3-encounter-formulas.ts` implements
+> `dungeon-format.md` §9.0.6's confirmed cascade: the 5×5 region-tier
+> table and the terrain-severity table are both hardcoded directly (same
+> treatment as `character-creation-formulas.ts`'s class/race modifier
+> tables — small, fully-dumped, confirmed constant tables), `regionDangerTier()`/`rollOverworldEncounter()` reproduce the 7% trigger →
+> region tier → 38%-ambush/62%-ordinary → monster-index pipeline, including
+> the two confirmed index redirects (31→42, 53→42). `OverworldScene.step()`
+> calls it after every move (skipped on a named-location cell — the
+> exclusion-terrain check for Water/Lava/River Styx is baked into the
+> formula itself) and, on a hit, replaces the scene with `CombatScene`,
+> using the new `{kind: 'overworld', x, y}` resume shape from the A2
+> update above. **Deliberate simplification, documented in the formula
+> module's own header**: the real cascade's ambush/ordinary/party-member-
+> flavored branches were only "narrowed" not "confirmed" (§9.0.6's own
+> "Still open" table) — every concrete branch the RE pass traced still
+> resolves to combat, so this implementation always fights; it does not
+> attempt the party-member-personalized-flavor path or the exact message-
+> code semantics, since those affect presentation text only, not
+> confirmed to ever skip combat.
 
 ### A4 — Town/shop loop
 
@@ -200,6 +291,215 @@ Ordered by dependency: A0 unblocks everything; A1/A2 are tightly coupled (encoun
 **Done when:** a new character can be created and equipped from a real armoury's stock, and the town hub is reachable from/returns to the overworld at the correct `LocateSpecial()` coordinate.
 
 **Status update (2026-08-18) — first playable slice, built in gameplay order rather than this plan's A1→A4 sequence** (per request: town views → character creation → world map → dungeon → combat). The app scaffold (§A5's `PhantasieApp`/`SceneManager`/`Scene`) was built *first* so the menu scenes have somewhere to live, then `src/town/CharacterCreationScene.ts` and `src/town/TownScene.ts` on top of it. Character creation is data-backed (races/classes from `races.json`/`skills.json`) with placeholder roll and starting-HP formulas (`character-creation-rolls`, `character-creation-hp` — the game's own generation math is not yet in the RE corpus). `TownScene` is a **placeholder hub**, exactly per this section's investigation prerequisite: the Armoury browses the real `items.json` catalogue at base price, and Inn/Temple/Tavern/Training are stubs — P3's real in-town structure and `inititem.dat` per-town stock selection are still the open investigation, NOT silently assumed. `ui/menu.ts` supplies the PixiJS button/label/menu primitives (built-in pointer events, not `PointerState`, which is reserved for traversal scenes). Boots via `npm run dev` → create party → town → (stub) leave town.
+
+> **Correction (2026-08-18, RE pass) — the investigation is done; the
+> assumed facility set was wrong.** P3 has **no Temple and no Tavern**
+> anywhere in its executable strings, its captured screenshots, or its
+> town command dispatcher. The real in-town command set — found by
+> tracing the single, unified keystroke dispatcher (`file 0xb1f4`/
+> `0xbbe4`, one caller in the whole binary) and cross-checked against
+> real Amiga screenshots already in this repo (`data/default_58.png`-
+> `88.png`) — is three pull-down menus: **`File`** (Info/Load/Save),
+> **`Guild`** (Add/Drop/Examine/New/Purge/Rename Member, Learn Spells,
+> Training), and **`Options`** (**Armoury**/**Bank**/**Inn**/**Mystic**/
+> Exit, plus Cast Spell/Distribute/Trade Item/Use Item/View Party). Full
+> byte-level detail, confidence grading, and the paths-tried table for
+> what's still open: `town-format.md`.
+>
+> **Decoded this pass, ready to wire in directly:**
+> - **Inn** (`I`, worker file `0x11bea`) is P3's healing/curing facility
+>   (there is no separate Temple): ages the character +1/26 year, heals
+>   HP to max and repairs body locations (except `Gone`) gated by a flag,
+>   and rolls a chance for Magic Power max to grow toward a class/level
+>   chart ceiling, refilling current MP on success. All four mechanics
+>   and every field offset are code-confirmed — `town-format.md` §3.1.
+> - **Character creation attribute rolls** (`character-creation-rolls`):
+>   confirmed as **3d6 + a class-indexed modifier table + a second
+>   6-row modifier table (index not yet identified — plausibly a race
+>   category) + 3**, both modifier tables' full byte content dumped —
+>   `town-format.md` §4.2. Luck is `Random(6)+7`, then adjusted by raw
+>   race index.
+> - **Starting HP/MP** (`character-creation-hp`): confirmed as
+>   `MP = 75% of a [6 class][15 level] chart's level-1 entry` (the same
+>   chart the Inn reads for MP growth) and `HP = sum of N dice, each
+>   Random(2)+1, where N comes from a [6 class][21] table's level-1
+>   entry` — not the manual's Fighter=10 chart directly, but consistent
+>   with it as that formula's minimum roll (Fighter's `N=5` gives a
+>   10-15 range). Both tables' full byte content dumped —
+>   `town-format.md` §4.3.
+> - **Armoury** (`A`, per-character, worker chain `0xb3be`→`0x10fca`→
+>   the already-confirmed stock builder `0x8b5a`, `data-tables.md`
+>   §6.4/§7) — confirmed via `data/default_88.png` matching the decoded
+>   armoury-1 stock row item-for-item.
+> - **Training** (`T`, worker file `0xde34`) — the cost formula (armoury
+>   markup% × Charisma-modified base × two new level-indexed tables at
+>   `hunk1+0xA4C`/`0xA6A`) is confirmed; the actual stat-increase
+>   application past the confirm dialog was not traced — `town-format.md`
+>   §3.2.
+> - **Mystic** (`M`, worker file `0x1209a`) — structure only (a party-wide
+>   reputation/eligibility scan feeding a tiered outcome); not P3's
+>   equivalent of anything HP/curing-related, that's the Inn — its actual
+>   effect is still open, `town-format.md` §3.3.
+>
+> **What `TownScene`/`CharacterCreationScene` should do differently**
+> (full detail `town-format.md` §6): rename the facility menu to
+> Armoury/Bank/Inn/Mystic/Exit (drop Temple/Tavern/Training as top-level
+> facilities — Training moves to the Guild menu alongside Learn Spells);
+> wire the Inn to the four confirmed mechanics above instead of a stub;
+> wire `rollAttributes()`/`addMember()`'s starting HP to the confirmed
+> formulas instead of a flat uniform 3-18 roll and a flat 10 HP (using
+> the neutral, all-10 row of the second modifier table as an interim
+> default until its real index is identified is a reasonable stopgap,
+> noted in code).
+
+> **Correction (2026-08-18, second RE pass, same day) — the three items
+> the first pass left open are now all resolved; only narrower residuals
+> remain.**
+> - **Character creation's `selector` modifier table**: no longer a
+>   placeholder concern. `selector = char.+0xA8` (the character's own
+>   raw race index, 0-17) — traced directly to its producer (file
+>   `0x13320`). The modifier table itself turned out to be a full 90-byte,
+>   18-row race table (the first pass under-dumped it at 30 bytes by
+>   analogy with the class table and mis-read the truncation as the real
+>   table boundary); every row is a thematically coherent per-race
+>   stat profile. `rollAttributes()` can use `classModifier[class]` +
+>   `raceModifier[race]` directly, no stopgap needed — `town-format.md`
+>   §4.2.
+> - **Training**'s actual effect, past the confirm dialog: **it's a
+>   full level-up, paid for in gold instead of earned via Experience** —
+>   `Level += 1` (capped 21), gold deducted, HP max/current re-rolled via
+>   the *same* class/level dice table character creation uses (but
+>   `Random(3)` per die, not creation's `Random(2)+1` — a confirmed,
+>   deliberate asymmetry), and the game's own confirmed level-up
+>   skill-maxima routine (`0xe67a`, the same one `scripting-engine.md`
+>   §7.5.3 traced for `FireBowMax`) invoked 3× to refresh all 9 skill
+>   pairs for the new level. `town-format.md` §3.2.
+> - **Mystic**'s actual effect: **there isn't one.** Traced the worker
+>   function to its own `RTS` and found zero field writes anywhere —
+>   it's a pure read-only status/flavour report (a reputation-tier
+>   greeting plus up to 3 conditional lines about two unnamed
+>   per-character condition flags and any member with high Social
+>   Class), not a shop, guild-dues mechanic, or curing service.
+>   `town-format.md` §3.3.
+>
+> Two narrower items remain open (`town-p3-training-skill-selection`,
+> `town-p3-mystic-flag-names` in `TODO.md`) but don't block wiring any
+> of the above into real code — see `town-format.md` §5/§6.
+
+> **Correction (2026-08-18, third RE pass, same day) — Learn Spells
+> (`L`, worker file `0x1041a`) fully traced, the last stubbed facility
+> this plan called out.**
+> - **Eligibility**: same alive/not-"Out"/not-Undead gate as Inn and
+>   Training, plus a class-specific spell-index range (Fighter/Thief/
+>   Priest/Ranger/Monk/Wizard reach only a small, distinct slice of the
+>   57-entry spell table via this screen — 13 indices total across all 6
+>   classes) and a party-wide `$3136` "spells discovered" counter that
+>   must clear a level/Intelligence-derived threshold.
+> - **Cost**: same shape as Training — the confirmed armoury markup
+>   table × a Charisma/Intelligence/class-derived multiplier, clamped
+>   1-250 gold, checked against party gold. Gold is spent even on
+>   failure.
+> - **Which spell**: the player browses and picks from a filtered
+>   candidate list (class range ∩ level-availability table ∩ not
+>   already known party-wide) — not an automatic next-in-sequence
+>   unlock.
+> - **Success roll and the write**: `Random(20) > Intelligence` fails
+>   (money still spent, nothing learned); on success, `LearnSpell`
+>   (file `0x10adc`) appends the spell index to `char.+0xB0` (a 32-slot
+>   word array, count tracked at `+0x56`) — **except** spell 57 ("Divine
+>   Aid"), which gets its own dedicated `char.+0xF0` word field instead,
+>   matching opcode `0x19`'s already-documented hardcoded special case.
+>   This is an **offset-exact match** for `src/state/CharacterState.ts`'s
+>   `knownSpells: number[]` field, confirming that data-model shape.
+>
+> One new open item (`town-p3-spell-discovery-tracker` in `TODO.md`):
+> what actually increments the party-wide `$3136` counter that unlocks
+> the other 44 spells beyond each class's small starting range wasn't
+> traced — doesn't block wiring the Learn Spells screen itself, only
+> whether the browser build can ever offer the higher-tier spells.
+> Full detail: `town-format.md` §3.5.
+
+> **Correction (2026-08-18, fourth/fifth RE passes, same day) — Bank
+> fully traced (no open items), and the "return to town, assign/sell
+> loot, divide Experience" flow the project owner remembered turned out
+> to be one linked system, not three unrelated stubs.**
+> - **Bank** (`B`, worker file `0x1183a`) — two persistent gold pools:
+>   carried gold (`$44b2`, shared with Training/Learn Spells) and a
+>   per-character banked balance (`char.+0xFE`, already named "Gold in
+>   bank" by the character-sheet routine but never before traced to a
+>   consumer). **Withdraw All**: sums every living member's banked gold
+>   into carried gold, zeroing each — all-or-nothing. **Deposit**: splits
+>   an entered amount evenly across every living member's bank, handing
+>   the integer-division remainder out one gold piece at a time to
+>   randomly-chosen members. `town-format.md` §3.6.
+> - **`D) Distribute`** (worker file `0xbca4`, shared by two modes) —
+>   **not** "split gold" as first guessed. Mode 2 (`D`'s own, menu-
+>   reachable mode) is a full **reset**: un-equips the whole party and
+>   recalls *every* character's entire carried-item history back into one
+>   shared 60-slot pool. Mode 1 is **auto-triggered on town arrival**
+>   (not reachable via any menu key) whenever pooled XP or loot exists —
+>   it prompts a 1-3 share weight per living member, then divides pooled
+>   Experience in two passes: an unweighted-random pass hands out
+>   `floor(pendingXp/totalShares)` individual +1s to random living
+>   members, then a weighted pass splits the remainder by share weight.
+>   Both modes funnel into the **same item-assignment screen** afterward
+>   (`0xc3e6`) — the "only this trip's loot" feel the owner remembered is
+>   an emergent effect of *when* each mode runs relative to the shared
+>   pool being drained (mode 1 fires before anything's been dumped in;
+>   mode 2 dumps everything in first), not a hardcoded distinction.
+> - **`G) Trade Item`** (worker file `0xf2e8`) — **not** sell-to-town
+>   either. A direct item transfer between two named party members' own
+>   9-slot carried-item inventories (`char.+0x2A` count, `hunk1+0x3da0`
+>   array) — no gold or armoury pricing touched at all.
+> - **Post-combat rewards** (battle-rewards function, file `0x19ce0`) —
+>   gold is awarded **instantly** to carried gold; Experience and dropped
+>   items are **pooled** (`$44ae`/`$44ac`) until the party is back in
+>   town, where Distribute's mode 1 auto-fires. The monster-record fields
+>   read (`+0x22`/`+0x24`) are the already-confirmed Gold/Experience
+>   fields (`data-tables.md` §3) — a clean cross-check, not a new field
+>   space. `town-format.md` §3.7/§3.8.
+>
+> **Runtime implication**: this project's per-character inventory isn't
+> modeled yet (`PartyState.items` is still one shared pool, no
+> `char.+0x3da0`-equivalent 9-slot array) — so Trade Item and the
+> item-assignment half of Distribute's mode 1 aren't implementable yet
+> without that refactor (`town-p3-per-character-inventory` in `TODO.md`).
+> XP pooling and division **are** implementable without it — see the
+> status update below.
+
+> **Status update (2026-08-18) — Bank, Cast Spell (Healing/Resurrection),
+> and the XP half of Distribute's auto-trigger are wired into
+> `TownScene`; the item half is deliberately deferred.** `PartyState`
+> gained `pendingXp` (the confirmed `$44ae` pool) and `bankDeposit()`/
+> `bankWithdrawAll()`/`divideXp()` (`src/state/PartyState.ts`, unit-tested
+> against the confirmed two-pass XP algorithm including its inherent
+> small pass-2 rounding loss). `CharacterState` gained `bankedGold`
+> (`+0xFE`), `experience` (`+0x102`), and `bodyLocations` (`+0xF2`-`+0xFC`,
+> needed for healing spells — see below; nothing in this build damages a
+> location yet, so it starts and stays `Okay` until a spell touches it).
+> `TownScene.mount()` auto-opens the XP-divide screen when
+> `party.pendingXp > 0`, matching the confirmed auto-trigger, minus the
+> item-assignment step (no per-character inventory to assign into yet).
+> Bank's deposit amount is a few preset buttons rather than the real
+> game's free-typed amount — this project's UI has no numeric text-input
+> widget yet. **Cast Spell** is new and covers exactly what
+> `spell-format.md` calls "ready to implement end to end" — Healing I-IV
+> (`src/town/spell-formulas.ts`'s `cureBodyLocations()`/`applyHealing()`,
+> including genuinely clearing a `Gone` body location for tiers III/IV,
+> the document's central finding) and Resurrection (revive at 1 HP, full
+> MP, all six locations unconditionally cleared, Constitution
+> `-= Random(2)` floored at 3) — every other spell index is correctly
+> refused with the real game's own message, matching `spell-format.md`
+> §3's confirmed "non-combat entry point implements only Healing/
+> Resurrection/Transportation/Monster Evaluate" finding (Transportation/
+> Monster Evaluate aren't wired — only narrowly traced, not full
+> formulas). The in-combat Spell menu (all 51 Combat-typed spells) still
+> has no located implementation at all (`spell-format.md` §8's largest
+> open item) — `CombatScene`'s existing melee-only placeholder is
+> unchanged, not a regression. Training's/Learn Spells' gold costs remain
+> flat placeholders (documented in `TownScene.ts` itself) since their
+> real formulas reference constant tables whose byte values weren't
+> transcribed — not fabricated here either.
 
 ### A5 — Integration
 
@@ -218,6 +518,8 @@ If in scope: `src/state/save/SaveManager.ts`, `localStorage`-backed serializatio
 Swap `DungeonRenderer.ts`/`tile-render.ts`'s flat-color fills for real sprite frames (`sprite-bank.ts`, `set.ts`). Purely additive; do not start before A1-A5's loop works.
 
 **Status update (2026-08-18):** done, with the investigation outcome recorded. The "real sprite frames" parenthetical turned out not to apply — a pass over `dng.csh` (the palette installed for the dungeon view, graphics-formats.md §4.5.4's "dungeon" slot) shows it decodes to a 320×200 picture that is ~99% flat black with a thin border frame (63,597/64,000 background pixels; the 24×30 grid region is entirely empty). The original dungeon view is therefore a **flat shape render over that backdrop** — walls/doors in the tan family, floor black — with no per-cell tile set and no use of `sprite-bank.ts`/`set.ts`. A7 is implemented as that authentic look rather than invented tiles: `DungeonRenderer.ts`'s `KIND_COLORS`/`doorColor` now use the real `dng.csh` palette (tan `0x886644` walls, light-tan doors, black floor, and the palette's own orange/red/yellow/green for trap/encounter/star/stairs markers), and `DungeonScene` renders the `dng.csh` backdrop (`dng.png`) behind the grid, aspect-cover-fitted to the viewport. Semantic markers stay subtly tinted (the original hides stars/traps/encounters until stepped on) so the browser build remains legible.
+
+> **Correction (2026-08-18, `game-re`, same day) — the investigation outcome above was wrong; `Dng.csh` is a real 9-icon dungeon-view tile bank, not a backdrop.** The "~99% flat black" observation was correct, but its interpretation wasn't: it contradicted graphics-formats.md §4.4's own render description two sections earlier ("`anatomy1.csh`, `dng.csh`, `scroll.csh` → small icon sprites... scattered... near the top-left"), which this status update never cross-checked. Full disassembly trace (`graphics-formats.md` §4.6, new this pass): `PhantasieIII`'s dungeon-entry init routine builds a runtime icon-pointer table from `Dng.csh` (`LAB_010C`, icon-table indices `0x2D`-`0x35`, 9 icons, 8×5px each); the dungeon-view redraw (`LAB_1374`/`LAB_1379`/`LAB_1388`) walks the **full 24-column × 30-row dungeon grid** (matching `dungeon-format.md` §3's already-confirmed dimensions exactly, 720 cells) and stamps one of those 9 icons per cell, chosen by the raw cell code — a near-exact match to `dungeon.ts`'s `CellClass` boundaries (wall/secretWall → one icon, horizontal/vertical door → two more, star → one, stairsExit → one, and every trap/encounter/message kind collapsed onto one generic "floor" icon, matching the original's "hidden until stepped on" design). Verified three independent ways: (1) the grid-walker's loop bounds and the icon-table's packing geometry, derived from disassembly alone, agree byte-exactly with each other and with the pre-existing confirmed grid dimensions; (2) two independently-decoded real dungeon levels (`dungeon-a`, `dungeon-e`), rendered top-down using nothing but the real decoded icon pixels and the disassembly-derived cell→icon mapping, produce legible, structurally sensible corridors/rooms/doors — not noise; (3) real Amiga emulator screenshots the project owner supplied this same pass (`data/default_72.png`, `default_74.png`, genuine dungeon-walk captures) show the walkable viewport's background texture repeating at an exact 8×5px period — `Dng.csh`'s exact icon dimensions — and a revealed door structure's colours matching `Dng.csh`'s real palette indices exactly. **Implemented, not just documented:** `src/assets/formats/dng-icons.ts` (new — `extractDngIconFrames`/`dngIconNameFor`), wired into `tools/phantasieiii/build-assets.ts` (`dng.json`'s `frames` array now carries the 9 real, named icon sub-rects, sliced from the existing `dng.png` — no new atlas image needed) and into the runtime: `DungeonRenderer.ts` now exposes `dngIconNameFor` (re-exported from `dng-icons.ts`) as the real per-cell icon lookup, and `DungeonScene.ts`'s `redrawGrid()` draws a pooled `Sprite` per cell, sliced from the atlas via `Texture`+`Rectangle` sub-frames, nearest-neighbour scaled to fill the cell — replacing both the flat-colour fallback (kept only for atlas-load failure) and the old full-screen `dng.png` backdrop stretch (which was itself built on the wrong hypothesis and has been removed). 8 new unit tests (`dng-icons.test.ts`), full suite green, `tsc --noEmit`/`eslint`/`vite build` all clean. Full evidence, the icon-role table, and two rendered-dungeon verification images: `graphics-formats.md` §4.6.
 
 ### Phase A summary
 
@@ -333,7 +635,7 @@ Same shape as B5, `GameId === 'phantasieii'` boot path.
 5. P3's `0xF0` newline control code (A1, low priority)
 
 **Needs a short new RE investigation before that sub-phase's implementation starts (not emulator-blocked, just unstarted analysis):**
-6. P3's random-overworld-encounter trigger mechanism (A3)
+6. ~~P3's random-overworld-encounter trigger mechanism (A3)~~ — **resolved**, see `dungeon-format.md` §9.0.6 and the correction block above
 7. P3's actual in-town interaction structure (A4)
 8. Whether/where P2 town data exists at all (C3)
 

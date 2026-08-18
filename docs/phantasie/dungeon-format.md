@@ -2550,6 +2550,33 @@ The strings sit next to `"Pluto."`, `"Zeus."`, `"evil"`, `"good"` and
 the rendered content exactly. **Confidence: confirmed** (rendered +
 code-traced loader); the god-name↔file binding is **hypothesis**.
 
+> **Correction (2026-08-18) — gameplay role of `w2`-`w4`, project-owner
+> confirmed.** The project owner identified what each backdrop is actually
+> *for* in real play, beyond the render-content description above:
+> - **`w2.cmp` is the death-judgment screen backdrop.** Confirms the
+>   `0x1DC70`-traced "Astral Plane routine" load path above is the death
+>   handler itself, not an unrelated Astral Plane sightseeing event — a
+>   dead party is brought before the god shown, who judges them (per the
+>   project owner's separate description of the mechanic: outcomes range
+>   from obliteration to being made undead to resurrection, with the odds
+>   shifting as the game progresses). **Still not code-traced**: what calls
+>   into `0x1DC70` on a death, the actual per-outcome odds, and how those
+>   odds scale with progress — see `scripting-p3-death-judgment` in
+>   `TODO.md`. This project's browser engine currently has no death
+>   handling at all (`CombatEngine`/`CombatScene` just return a wiped party
+>   to the overworld); this backdrop is the real content that screen should
+>   eventually show.
+> - **`w4.cmp` is the main town view** — the backdrop `TownScene` should be
+>   rendering instead of the generic `ui/menu.ts` panel it uses today.
+> - **`w3.cmp` is a set of overlays for the town view**, shown when
+>   interacting with a specific area (matches the "three shop/inn doorway
+>   panels side by side" render description — each panel is presumably one
+>   area's interaction overlay, not three unrelated doorways).
+>
+> This is owner-supplied ground truth, not an independent disassembly trace
+> this pass — the `W0`/`W1` god-name binding and `w2`'s actual trigger
+> condition remain open per the table below.
+
 ### 9.0.2 `D/M0`, `D/M1` — three-track music — solved, driver fully traced
 
 > **Correction (2026-08-10):** §9.2 below recorded `M0` as "almost entirely a
@@ -3487,6 +3514,312 @@ overworld table above (bijection-verified against real map bytes).
 11,11,12,5,11,11,11,12,11,13,13, loaded to `$28B2` at addr `0x1BD34`) is a
 per-dungeon level count — its consumers were not traced.
 
+### 9.0.6 P3's overworld random-event mechanism — confirmed to exist, structure decoded
+
+This closes `implementation.md`'s "not in this project's RE corpus at all"
+open item. **P3 does have a random overworld-encounter mechanism** — it is
+not fixed-POI-only. It is a single roll-cascade function, called once per
+step, structurally unrelated to P1/P2's dungeon-cell `randomEncounter`
+mechanism but conceptually parallel to it (region/terrain-weighted
+severity → a shared 80-entry monster table with a `×N + offset, clamped`
+index formula, same shape as the dungeon engine's `level*12 + offset`).
+
+**Method note on addressing**: all "addr" values below are hunk-0-relative
+raw pre-relocation operands, exactly as in §9.0.5 — `file offset = addr +
+0x28` for CODE-hunk targets. Two data tables below turned out to be
+**hunk-1-relocated** (the same caveat `scripting-engine.md` §7.5 already
+flagged for LEA-referenced addresses) — these need `file offset = 0x278C8
++ hunk1Offset` instead, since hunk-1's `HUNK_DATA` payload was parsed
+directly this pass (`HUNK_HEADER`+`HUNK_CODE` end at file `0x218B0`,
+`HUNK_RELOC32`, `HUNK_END`, then `HUNK_DATA`'s own payload runs file
+`0x278C8`-`0x2A044`, 10,108 bytes) and cross-checked against the CODE
+hunk's own `HUNK_RELOC32` list (1,465 refs against hunk 0, 4,676 against
+hunk 1) for each specific operand location used below — not assumed.
+
+#### 9.0.6.1 Call site — confirmed
+
+The overworld step handler (§9.0.5.4, addr `0x7B42`, file `0x7B6A`) calls
+the viewport blitter, then `LocateSpecial()` (`0x9C6A`), then branches:
+
+```
+0x7be0  jsr $a4a6.l              ; terrain classifier (only when NOT on a named location)
+0x7c88  tst.w $2844.l            ; (already-in-dialog / paused guard, unnamed)
+        bne.w 0x7d60             ; skip if set
+        tst.w $288c.l
+        bne.w 0x7d60             ; skip if set — this flag also gates §9.0.6.2's own entry
+0x7c9c  tst.b $27d6.l            ; text-scroll/message-active guard (existing message-print loop)
+        ...
+0x7c44  tst.w $2832.l            ; LocateSpecial() result (0 = not on a named location)
+        bne.b 0x7c88             ; on a named location -> skip the block below entirely
+0x7c4c  cmpi.w #$a,$2860.l  \
+        cmpi.w #$8,$2860.l   \_  terrain class ($2860, §9.0.5.3) in {10 Water, 8 Lava, 15 River Styx}
+        cmpi.w #$f,$2860.l  /   -> skip (these are impassable/hazard terrain, no roll attempted)
+0x7c6a  tst.w $286e.l  ; ==0 -> skip
+0x7c72  tst.w $288c.l  ; !=0 -> skip
+0x7c7a  tst.w $2872.l  ; !=0 -> skip
+0x7c82  jsr $149d4.l   ; <-- the random-event roll, only reached with all guards clear
+```
+
+So the roll is attempted **only** when: not standing on a named
+town/dungeon/inn tile, terrain class is not Water/Lava/River Styx, and
+three further unnamed flags (`$286e`, `$288c`, `$2872`) permit it —
+`$288c` in particular gates both this call and the "message currently
+printing" skip a few lines earlier, so it is plausibly a general "UI
+busy" flag rather than encounter-specific. **Confidence: confirmed**
+(byte-exact disassembly of the gating chain); **hypothesis** for the three
+flags' exact real-world meaning (never independently traced to a write
+site this pass).
+
+#### 9.0.6.2 The roll cascade — confirmed, base trigger rate 7%
+
+Entry: addr `0x149D4`, file `0x149FC` (`LINK.W A5,#-12`).
+
+```
+if $283c == 0: return          ; unnamed enable flag (encounters-allowed?)
+if $2850 == 0: return          ; confirmed party-member count ($2850, scripting-engine.md §7.5)
+roll = Random(100)              ; JSR $AA7E -> Random(), confirmed entry point
+if roll > 7: return              ; ***base trigger rate: 7% per qualifying step***
+; --- an event is happening; decide what kind ---
+regionTier = regionDangerTier(partyX, partyY)     ; see §9.0.6.3
+b126(24)                                            ; unrelated side call, not traced (see below)
+roll2 = Random(100)
+if roll2 <= 38:                                     ; 38% of triggered events
+    idx = pickIndex(regionTier, mode=1)             ; see §9.0.6.4
+    ambushOutcome(idx)                               ; see §9.0.6.5 — still loads a monster record
+else:                                                ; 62%
+    roll3 = Random(100)
+    if roll3 <= 26: idx2 = pickIndex(regionTier, mode=2)   ; 26% of the 62% -> flat Random(10)+1 offset
+    else:           idx2 = pickIndex(regionTier, mode=3)   ; 74% of the 62% -> terrain-dependent offset
+    roll4 = Random(100)
+    if roll4 <= 37:                                  ; 37% of this sub-branch
+        picked = pickPartyMember(mode=1)              ; §9.0.6.6 — random party member + a name-substituted message
+        if picked == 0: $2880 = 1                       ; outcome flag A
+        else: loadMonsterRecord(mode=2, idx2); $2886 = 1 ; outcome flag B
+    else:                                              ; 63%
+        loadMonsterRecord(mode=1, idx2)
+        ; further nested rolls (Random(100) vs 51/31) pick between message
+        ; codes 3/4/5 via $1aa8a.l and set $2880/$2886/$2888 — not fully
+        ; disentangled this pass, see "Still open" below
+; --- merge: decide final presentation code and dispatch ---
+messageCode = ($2888 && !$2886) || (!$2888 && $2886) ? 2 : 1   ; from the $2880/$2886/$2888 flag combination
+finalCode = eventPresentationCode(messageCode)         ; bsr 0x14c8a, folds in $2870 too -> 3/4/5
+$288a = finalCode
+jsr $82f8.l                                             ; redraw viewport + LocateSpecial() again + dispatch (§9.0.6.7)
+```
+
+Every `roll = Random(100)` above is the confirmed `Random(range)` wrapper
+(`scripting-engine.md` §7.5, `JSR $AA7E.L` raw operand, file offset
+`0xAAA6`), verified byte-exact at 6 distinct call sites inside this one
+function (`0x14a18`, `0x14a60`, `0x14a96`, `0x14ad2`, `0x14b50`,
+`0x14ba8`). All threshold compares use `cmp.w #imm,d0` immediately after
+the call with `bge`/no-branch — i.e. "roll `<= imm` proceeds", not `<`,
+matching `Random()`'s confirmed `1..range` inclusive return range.
+
+`b126(24)` (raw addr `0xB126`, file `0xB14E`, called with the single
+literal argument `24` every time — not tied to the roll's outcome) reads
+three consecutive long-pointer entries from a table at hunk-1 `0x258A`
+(`arg`, `arg+1`, `arg+2`, ×4-byte stride) and passes them to a further
+call (`$1F52`); it always executes regardless of the encounter roll's
+result, and does not appear to consume regional/random state. **Not
+traced further this pass — plausibly an unrelated periodic per-step
+service (e.g. weather/day-tick), not part of the encounter mechanism.**
+
+**Confidence: confirmed** — the trigger gate, the base 7% roll, the
+region/terrain-dependent index selection (§9.0.6.3-9.0.6.4), and that
+every branch eventually loads a monster record via the shared
+`monsinfo.dat`-backed table (§9.0.6.5) are all byte-verified disassembly.
+**Narrowed:** the exact semantic difference between the outcome branches
+(ambush/ordinary/personalized-flavor) — the mechanism clearly
+distinguishes them (different message codes, a party-member-name path
+that is skippable independent of combat), but which produces "you are
+ambushed" vs. a flavor vignette vs. a straight fight was not confirmed
+against a screenshot or manual text.
+
+#### 9.0.6.3 Region danger-tier table — confirmed, byte-exact, spatially sane
+
+Helper at addr `0x1AA40`, file `0x1AA68`:
+
+```
+regionX = partyX ($2834) / 10      ; 0-4  (map width 50)
+regionY = partyY ($2836) / 15      ; 0-4  (map height 75; Y=74 -> 74/15=4)
+regionIdx = regionY * 5 + regionX  ; 0-24, a clean 5x5 grid, no remainder tiles
+tier = table[regionIdx]            ; byte table, hunk-1 offset 0x866
+```
+
+The `LEA #$866,A0` operand is **hunk-1-relocated** (confirmed against the
+CODE hunk's own `HUNK_RELOC32` list), so the real file location is
+`0x278C8 + 0x866 = 0x2812E`, not `0x866 + 0x28`. Dumped, all 25 bytes:
+
+```
+regionY\regionX   0   1   2   3   4
+      0           3   4   5   4   3
+      1           2   2   3   2   3
+      2           2   2   0   3   3
+      3           2   1   1   1   2
+      4           3   2   1   1   2
+```
+
+**Verification: Pendragon's region has the minimum tier.** Pendragon
+(§9.0.5.5: `(x,y) = (24, 37)`) is `regionX = 24/10 = 2`, `regionY =
+37/15 = 2` → `regionIdx = 12` → `table[12] = 0`, the single minimum value
+in the whole table — the capital city's own region is the game's safest.
+This is a real structural check, not a coincidence a wrong table
+placement could reproduce (the table has exactly one `0` among 25
+values, and it lands precisely on the capital's region by an
+independently-derived coordinate, not by search). **Confidence:
+confirmed.**
+
+#### 9.0.6.4 Severity/index selection — confirmed, one mode terrain-dependent
+
+`pickIndex(regionTier, mode)`, addr `0x1A97A`, file `0x1A9A2`:
+
+```
+switch (mode):
+  1: offset = {Random(3)-1 remapped 2->4}     ; result in {0, 1, 4}
+  2: offset = Random(10) + 1                    ; result in 2..11
+  3: offset = terrainClass($2860) + Random(4) - 1   ; result in terrainClass .. terrainClass+3,
+                                                       ; further passed through a byte table (below)
+idx = clamp(regionTier * 12 + offset, 0, 79)
+if idx == 53: idx = 42
+if idx == 31: idx = 42
+return idx
+```
+
+Mode 3's extra table lookup (`LEA #$87F,A0` — also **hunk-1-relocated**,
+real file location `0x278C8 + 0x87F = 0x28147`) is the terrain-class
+dependence: dumped 32 bytes (covers every terrain class 0-18, `+0..3`):
+
+| Terrain class (§9.0.5.3) | `table[class..class+3]` |
+|---|---|
+| 0 Meadows | 4, 1, 2, 3 |
+| 1 Forest | 1, 2, 3, 3 |
+| 2 Hills | 2, 3, 3, 4 |
+| 3 Mountains | 3, 3, 4, 2 |
+| 6 Pathway | 2, 4, 3, 5 |
+| 9 Desert | 5, 5, 4, 4 |
+| 13 A bridge | 0, 0, 12, 8 |
+| 14 Dense Fog | 0, 12, 8, 11 |
+| 16 Mist (Netherworld) | 8, 11, 10, 9 |
+| 17 Black path (Netherworld) | 11, 10, 9, 8 |
+| 18 Steam (Netherworld) | 10, 9, 8, 10 |
+
+Ordinary overworld terrain (Meadows/Forest/Hills/Mountains/Pathway/
+Desert, classes 0-9) yields severities **0-5**; Bridge/Dense Fog and the
+three Netherworld-only classes yield **8-12**, roughly double. **This is
+the terrain dependence the task asked about, confirmed directly**: the
+same region-tier roll produces a markedly tougher monster-table index on
+"special" terrain than on ordinary open terrain. Classes 8/10/15
+(Lava/Water/River Styx) have table entries too but are provably
+unreachable here — §9.0.6.1's gate excludes them before the roll ever
+executes.
+
+`idx == 53 -> 42` and `idx == 31 -> 42` (both raw index values, table
+rows 31 and 53) are **Wolf** and **Mud Elemental** in `monsinfo.dat`
+(§9.0.6.5) redirected to **Small Dragon** — a deliberate exclusion of two
+specific roster entries from the random overworld pool (plausibly
+reserved for a scripted/dungeon-only appearance), not a bug. **Confidence:
+confirmed**, all bytes and both real names verified directly against
+`monsinfo.dat`.
+
+#### 9.0.6.5 The monster roster: `monsinfo.dat`, byte-exact — confirmed
+
+`monsinfo.dat` (3,072 bytes) is **80 fixed 38-byte records, no header** —
+a 13-byte NUL-padded name field followed by 25 stat bytes, with the file
+padded to a 128-byte-boundary multiple (3,072 = 24 × 128) via trailing
+`0x60` filler after record 79 (the standard "padded file tail" pattern
+seen elsewhere in this project — the byte-count alone (`3072 / 38 =
+80.84`) is misleading; it is `80 × 38 = 3,040` real record bytes plus 32
+bytes of pure padding, **not** a 32-byte header as an initial byte-count
+guess suggested — corrected after directly reading real record content,
+see the note below).
+
+| Index | Name | Index | Name | Index | Name |
+|---:|---|---:|---|---:|---|
+| 0 | Skeleton | 12 | Small Devil | 42 | Small Dragon |
+| 1 | Sniverling | 24 | Undead Dwarf | 53 | Mud Elemental (→42) |
+| 2 | Drip Slime | 31 | Wolf (→42) | 60 | High Demon |
+| 3 | Undead Gnome | | | 73 | Great Beast |
+| 4 | Wild Cat | | | 78 | Nikademus |
+| 5 | Giant Bee | | | 79 | Lord Wood |
+
+Index 0 (`Skeleton`, weakest-reading name) sits at the game's minimum
+danger tier × minimum severity; indices 78/79 (`Nikademus`, `Lord Wood`
+— named, boss-flavoured) sit at the extreme high end reachable only from
+the highest-tier regions; 73 (`Great Beast`) is the clamp's own overflow
+fallback. This ordering is exactly the shape expected of a
+difficulty-sorted roster indexed by `region×12 + severity`, matching
+P1's dungeon `monsters[level*12 + offset]` convention in shape (different
+concrete constants, same design idiom).
+
+**Load path — confirmed.** `"monsinfo.dat"` is referenced by exactly one
+`PEA d16(PC)` in the whole CODE hunk (file `0x1F9CA`, target string at
+file `0x1FA08` — the same boundary-agnostic PC-relative string-scan
+technique `scripting-engine.md` §7.5 used for the combat message
+strings). The loader (file `0x1F9C2`) does `Open(MODE_OLDFILE)` then
+`Read(handle, $294C, 0xBE0)` — **0xBE0 = 3,040 = 80 × 38 exactly**,
+confirming the record count and stride independently of the byte-layout
+analysis above. `$294C` (hunk-1 global) is the array base every index
+computed above is applied to (`$294C + index × 38`, confirmed at the
+combat-setup call in §9.0.6.7).
+
+**Confidence: confirmed** (load path, record count/stride, all named
+records cross-checked byte-exact against the real file).
+
+> **Correction:** an earlier pass this session misread the record
+> boundary as starting at file offset 32 (assuming a 32-byte header)
+> because indexing from offset 32 still produced legible-looking but
+> subtly wrong names (`"MSniverling"` instead of `"Sniverling"`, an extra
+> leading garbage byte). Re-deriving from `count × stride == fileSize` (no
+> header) resolved cleanly to all-clean 13-byte name fields with zero stray
+> bytes; the 32 "header" bytes are actually record 0 (`Skeleton`) itself,
+> and the true 32 bytes of padding are at the *end* of the file, not the
+> start. Recorded here per this project's "don't silently delete a wrong
+> reading" convention (§ house style).
+
+#### 9.0.6.6 Party-member-personalized flavor path — narrowed
+
+`pickPartyMember(mode)`, addr `0x1AD26`, file `0x1AD4E`: picks a party
+member (via an untraced helper at raw addr `0x1886E`), builds a pointer
+into the confirmed 262-byte-stride party array (`$3D0A`,
+`scripting-engine.md` §7.5's corrected reading), calls an untraced
+"qualifies?" check (`$2127C`, boolean-shaped return), then copies that
+member's name into a local buffer and — only when `mode == 1` — appends a
+second fixed string. This produces a **name-substituted message** (e.g.
+"`<CharacterName> ...`") independent of any monster load, and is only
+reached from the 37%-of-62% sub-branch in §9.0.6.2, gated on the "did the
+picked member qualify" check's result. **Confidence: narrowed** — the
+mechanism (pick a party member, conditionally build a name-substituted
+message) is confirmed; what specifically it says, and whether this path
+ever *skips* combat entirely versus merely flavoring it, was not settled
+(every branch this pass traced eventually still calls the monster-record
+loader from §9.0.6.7, including the branch reached after this call, so
+"non-combat event" is not yet demonstrated — only "differently-flavored
+combat" is confirmed).
+
+#### 9.0.6.7 Dispatch and combat entry — confirmed
+
+Regardless of branch, `loadMonsterRecord(mode, idx)` (addr `0x1A834`,
+file `0x1A85C`) computes `record = $294C + idx × 38` and stores it to
+`$2950`, confirming §9.0.6.5's roster indexing is universal across every
+outcome branch traced. The merge point calls `jsr $82F8.l` (file
+`0x8320`): redraws the 9×9 viewport, re-runs `LocateSpecial()`
+(`0x9C6A`) and the terrain classifier, conditionally reinstalls the
+overworld palette, then calls `jsr $BC22.l` (file `0xBC4A`) — a loop
+copying each of the `$2850` live party members' full 262-byte records
+into a separate combat working-copy buffer (`$5174`-based), the standard
+"snapshot party state before combat" idiom. **This is P3's overworld
+combat entry point**, confirmed to be reached from every roll-cascade
+branch traced this pass (§9.0.6.2, §9.0.6.6).
+
+#### Still open (this item)
+
+| Question | Why unresolved |
+|---|---|
+| Exact names/roles of `$283c`, `$286e`, `$2872`, `$2880`, `$2886`, `$2888` | Confirmed as real code gates/outcome flags with concrete branch effects; no write site outside this function was traced, and no in-game text was cross-referenced to name them |
+| Full semantic labels for message codes 3/4/5 (`$1AA8A.L`) and the two message-code arms at `0x1A97A`'s modes 1/2/3 dispatcher (`$1A97A.L`'s downstream `$1A714`/`$1AAB2` calls) | Would need the actual on-screen strings traced (a `PEA d16(PC)` string scan the same as §9.0.6.5 used, not yet run for this specific message table) or a live/screenshot oracle |
+| Whether `$1AD26`'s party-member-name path (§9.0.6.6) can ever fully bypass combat | Every concrete branch traced this pass still reaches `loadMonsterRecord`/the combat-copy loop; a "no-fight" flavor-only outcome was hypothesized but not demonstrated |
+| `b126(24)`'s role | Executes unconditionally every qualifying step; reads a 3-entry pointer table but wasn't traced past that — plausibly unrelated to encounters (e.g. a day/weather tick) |
+
 ### 9.1 `S1`-`S20` (1152 bytes each, except `S6` at 3584 bytes)
 
 `s1` contains a long, continuous run of legible narrative text with no
@@ -3579,7 +3912,7 @@ in-executable character-record layout, which was out of scope here.
 | Phantasie III `S1`-`S20` | **Loader traced** (§9.0.4): 1,050-byte read, message ids 121-140 → scrolls 1-20, `S6` special-cased (resolves the outlier size) | The on-disk text layout beyond "flat NUL-terminated blob"; where the 1,050-byte read is word-wrapped |
 | Phantasie III `M0`, `M1` | **Fully solved** (§9.0.2-§9.0.2.6): three-track music; the whole driver is traced — a vblank interrupt server (`"VertB-Timer"`), a 24-command byte grammar, `frames = ((dur & 0x7F) + 1) × multiplier`, the ProTracker period table at hunk-1 `0x0640` (note 57 = A4 on NTSC), 4-phase ADSR, and four instruments including LCG-generated noise. Both files parse byte-exactly with 0 unknown commands | Only whether `0xDB`'s two ignored argument bytes (always `0C 06`) carry vibrato depth/rate for another platform's port of the same driver |
 | Phantasie III `PLN1`-`PLN4` | **Solved** (§9.0.3.4): `D/PLNn` is the map array for engine map id `n` — `PLN1` = Castle of Light and `PLN2` = Castle of Dark (9×9, 81-byte read), `PLN4` = the Netherworld (31×16, 496-byte read), all loaded by the map-switch routine at addr `0x1EB1E` via a second, live `D/PLNX` template (hunk-1 `0x21D2` slot 20). Map id 3 is unused, which is why `PLN3` alone is a 2-byte flag file. 100% of cell values fall in the engine's own terrain-class bands; 6/6 marker cells sit on `LocateSpecial()`'s hardcoded coordinates | Nothing structural. The 4-neighbour auto-tile correlation is only 62.7% and is explicitly *not* claimed |
-| Phantasie III `D/W0`-`W4.cmp` | **Solved** (§9.0.1): ordinary `.cmp` 320×200 scene backdrops (gods, town street, shop doorways), loader traced. **`W2` is now bound**: the Astral Plane routine at addr `0x1DC70` patches the template to `'2'`, loads it, and immediately prints `"A Great Demon appears and speaks..."` — matching `w2.cmp`'s rendered red-skinned figure in a skeleton-strewn temple | Which god binds to `W0` vs `W1` |
+| Phantasie III `D/W0`-`W4.cmp` | **Solved** (§9.0.1): ordinary `.cmp` 320×200 scene backdrops (gods, town street, shop doorways), loader traced. **`W2` is now bound**: the Astral Plane routine at addr `0x1DC70` patches the template to `'2'`, loads it, and immediately prints `"A Great Demon appears and speaks..."` — matching `w2.cmp`'s rendered red-skinned figure in a skeleton-strewn temple. **Gameplay role confirmed (2026-08-18, owner-supplied, not yet code-traced)**: `w2` is the death-judgment screen, `w4` the main town view, `w3` a set of per-area town-interaction overlays | Which god binds to `W0` vs `W1`; what calls `0x1DC70` on a death and the judgment odds/trigger themselves (`scripting-p3-death-judgment`) |
 | Phantasie II world map | **Solved** (§8.6): same format as P1 with two constants changed (3,000-byte record, display list at 1,500); 17 sections over a 4×8 mosaic → 77×201 world | `PHANT.RSC` wording of the section>16 messages; POI `+3`; the 4 stale POI records |
 | Phantasie III world map | **Solved** (§9.0.5). No `out*.dat`/`maps.int` equivalent exists; the world is one global 50×75 `.set` map array. Location metadata is **not** in the map values — `LocateSpecial()` at addr `0x9C6A` identifies every named place by hardcoded `(x,y)` comparisons and never reads the map array. The 30 distinctive cells (values 25-52, 54) are the marker artwork, and all 30 are now bound to concrete town/dungeon/inn names, bijection-verified | Which picture row the tile blitter samples (`graphics-formats.md` §5.3); the per-dungeon word table at hunk-1 `0x21A8` |
 | Phantasie III `gamesave.dat` | Size only | Record structure |
