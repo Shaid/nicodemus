@@ -1,56 +1,24 @@
 /**
- * Placeholder splash screen. Renders the game/platform identity from
- * `game-id.ts` and links out to the asset viewer, so a fresh scaffold (or
- * a project still mid-reverse-engineering, before any gameplay is written)
- * shows something useful instead of a blank canvas.
- *
- * Replace this file's contents with a `createGame({ container, ... })`
- * call from `@seer-project/engine-2d` once you have a real engine to boot —
- * see docs/boilerplate-guide.md.
+ * Entry point — boot the Phantasie runtime (docs/implementation.md §0/§A5):
+ * load the preprocessed data tables, then hand a `PhantasieApp` the title
+ * screen (Continue / New Game).
  */
-import { GAME_IDS, PLATFORM_IDS, GAME_DISPLAY_NAMES, DEFAULT_GAME } from './game-id.ts';
 
-const container = document.getElementById('game-container');
-if (!container) {
-  throw new Error('Missing #game-container element in index.html');
+import { loadGameData } from './data/GameDataLoader.ts';
+import { PhantasieApp } from './app/PhantasieApp.ts';
+import { TitleScene } from './app/TitleScene.ts';
+import { DEFAULT_GAME, DEFAULT_PLATFORM } from './game-id.ts';
+
+async function boot(): Promise<void> {
+  const container = document.getElementById('game-container');
+  if (!container) throw new Error('Missing #game-container element in index.html');
+
+  const data = await loadGameData(DEFAULT_GAME, DEFAULT_PLATFORM);
+  await PhantasieApp.create(container, new TitleScene(data));
 }
 
-function el<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  className: string,
-  text?: string,
-): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
-  node.className = className;
-  if (text !== undefined) node.textContent = text;
-  return node;
-}
-
-container.classList.add('splash');
-
-container.append(el('p', 'eyebrow', 'A Seer reverse-engineering project'));
-container.append(el('h1', '', GAME_DISPLAY_NAMES[DEFAULT_GAME]));
-
-// Only show the game roster when there's more than one — for a single-game
-// project it would just repeat the heading above.
-if (GAME_IDS.length > 1) {
-  const games = el('div', 'chips');
-  for (const id of GAME_IDS) games.append(el('span', 'chip', GAME_DISPLAY_NAMES[id]));
-  container.append(games);
-}
-
-const platforms = el('div', 'chips');
-for (const id of PLATFORM_IDS) platforms.append(el('span', 'chip platform', id));
-container.append(platforms);
-
-const viewerLink = el('a', 'viewer-link', 'Open the asset viewer →');
-viewerLink.href = '/tools/viewer/';
-container.append(viewerLink);
-
-container.append(
-  el(
-    'p',
-    'note',
-    'No playable engine yet — extracted assets and formats can be inspected in the viewer.',
-  ),
-);
+boot().catch((e: unknown) => {
+  console.error(e);
+  const container = document.getElementById('game-container');
+  if (container) container.textContent = `Failed to boot: ${String(e)}`;
+});
