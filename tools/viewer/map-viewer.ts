@@ -252,6 +252,8 @@ export class WorldMapViewer {
 
   /** Fired on a click that wasn't a pan. Tile-grid coordinates, not pixels. */
   onTileClick: ((x: number, y: number) => void) | null = null;
+  /** Fired after every `draw()`, letting the host apply colour grading/retro-display post-processing in place — this canvas owns its own pan/zoom/click listeners, so it can't be swapped for a different element the way the sprite-atlas view's canvas can. */
+  onAfterDraw: ((canvas: HTMLCanvasElement) => void) | null = null;
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -331,6 +333,11 @@ export class WorldMapViewer {
   get summary(): string {
     if (!this.map) return '';
     return `${this.map.width}×${this.map.height} cells, ${this.pois.length} POIs`;
+  }
+
+  /** Re-runs the last draw — used by the host to refresh the post-processed output after a grading/display-profile slider change, which doesn't otherwise touch this view. */
+  redraw(): void {
+    if (this.map) this.draw();
   }
 
   // ─── Terrain classification ────────────────────────────────────────────
@@ -675,6 +682,7 @@ export class WorldMapViewer {
     if (this.layers.pois) this.drawPois(ctx);
 
     ctx.restore();
+    this.onAfterDraw?.(this.canvas);
   }
 
   /**

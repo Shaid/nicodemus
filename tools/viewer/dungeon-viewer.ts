@@ -150,6 +150,8 @@ export class DungeonViewer {
   private detailEl: HTMLElement;
   private legendEl: HTMLElement;
   summaryText = '';
+  /** Fired after every `renderGrid()`, letting the host apply colour grading/retro-display post-processing in place — this canvas owns its own click listener, so it can't be swapped for a different element the way the sprite-atlas view's canvas can. */
+  onAfterDraw: ((canvas: HTMLCanvasElement) => void) | null = null;
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -160,6 +162,11 @@ export class DungeonViewer {
 
   get summary(): string {
     return this.summaryText;
+  }
+
+  /** Re-runs the last draw — used by the host to refresh the post-processed output after a grading/display-profile slider change, which doesn't otherwise touch this view. */
+  redraw(): void {
+    if (this.data) this.renderGrid();
   }
 
   async show(assetBase: string, name: string, game: GameId): Promise<void> {
@@ -239,6 +246,7 @@ export class DungeonViewer {
     };
     canvas.addEventListener('click', onClick);
     this.detach.push(() => canvas.removeEventListener('click', onClick));
+    this.onAfterDraw?.(canvas);
   }
 
   private renderLegend(): void {

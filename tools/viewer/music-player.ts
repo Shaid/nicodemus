@@ -119,6 +119,9 @@ export class MusicPlayer {
 
   private muted = [false, false, false];
 
+  /** Fired after every `draw()` (including the per-frame redraws while playing), letting the host apply colour grading/retro-display post-processing in place — this canvas owns its own click listener, so it can't be swapped for a different element the way the sprite-atlas view's canvas can. */
+  onAfterDraw: ((canvas: HTMLCanvasElement) => void) | null = null;
+
   constructor(container: HTMLElement) {
     this.container = container;
     this.strip = document.getElementById('music-strip')!;
@@ -187,6 +190,11 @@ export class MusicPlayer {
     if (!this.timeline) return '';
     const notes = this.timeline.tracks.reduce((n, t) => n + t.notes.length, 0);
     return `3 tracks, ${notes} notes, ${this.timeline.seconds.toFixed(1)}s at ${this.timeline.tickHz} Hz`;
+  }
+
+  /** Re-runs the last draw — used by the host to refresh the post-processed output after a grading/display-profile slider change, which doesn't otherwise touch this view while playback is stopped. */
+  redraw(): void {
+    if (this.timeline) this.draw();
   }
 
   /** Seconds per tick under the selected playback region — see `REGION_HZ`. */
@@ -658,6 +666,8 @@ export class MusicPlayer {
       pad,
       pad + 11 * dpr,
     );
+
+    this.onAfterDraw?.(canvas);
   }
 }
 
