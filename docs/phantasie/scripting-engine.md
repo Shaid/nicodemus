@@ -87,9 +87,8 @@ between the P1/P2 engine and the P3 engine**: `0x0C, 0x0D, 0x0E, 0x0F, 0x12,
 **Table layout**: same packed/variable-stride scanning convention as the
 star table, walking by 2-byte-aligned slots from the table's base address
 (`0x05AA` for P1/P2, `0x0393` for P3). See `dungeon-format.md` §3.1/§5.1 for
-how each engine detects the end of the table (P1/P2: explicit `0x0D 0x0D`
-terminator scan; P3: fixed 256-slot capacity bounded by the following
-message-pointer table, no terminator needed).
+how each engine detects the end of the table (all three games: a fixed 256-slot table; P3 bounded by the following
+message-pointer table. **Correction 2026-11-13:** P1/P2 were previously documented as ending at the first `0x0D 0x0D` — wrong, see `dungeon-format.md` §3.1).
 
 **Confirmed** against `data/phantasie/amiga/dng1`: the action table's first
 5 slots (indices 0-4) are all-zero (`IsActive = false`, i.e. unused/inert
@@ -341,8 +340,16 @@ single-sized records).
 > it loops `charIndex = 0..<[0x2850].w` (party size) calling
 > `GetCharBase(charIndex)` and, for the general case (default switch arm,
 > `0x1CDA0`), **unconditionally** writes `charBase[statIndex*2] = Param2`
-> — a plain `SetStat` with **no alive-flag check and no
-> `GetStat`/compare at all**. P1's `0x12` is `if GetStat(char,Param1) <
+> — a plain `SetStat` with **no `GetStat`/compare at all**.
+> > **Correction (2026-11-13):** "no alive-flag check" was wrong. Bytes at
+> > `PhantasieIII+0x1CCF4`-`0x1CD02` are `muls #$106` / `lea $3D36` /
+> > `tst.w (a0,d0.l)` / `beq`: members whose Status word (`char.+0x2C`,
+> > `$3D0A+i*0x106+0x2C`) is 0 are skipped (re-verified from the bytes
+> > this session). The loop bound `cmp.w $2850` handles occupancy; this is a
+> > separate status filter (0 plausibly "dead" — Resurrection sets it to 1,
+> > `spell-format.md:369`). The same function also special-cases statIndex
+> > `0x75` (LearnSpell 57) before the plain set — see TODO
+> > `scripting-p3-opcode12-special-cases`. P1's `0x12` is `if GetStat(char,Param1) <
 > Param2: SetStat(...)`, gated on `char.+0x18 != 0` (alive). Real engine
 > divergence, not a documentation gap.
 >
@@ -446,8 +453,8 @@ single-sized records).
 > **All three games now code-level confirmed for both opcodes — P1 is the
 > outlier, not the shared baseline.** `0x12`: P1 conditionally floor-raises
 > (`if GetStat<value then SetStat`, alive members only); P2/P3
-> unconditionally set (P2: alive members only; P3: occupied slots,
-> `0..partySize`, no alive filter observed). `0x13`: P1 gates on *zero
+> unconditionally set (P2: alive members only; P3: slots
+> `0..partySize` whose Status word `char.+0x2C` is non-zero — corrected 2026-11-13, see above). `0x13`: P1 gates on *zero
 > members below* threshold (`<`) then `ShowMessage`; P2/P3 gate on *zero
 > members meeting* threshold (`>=`) then `goto Action Param3` — inverted
 > comparison **and** inverted action, both consistent within each of P2/P3.
@@ -557,6 +564,16 @@ against that game's item table:
 | P1 | 10 (`dng1`-`dng10`) | 63 | **0** |
 | P2 | 8 (`DNG1`-`DNG8`) | 44 | **0** |
 | P3 | 11 (`dnga.dat`-`dngk.dat`) | 71 | **0** |
+
+> **Correction (2026-11-13):** the P1/P2 rows above came from the truncated
+> `0x0D 0x0D` walk and undercount. Re-run with the 256-slot slot-addressed
+> decoder (`decodeReachableActions`, opcode `0x06`, `params[0]`): **P1 62**
+> distinct (the legacy walk reproduces as 61, not 63 — the original 63 did not
+> re-derive; the one extra index is `97`, from a record past the terminator),
+> max 178; **P2 56** (legacy walk reproduces 44; 12 more come from the
+> 46 dropped records: 11, 13, 25, 27, 31, 34, 62, 83, 88, 152, 161, 163), max 176. Still 0 out of
+> range (0-180). P3 unchanged (fixed table already). The "178 total" below is
+> therefore stale (now 62 + 56 + 71 = 189 distinct-per-game).
 
 Zero out-of-range indices across 178 total distinct references, every one
 resolving to a plausible, thematically-appropriate item (armor, weapons,

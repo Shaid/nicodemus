@@ -431,7 +431,7 @@ different byte layout.
 | `0x0000` | 32 | ST palette | 16 × 16-bit words, see §2 |
 | `0x0020` | 2 | Compressed data size | Big-endian word. **Counts from the type byte (`0x0022`) to the end of the RLE stream, inclusive of the type byte** — i.e. `RLE stream byte length = compressedDataSize − 1`. Confirmed exactly across 6 sample files (delta was always exactly −1, not approximately). |
 | `0x0022` | 1 | Type | `1` = horizontal interleave submode, `2` = vertical interleave submode (§4.3) |
-| `0x0023` | variable | RLE stream | Decompresses to exactly 32,000 bytes (320×200×4bpp) in every file tested |
+| `0x0023` | variable | RLE stream | Decompresses to 32,000 bytes (320×200×4bpp) in every file tested **except one strip overshoot** (`D/w4.cmp` strip 2 consumes 8,001 bytes — one run overshoots; the stream still ends exactly at the header-declared 17,277 bytes; 2026-11-13 audit). `cmp.ts` silently writes the extra byte over the strip's last position. What the real game does with the overflow byte is untraced (≤1 byte affected); tracked in TODO `cmp-strip-overflow`. The other 17 files show exact three-way agreement (header size, stream end, padding rule). |
 | after RLE stream | 0-127 | Padding | Repeated single filler byte (not necessarily zero) up to the next 128-byte file-size boundary. Every `.cmp`/`.csh` file size observed is an exact multiple of 128. Not part of the image; safe to ignore. |
 
 ### 4.2 RLE algorithm
@@ -1431,10 +1431,10 @@ recognisable as the named creature.
 |--------|--------|---------|-------------------|------------|
 | `.pic` (P1) | confirmed | not embedded; real per-screen palette confirmed for all 6 files (§3, `data-tables.md` §1.3a) | confirmed legible + correct colours (title screen, town scene, ending art, credits panel) | **confirmed** |
 | `.cmp`/`.csh` (P3) | confirmed | confirmed: embedded word format + the Amiga `(w & 0x777) << 1` runtime conversion (§2 correction), **and** which palette each file actually renders under (§4.5) — 11/13 files code-traced, 2 open (§4.5.6) | confirmed pixel-exact against an independent third-party render: 384,000/384,000 sprite-bank pixels, 0 mismatches | **confirmed** |
-| `.set` (P3) | confirmed (header/map/picture split, byte-exact) | confirmed (same ST encoding, decoded through the Amiga ramp per §2's 2026-08-11 correction) | picture confirmed legible; map array's terrain-panel *semantics* unverified | **confirmed** (container layout); **hypothesis** (map cell meaning) |
-| `.pat` sprite banks (P1) | confirmed, byte-exact | confirmed (via executable table, `data-tables.md` §1.3) | confirmed legible, name-matched sprites | **confirmed** |
+| `.set` (P3) | confirmed (header/map/picture split, byte-exact) | confirmed (same ST encoding, decoded through the Amiga ramp per §2's 2026-08-11 correction) | picture confirmed legible; map byte = tile index into the 250-entry 16×16×4bpp bank (§5.3 correction, code-traced — the old "hypothesis" is superseded, 2026-11-13) | **confirmed** (container layout and map-cell meaning) |
+| `.pat` sprite banks (P1) | confirmed, byte-exact | confirmed (via executable table, `data-tables.md` §1.3) | confirmed legible, name-matched sprites; **layout now pixel-verified (2026-11-13)**: P1 Planar vs P2 Interleaved agree on 32/32 race sprites (32,768/32,768 px) and 98 same-name same-size monsters (152,032/152,032 px), null controls (swapped layout / neighbour sprite) drop to 24-69% — `sprite-cross-game.test.ts` | **confirmed** |
 | `.cmp` sprite-bank grid math (P3) | confirmed (structural) | **not** the file's own — all seven banks render under `heros.cmp`'s header palette (§4.5), disassembly-traced and pixel-exact | confirmed visually consistent | **confirmed** (grid + `spriteIndex`→bank table + palette source, all byte-exact via disassembly) |
-| `.pat` sprite banks (P2) | confirmed, ST word-interleaved (interleave=2) | confirmed (`PHANT.PRG` executable table, `data-tables.md` §2.3) | confirmed legible, name-matched sprites (skeleton, orc, cobra, human/dwarf/ogre race sprites) | **confirmed** |
+| `.pat` sprite banks (P2) | confirmed, ST word-interleaved (interleave=2) | confirmed (`PHANT.PRG` executable table, `data-tables.md` §2.3) | confirmed legible, name-matched sprites (skeleton, orc, cobra, human/dwarf/ogre race sprites); Interleaved layout pixel-verified against P1's Planar art (see the P1 row, 2026-11-13) | **confirmed** |
 | `.PIC` full-screen pictures (P2) | confirmed, ST word-interleaved (interleave=2), five distinct (width,height,bitplane) shapes (§10) | confirmed, three disassembly-traced `Setpalette` sources (§10) | confirmed legible + correct colours for 5/6 files (title, town, ending scenes); `crowd.pic` legible but palette source one inference step weaker | **confirmed** (5 files); **confirmed, palette one inference step weaker** (`crowd.pic`) |
 
 ## 9. Open questions
@@ -1452,6 +1452,7 @@ recognisable as the named creature.
   hunk 77's declared size was mis-converted from longwords to bytes).
   Closed — no `re-codebreaker` follow-up needed.
 - **`.set` map-array terrain semantics — RESOLVED, confirmed hypothesis.**
+  > **Correction (2026-11-13):** superseded — the map byte is a **tile index into a 250-entry 16×16×4bpp bank**, not a pixel-column index (§5.3 second correction, hunk-0 tile blitter `0x3834`; 250 × 128 = 32,000). The text below is kept as the earlier, wrong reading.
   Each map-cell byte is an X pixel-column index into the accompanying
   picture (the picture is a strip of contiguous terrain-type bands, not a
   single scene) — confirmed via two independent lines of evidence (the

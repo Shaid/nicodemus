@@ -350,7 +350,8 @@ export const P2_OPCODES: ReadonlyMap<number, OpcodeDef> = new Map(
  * `ExecuteAction` dispatcher disassembly-confirmed genuinely different
  * behavior for opcodes 0x12/0x13 than P1's (scripting-engine.md §5's
  * "Correction (P3 opcode 0x12/0x13 trace)" block, 2026-08-12) — P3's 0x12
- * is an unconditional per-member `SetStat` with no alive-flag check, and
+ * is an unconditional-value per-member `SetStat` (no GetStat compare; but it
+ * skips members whose Status word `$3D0A+i*0x106+0x2C` is 0 — 2026-11-13 audit), and
  * P3's 0x13 gates on the *opposite* polarity of P1's ("goto Action" fires
  * iff zero members meet-or-exceed the threshold, not zero members below
  * it). They're listed first so the `[...CORE_OPCODES,
@@ -367,8 +368,11 @@ const P3_EXTENSION_OPCODES: OpcodeDef[] = [
     params: ['statIndex', 'value'],
     forcesStop: false,
     description:
-      'Unconditional per-member SetStat(char,statIndex,value) for every party slot ' +
-      '(charIndex 0..partySize) — NO alive-flag check, NO GetStat comparison at all. ' +
+      'Unconditional-value per-member SetStat(char,statIndex,value) over party slots ' +
+      '(charIndex 0..partySize) — NO GetStat comparison, but members whose Status word ' +
+      '(char.+0x2C, `tst.w` at 0x1CCFE then `beq`) is 0 are SKIPPED (2026-11-13 audit; the ' +
+      'earlier "no alive-flag check" claim was wrong). Also has special-cased statIndex values ' +
+      '(scripting-engine.md §5/TODO scripting-p3-opcode12-special-cases). ' +
       'Genuinely different from P1\'s conditional floor-raise. Disassembly-confirmed: ' +
       'PhantasieIII file offset 0x1CCBE-0x1CDC4 (scripting-engine.md §5\'s "Correction ' +
       '(P3 opcode 0x12/0x13 trace)" block).',

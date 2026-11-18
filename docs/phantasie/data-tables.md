@@ -272,7 +272,7 @@ potions/scrolls/rings/gems at increasing indices — e.g. index 51 =
 Independently verified by decoding every real action-table record with
 opcode `0x06` ("+Item") across all 10 real `data/phantasie/amiga/dng1`-
 `dng10` files (the confirmed packed/variable-stride scan, base `0x05AA`,
-terminated by `0x0D 0x0D` — `scripting-engine.md` §2): **63 distinct item
+terminated by `0x0D 0x0D` — `scripting-engine.md` §2; **superseded 2026-11-13: the table is a fixed 256 slots, the terminator walk dropped records — corrected census is 62 distinct, see `scripting-engine.md` §6 correction**): **63 (as originally counted; 62 re-derived) distinct item
 indices referenced, 0 out of the 0-180 range**, every one resolving to a
 plausible, thematically-appropriate loot item (e.g. `RING MAIL`,
 `LNG SWORD`, `SCROLL 1`-`SCROLL 20`, `DIAMOND A`-`DIAMOND C`, `GOLD KEY`).
@@ -344,6 +344,8 @@ explains what that P1 outlier's true colour intent was (a light pink/white
 shade), since the Amiga port's even-nibble-only lookup simply cannot
 represent odd ST nibble values exactly. **Confidence: confirmed.**
 
+> **Correction (2026-11-13):** the "P1 `AmigaToST`-decoded outlier at index 12" premise above is retracted — `readP1Palette()` now uses the native Amiga `component*17` decode (§1.3 correction), so there is no P1 outlier to explain. The P2 palette finding itself stands.
+
 ### 2.4 Race name table — confirmed
 
 Reading sequential NUL-terminated strings from `0x1F01C` yields exactly 16
@@ -386,7 +388,7 @@ same rationale already noted for the monster/race tables (§2.1/§2.4).
 dungeon-script data.** Independently verified against every real
 opcode-`0x06` ("+Item") action record across all 8 real
 `data/phantasieii/atarist/extracted/{disk1,disk2}/DNG1`-`DNG8` files:
-**44 distinct item indices referenced, 0 out of the 0-180 range**, all
+**44 distinct item indices referenced (terminator walk; 56 with the corrected 256-slot decode, 2026-11-13), 0 out of the 0-180 range**, all
 resolving to plausible items (`MD SHIELD`, `SWORD +2`, `HEAL POT7`,
 `SCROLL H`, `DIAMOND`, etc.). See `scripting-engine.md` §6.
 

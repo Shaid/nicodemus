@@ -97,6 +97,7 @@ describe('PIC_FILES_USING_MONSTER_RACE_PALETTE — graphics-formats.md §3/§9',
       const image = decodePic(data);
       const rgba = picToRGBA(image, palette);
       expect(rgba.length).toBe(image.width * image.height * 4);
+      // Smoke check only (random bytes also pass; 2026-11-13 audit) — no cross-game pixel oracle exists for .pic yet.
       // Legible art uses more than a couple of distinct colour indices.
       expect(new Set(image.indices).size).toBeGreaterThan(2);
       for (let i = 0; i < rgba.length; i += 4) expect(rgba[i + 3]).toBe(255);

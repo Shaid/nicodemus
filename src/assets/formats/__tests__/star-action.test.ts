@@ -13,6 +13,7 @@ import {
   starTableToMap,
   decodeActionRecord,
   decodeActionTable,
+  decodeReachableActions,
   actionTableToMap,
   buildActionEffect,
   executeStar,
@@ -101,17 +102,7 @@ describe('action record decode (scripting-engine.md §2)', () => {
     }
   });
 
-  it('decodeActionTable finds the 0x0D 0x0D terminator at the documented offset 0x6CC for dng1', () => {
-    const data = new Uint8Array(readFileSync(DNG1_PATH));
-    const actions = decodeActionTable(data, DUNGEON_ACTION_TABLE_OFFSET, { terminator: true });
-    const last = actions[actions.length - 1];
-    const lastEnd = last.offset + last.sizeBytes;
-    expect(lastEnd).toBeLessThanOrEqual(0x6cc);
-    expect(data[0x6cc]).toBe(0x0d);
-    expect(data[0x6cd]).toBe(0x0d);
-  });
-
-  it('decodeActionTable terminator scan finds the documented terminator across all 10 real P1 files', () => {
+  it('legacy terminator walk still stops at the documented 0x0D 0x0D offsets (walk behaviour only, NOT the game model)', () => {
     const expected: Record<number, number> = { 1: 0x6cc, 2: 0x6ce, 3: 0x6cc, 4: 0x6d4 };
     for (let n = 1; n <= 10; n++) {
       const data = new Uint8Array(readFileSync(resolve(`data/phantasie/amiga/dng${n}`)));
@@ -122,6 +113,67 @@ describe('action record decode (scripting-engine.md §2)', () => {
       expect(data[endOffset + 1]).toBe(0x0d);
       if (expected[n] !== undefined) expect(endOffset).toBe(expected[n]);
     }
+  });
+
+  // 2026-11-13 audit: the table is a fixed 256 slots (one-byte star indices); stars reference
+  // slots past the first 0x0D 0x0D. Counts are the audit's per-file census of records the
+  // terminator walk dropped (P1 dng2 10, dng4 6 = 16).
+  it('every star-referenced action chain resolves to a decoded record in every P1 file (terminator walk dropped 16)', () => {
+    const dropped: Record<number, number> = { 2: 10, 4: 6 };
+    let totalDropped = 0;
+    for (let n = 1; n <= 10; n++) {
+      const data = new Uint8Array(readFileSync(resolve(`data/phantasie/amiga/dng${n}`)));
+      const stars = decodeStarTable(data, DUNGEON_STAR_TABLE_OFFSET);
+      const walk = new Set(decodeActionTable(data, DUNGEON_ACTION_TABLE_OFFSET, { terminator: true }).map((a) => a.slotIndex));
+      const full = decodeReachableActions(data, DUNGEON_ACTION_TABLE_OFFSET, stars);
+      const fullSlots = new Set(full.map((a) => a.slotIndex));
+      const extra = full.filter((a) => !walk.has(a.slotIndex));
+      expect(extra.length).toBe(dropped[n] ?? 0);
+      totalDropped += extra.length;
+      for (const star of stars) {
+        if (star.empty || !star.isActive) continue;
+        for (const first of star.actionsIndex) expect(fullSlots.has(first)).toBe(true);
+      }
+      // Slot-addressed records are byte-identical to decoding that slot directly (null control: not shifted by one slot).
+      for (const a of extra) {
+        expect(a.offset).toBe(DUNGEON_ACTION_TABLE_OFFSET + a.slotIndex * 2);
+        expect(a.offset).toBeGreaterThanOrEqual(0x6cc);
+      }
+    }
+    expect(totalDropped).toBe(16);
+  });
+
+  it('P1 dng2 slot 190 is the audit-cited well-formed record (93 2D 01 6B, opcode 0x13), unreachable by the terminator walk', () => {
+    const data = new Uint8Array(readFileSync(resolve('data/phantasie/amiga/dng2')));
+    const off = DUNGEON_ACTION_TABLE_OFFSET + 190 * 2;
+    expect(Array.from(data.slice(off, off + 4))).toEqual([0x93, 0x2d, 0x01, 0x6b]);
+    const stars = decodeStarTable(data, DUNGEON_STAR_TABLE_OFFSET);
+    const walk = decodeActionTable(data, DUNGEON_ACTION_TABLE_OFFSET, { terminator: true });
+    expect(walk.some((a) => a.slotIndex === 190)).toBe(false);
+    const rec = decodeReachableActions(data, DUNGEON_ACTION_TABLE_OFFSET, stars).find((a) => a.slotIndex === 190);
+    expect(rec?.opcode).toBe(0x13);
+  });
+
+  it('P2 DNG3/6/7/8 star chains reach 6/33/5/2 records past the terminator (46); all other P2 files 0', () => {
+    const dropped: Record<number, number> = { 3: 6, 6: 33, 7: 5, 8: 2 };
+    let total = 0;
+    for (let n = 1; n <= 8; n++) {
+      const data = new Uint8Array(readFileSync(resolve(`data/phantasieii/atarist/extracted/disk2/DNG${n}`)));
+      const stars = decodeStarTable(data, DUNGEON_STAR_TABLE_OFFSET);
+      const walk = new Set(decodeActionTable(data, DUNGEON_ACTION_TABLE_OFFSET, { terminator: true }).map((a) => a.slotIndex));
+      const extra = decodeReachableActions(data, DUNGEON_ACTION_TABLE_OFFSET, stars).filter((a) => !walk.has(a.slotIndex));
+      expect(extra.length).toBe(dropped[n] ?? 0);
+      for (const a of extra) expect(P2_OPCODES.has(a.opcode)).toBe(true);
+      total += extra.length;
+    }
+    expect(total).toBe(46);
+  });
+
+  it('short file (P1 dng6, 1,922 B < 0x7AA) is zero-padded, not truncated or thrown on', () => {
+    const data = new Uint8Array(readFileSync(resolve('data/phantasie/amiga/dng6')));
+    expect(data.length).toBeLessThan(0x7aa);
+    const stars = decodeStarTable(data, DUNGEON_STAR_TABLE_OFFSET);
+    expect(() => decodeReachableActions(data, DUNGEON_ACTION_TABLE_OFFSET, stars)).not.toThrow();
   });
 
   it('P3 action table decodes a fixed 256-slot walk bounded by the message pointer table, no terminator', () => {
@@ -201,7 +253,9 @@ describe('ExecuteStar interpreter (scripting-engine.md §4)', () => {
   it('runs dng1 star 0 end-to-end against the real action table: shows message 90, choice 1, first action gives item 0x33-analog', () => {
     const data = new Uint8Array(readFileSync(DNG1_PATH));
     const stars = starTableToMap(decodeStarTable(data, DUNGEON_STAR_TABLE_OFFSET));
-    const actions = actionTableToMap(decodeActionTable(data, DUNGEON_ACTION_TABLE_OFFSET, { terminator: true }));
+    const actions = actionTableToMap(
+      decodeReachableActions(data, DUNGEON_ACTION_TABLE_OFFSET, decodeStarTable(data, DUNGEON_STAR_TABLE_OFFSET)),
+    );
 
     const host = makeRecordingHost([1]); // choose option 1 -> actionsIndex[0] = 0x4B
     const result = executeStar(stars, actions, P1_OPCODES, 0, host);
@@ -220,7 +274,9 @@ describe('ExecuteStar interpreter (scripting-engine.md §4)', () => {
   it('choosing option 2 on dng1 star 0 starts the chain at action slot 0 (inert, opcode 0 = Stop)', () => {
     const data = new Uint8Array(readFileSync(DNG1_PATH));
     const stars = starTableToMap(decodeStarTable(data, DUNGEON_STAR_TABLE_OFFSET));
-    const actions = actionTableToMap(decodeActionTable(data, DUNGEON_ACTION_TABLE_OFFSET, { terminator: true }));
+    const actions = actionTableToMap(
+      decodeReachableActions(data, DUNGEON_ACTION_TABLE_OFFSET, decodeStarTable(data, DUNGEON_STAR_TABLE_OFFSET)),
+    );
 
     const host = makeRecordingHost([2]);
     const result = executeStar(stars, actions, P1_OPCODES, 0, host);

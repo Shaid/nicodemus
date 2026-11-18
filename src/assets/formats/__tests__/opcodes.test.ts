@@ -79,6 +79,7 @@ describe('opcodes.ts — opcode tables as data (scripting-engine.md §5)', () =>
     expect(P2_OPCODES.get(0x12)!.description).toMatch(/unconditional/i);
     expect(P2_OPCODES.get(0x13)!.description).toMatch(/opposite polarity/i);
     expect(P3_OPCODES.get(0x12)!.description).toMatch(/unconditional/i);
+    expect(P3_OPCODES.get(0x12)!.description).toMatch(/Status word.*SKIPPED/);
     expect(P3_OPCODES.get(0x13)!.description).toMatch(/opposite polarity/i);
     // Same `kind` across all three games though — the shape (setStat/
     // statGate) is shared, only the exact runtime semantics differ.

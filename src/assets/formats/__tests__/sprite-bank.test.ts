@@ -151,6 +151,9 @@ describe('P1 .pat sprite tables (graphics-formats.md §7) — byte-exact against
   });
 });
 
+// NOTE (2026-11-13 audit): the 'non-blank' (distinct values > 1) asserts in this file and
+// pic.test.ts are smoke checks only — random bytes pass them. The P1 Planar / P2 Interleaved
+// layout claims are pixel-verified in sprite-cross-game.test.ts.
 describe('P2 .PAT sprite tables (graphics-formats.md §9, data-tables.md §2) — byte-exact against real files', () => {
   const exe = new Uint8Array(readFileSync(resolve('data/phantasieii/atarist/extracted/disk1/PHANT.PRG')));
   const mstr1 = new Uint8Array(readFileSync(resolve('data/phantasieii/atarist/extracted/disk1/MSTR1.PAT')));

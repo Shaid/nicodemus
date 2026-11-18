@@ -50,7 +50,7 @@ decode cleanly on both games' own real files.
 |------|-------------|---------------|--------------|
 | Phantasie I | `dngN` (N=1..10) | `messN` (matching index) | Two separate files per dungeon level; the dungeon file's numeric suffix selects the paired message file (`dng3` → `mess3`). |
 | Phantasie II | `DNG1`-`DNG8` / `MESS1`-`MESS8` | same pairing convention, 8 levels (not P1's 10) | Extracted from `data/phantasieii/atarist/` `.stx` floppy images to `data/phantasieii/atarist/extracted/disk2/` — see §7 and `stx-extraction.md`. **Byte-level decode against these real files confirmed, see §7.** |
-| Phantasie III | `dnga.dat`..`dngk.dat` (11 files, letters a–k) | none — messages are embedded in the same file | Single self-contained file per dungeon level. Our files are renamed from the reference archive's `dng0.dat`..`dng10.dat` numeric convention; letter order (a=first) is assumed to match numeric order (0=first) based on identical file size (4352 bytes) and count (11), but this pairing has not been independently confirmed against in-game level order. |
+| Phantasie III | `dnga.dat`..`dngk.dat` (11 files, letters a–k) | none — messages are embedded in the same file | Single self-contained file per dungeon level. Our files are renamed from the reference archive's `dng0.dat`..`dng10.dat` numeric convention; letter order (a=first) was assumed to match numeric order (0=first) from identical file size (4352 bytes) and count (11). **Correction (2026-11-13):** resolved by §9.0.5.4 — the exe's word table at file `0x29B74` is `J H E D A C B K I F G` and the exe builds the names from a `D/DNGX.DAT` letter template, so the letters are the game's own names, not a rename. Also: `dngj.dat` and `dngk.dat` are byte-identical (dungeon 1 "small straw hut" and dungeon 8 "cave which smells of sulfur"; the shared message table carries both room names, messages 20 and 21) — a deliberate shared file (2026-11-13 audit). |
 
 ## 3. Phantasie I / II — shared header + grid layout
 
@@ -65,8 +65,8 @@ that isn't otherwise noted is a single unsigned byte.
 | `0x04E8` | 10 | Fixed-encounter monster index table | Indexed by `cell − 0x80` for cell values 0x80–0x89 |
 | `0x04F2` | 9 | **Dungeon-exit destination table** (2026-08-12, resolved — see correction below) | 3 × 3-byte records `{worldSection, exitY, exitX}`, indexed by `cell − 0xD7` for the three "Stairs (exit dungeon)" cell values `0xD7`-`0xD9` (§4). Sample bytes observed in `dng1`: `01 08 10 00 00 00 00 00 00` (record 0 = section 1, y=8, x=16; records 1/2 all-zero — `dng1` has only one `0xD7`-class exit cell). Not read by the reference parser (a real, checked negative — see below), but is read by the real game. |
 | `0x04FB` | up to 175 (35×5) | Star (trigger) table | Fixed-size 35-slot array, 5 bytes/slot nominal, see `scripting-engine.md` §1 |
-| `0x05AA` | variable, terminated | Action (script) table | 2-byte-aligned slots (1 or 2 slots per record), see `scripting-engine.md` §2. **No fixed end offset** — parsing stops at the first 2-byte-aligned `0x0D 0x0D` pair. |
-| after terminator | variable | **Leftover/unused region** | Not read by the parser. Content varies per file — see §3.1. |
+| `0x05AA` | 512 (256 × 2-byte slots), `0x05AA`-`0x07AA` | Action (script) table | 2-byte-aligned slots (1 or 2 slots per record), see `scripting-engine.md` §2. **Fixed 256-slot table** (star action indices are one byte; **Correction 2026-11-13**: the earlier "parsing stops at the first `0x0D 0x0D`" model was wrong — see §3.1). Short files (P1 `dng6`, 1,922 B) are zero-padded to `0x07AA`. |
+| `0x07AA`-EOF | variable | Authoring residue | Not referenced. Content varies per file — see §3.1. |
 
 All file offsets above are **file-relative**, not segment-relative (these
 are flat data files with no executable header).
@@ -128,6 +128,27 @@ are flat data files with no executable header).
 > unique (single occurrence) in each binary.
 
 ### 3.1 Star/action table boundary — confirmed structurally
+
+> **Correction (2026-11-13, independent audit — supersedes the "terminator" model below, kept as a documented dead end):**
+> the P1/P2 action table is **not** terminated by the first `0x0D 0x0D`. Star
+> action indices are **one byte**, so the addressable table is a fixed **256
+> slots** (`0x05AA`-`0x07AA`, the same 512-byte table P3 uses, §5.1); the
+> `0x0D` fill runs to ~`0x794`/`0x7AC`, followed by authoring residue.
+> Following only bit-7 "continue" chains from every active star, **62
+> well-formed records lie past the first `0x0D 0x0D`**: P1 `dng2` 10 and `dng4`
+> 6; P2 `DNG3` 6, `DNG6` 33 (incl. eight `+Item` records and `0x11` surprise
+> encounters), `DNG7` 5, `DNG8` 2. Null control: the other 12 P1/P2 files have
+> zero star references past their terminator. Re-verified this session by
+> `star-action.test.ts` (per-file drop counts 10/6 and 6/33/5/2 asserted; e.g.
+> `dng2` slot 190 = `93 2D 01 6B`, opcode `0x13`). Decoder: `decodeReachableActions`
+> (slot-addressed, zero-pads short files). A walk from slot 0 alone
+> cannot reach all of them (the variable-stride walk through the fill
+> misaligns), so records are decoded at the slot a star names, as the game's
+> `LoadAction(index)` does. Not followed: `goto` targets (opcode-dependent).
+> **Unverified:** the audit also cites a 2,500-byte (`#$9C4`) DNG_MAP buffer in
+> `game.asm` ~9655-9700 as game-side evidence; that constant could not be found
+> in the main session, so it is not relied on here.
+
 
 The star table's declared capacity (35 slots × 5 bytes = 175 bytes) reaches
 exactly `0x04FB + 175 = 0x05AA` — the action table's declared start address.
@@ -308,7 +329,7 @@ trap-flavour-text lookup is off by one message slot relative to P2's
 >   records per file, remainder empty slots), no malformed records, no
 >   exceptions.
 > - **Action table** (`0x05AA`, 2-byte-aligned packed scan, `0x0D 0x0D`
->   terminator): the terminator is found in every one of the 8 files, at
+>   terminator — **wrong model, corrected 2026-11-13 in §3.1: fixed 256 slots; P2 `DNG3`/`6`/`7`/`8` have 6/33/5/2 records past the terminator**): the terminator is found in every one of the 8 files, at
 >   offsets `0x6cc`-`0x736` (relative range 290-396 bytes from `0x05AA`) —
 >   the **same range** as P1's own terminator positions (`0x6CC`-`0x6D4`
 >   across all 10 P1 files, §3.1). 116-195 action records decoded per file.
@@ -338,7 +359,7 @@ trap-flavour-text lookup is off by one message slot relative to P2's
 > independently re-derived by this pass: the P1/P2 message choice-count
 > heuristics (`scripting-engine.md` §3.1, still carried from the reference
 > source only) and the semantic meaning of the two unidentified header gaps
-> (`0x04F2`-`0x04FA`) — out of this pass's scope, still open.
+> (`0x04F2`-`0x04FA`) — out of this pass's scope, still open. **Correction (2026-11-13): that gap was later resolved** as the dungeon-exit destination table (§3 correction, 2026-08-12).
 >
 > Extraction-level facts for context: P2 has only 8 dungeon/message pairs
 > (not P1's 10), and every `DNGn` file is a uniform 2,048 bytes (P1's vary,
@@ -1463,6 +1484,8 @@ through a compact variable-length record scheme (structurally reminiscent
 of the dungeon action table's `0x0D 0x0D` terminator convention, though no
 concrete record boundaries were identified). No readable strings. Purpose
 unknown. **Confidence: open/unresolved.**
+
+> **Note (2026-11-13):** `graphics-formats.md` (~line 294) already cites the read site `Read("tamb.dat", buf, 2850)` and calls it title music; tracked in TODO `tamb-dat-format` (compare its grammar with P3's `m0`/`m1` music).
 
 ### 8.6 Phantasie II (Atari ST) — the same world-map format, two constants changed
 
@@ -2950,7 +2973,8 @@ is not arbitrary:
 
 > **`fillerByte == contentLength mod 128`** — verified across **58 of 58**
 > files in `data/phantasieiii/amiga/` whose size is a multiple of 128, with
-> **zero deviations**. (The only three exclusions are `PhantasieIII`,
+> **zero deviations**.
+> **Correction (2026-11-13):** the 58 is inflated — the 11 `dng*.dat` files pass trivially (content is the whole file, ending in a 128-byte zero tail) and the 20 `s*` files are one identical case, leaving about **27 independent data points**, all agreeing. P3-only; P1/P2 files mostly do not follow the rule. (The only three exclusions are `PhantasieIII`,
 > `gamesave.dat` and `system-configuration`, whose sizes are not 128
 > multiples, so they carry no block padding at all.)
 

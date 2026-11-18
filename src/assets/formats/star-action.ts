@@ -149,7 +149,13 @@ export function decodeActionRecord(data: Uint8Array, offset: number, slotIndex: 
 }
 
 export interface ActionTableOptions {
-  /** P1/P2: stop the scan at the first 2-byte-aligned `0x0D 0x0D` pair (dungeon-format.md §3.1). */
+  /**
+   * P1/P2: stop the scan at the first 2-byte-aligned `0x0D 0x0D` pair.
+   * **Not the game's behaviour** (2026-11-13 audit, dungeon-format.md §3.1
+   * correction): the table is a fixed 256 slots and stars reference slots
+   * past this point. Kept only to reproduce the old walk; use
+   * `decodeReachableActions` for P1/P2 dungeon data.
+   */
   terminator?: boolean;
   /** P3: fixed capacity, no terminator (dungeon-format.md §5.1). */
   slotCount?: number;
@@ -180,6 +186,51 @@ export function decodeActionTable(
     i += action.sizeSlots;
   }
   return actions;
+}
+
+/** P1/P2 action table capacity: star action indices are one byte, `0x05AA`-`0x07AA` (dungeon-format.md §3.1). */
+export const P1P2_ACTION_TABLE_SLOT_COUNT = 256;
+
+/**
+ * P1/P2 action records, slot-addressed. A star's action index is a one-byte
+ * slot number into a fixed 256-slot table, so a record is decodable at any
+ * slot a star (or a bit-7 "continue" chain from it) names — including slots
+ * past the `0x0D 0x0D` fill that the old terminator walk stopped at. The
+ * result is the old terminator walk plus every record reached by following
+ * only the continue chain from each active star's action indices (no
+ * guessed gotos). Short files (P1 `dng6`, 1,922 B < `0x7AA`) are
+ * zero-padded to the table end. Sorted by slot, unique.
+ */
+export function decodeReachableActions(
+  data: Uint8Array,
+  baseOffset: number,
+  stars: readonly DecodedStar[],
+  slotCount: number = P1P2_ACTION_TABLE_SLOT_COUNT,
+): DecodedAction[] {
+  const end = baseOffset + slotCount * 2;
+  let buf = data;
+  if (data.length < end + 4) {
+    buf = new Uint8Array(end + 4);
+    buf.set(data);
+  }
+  const bySlot = new Map<number, DecodedAction>();
+  for (const a of decodeActionTable(buf, baseOffset, { terminator: true })) bySlot.set(a.slotIndex, a);
+  for (const star of stars) {
+    if (star.empty || !star.isActive) continue;
+    for (const first of star.actionsIndex) {
+      let i = first;
+      while (i < slotCount) {
+        let rec = bySlot.get(i);
+        if (!rec) {
+          rec = decodeActionRecord(buf, baseOffset + i * 2, i);
+          bySlot.set(i, rec);
+        }
+        if (rec.isLastAction) break;
+        i += rec.sizeSlots;
+      }
+    }
+  }
+  return [...bySlot.values()].sort((a, b) => a.slotIndex - b.slotIndex);
 }
 
 /** Index action records by their starting slot index, for `executeStar`'s `LoadAction(actionIndex)`. */

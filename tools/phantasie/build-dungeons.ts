@@ -27,7 +27,7 @@ import {
 } from '../../src/assets/formats/dungeon.ts';
 import {
   decodeStarTable,
-  decodeActionTable,
+  decodeReachableActions,
   buildActionEffect,
 } from '../../src/assets/formats/star-action.ts';
 import { P1_OPCODES } from '../../src/assets/formats/opcodes.ts';
@@ -41,7 +41,8 @@ export function buildDungeonLevel(dngData: Uint8Array, messData: Uint8Array | nu
   const header = decodeDungeonHeader(dngData);
   const grid = decodeDungeonGrid(dngData);
   const stars = decodeStarTable(dngData, DUNGEON_STAR_TABLE_OFFSET).filter((s) => !s.empty);
-  const actions = decodeActionTable(dngData, DUNGEON_ACTION_TABLE_OFFSET, { terminator: true }).map((action) => ({
+  // Fixed 256-slot, slot-addressed table (dungeon-format.md §3.1 correction 2026-11-13): includes records past the 0x0D fill.
+  const actions = decodeReachableActions(dngData, DUNGEON_ACTION_TABLE_OFFSET, stars).map((action) => ({
     ...action,
     effect: buildActionEffect(action, P1_OPCODES),
   }));

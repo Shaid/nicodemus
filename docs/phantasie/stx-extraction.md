@@ -133,7 +133,17 @@ deliverable, at `data/phantasieii/atarist/extracted/disk{1,2}/`.
   exactly**: Disk 1 — 12 files, 348,477 bytes (both `mdir` and `du -sb` on
   the extracted directory agree); Disk 2 — 47 files, 332,507 bytes (same
   agreement).
-- **`PHANT.PRG` (both disks list an executable) starts with bytes `60 1A`**
+- **FAT-walk and relocation checks (added 2026-11-13; the two checks above are
+  weak — "`mdir` total = `du` total" is circular, and `60 1A` tests two bytes):**
+  FAT1 equals FAT2 on both disks (re-walked this session from `raw/disk{1,2}.st`);
+  all 59 files have exact `ceil(size/1024)` chain lengths ending `0xFFF`, with
+  one exception — the `DNG.SAV`/`DNGX.SAV` cross-link (§6 correction); every
+  extracted file is byte-identical to the walk (auditor's check); `PHANT.PRG`'s
+  relocation table has 6,485 entries all pointing into text+data+bss and ends
+  exactly at EOF (0 trailing bytes), likewise `START.PRG` and `UTILIT2.PRG`
+  (auditor's check, not re-run here); the weak-bit sector (track 76 sector 4,
+  LBA 687, cluster 336) has FAT entry 0 (free).
+- **`PHANT.PRG` (only disk 1 carries a `.PRG`; the earlier "both disks list an executable" was wrong — disk 2 has none, 2026-11-13) starts with bytes `60 1A`**
   — the canonical GEMDOS `.PRG` header magic (a `bra.s` opcode used as the
   TOS program-header signature). This is an external, format-specific
   invariant with no dependency on the STX or FAT12 parsing being "close
@@ -246,6 +256,18 @@ file layout the way it seems to for P1.
 > (`dungeon-format.md` §3/§7) and against disk 1's 1986-dated equivalents.
 > Findings, from strongest to weakest evidence:
 >
+> - > **Correction (2026-11-13, independent FAT12 walk, re-verified this session):
+>   `DNG.SAV` and `DNGX.SAV` are a FAT cross-link, not two corroborating
+>   copies.** Both directory entries start at cluster **333**, chain
+>   `[333, 334, 335]` (end `0xFFF`). `DNG.SAV` is 1,024 B but owns a 3-cluster
+>   chain, and its 1,024 bytes are exactly `DNGX.SAV[0:1024]` (checked
+>   `a == b[:1024]`). So the pair is **one** piece of evidence, not two, and
+>   `DNG.SAV`'s original content is lost. The "differ in 6 / differ in 10"
+>   comparison below therefore compares one buffer against `DNG1` twice. The
+>   same walk: FAT1 == FAT2 on both disks; every other file's chain length
+>   matches `ceil(size/1024)` with a `0xFFF` terminator. (`DNGX.SAV` is 2,500 B
+>   = `0x9C4`, matching the audit's cited P1 DNG_MAP buffer size — corroborating
+>   only; the `#$9C4` literal itself is not found in `game.asm` and stays unverified.)
 > - **`DNG.SAV` (1024 B) and `DNGX.SAV` (2500 B) are near-byte-identical
 >   copies of `DNG1`** (the level-0 dungeon file), not independent content:
 >   `DNGX.SAV`'s first 2048 bytes differ from `DNG1` in only **10 of 2048
@@ -298,6 +320,13 @@ file layout the way it seems to for P1.
 >   template counterpart to byte-diff against directly, so this remains
 >   **inconclusive by content** — the 1995 timestamp is the only evidence
 >   either way for these specific files.
+>
+> **Correction (2026-11-13):** the OUT*.DAT "inconclusive by content" verdict
+> is now settled: the first 520 bytes of **all 17** `OUT*.DAT` equal 17
+> distinct 520-byte blocks of disk 1's `MAPS.INT` (8,840 = 17 × 520) byte for
+> byte, 0 differences (1-byte-shifted null control: 0/17;
+> `p2-disk-integrity.test.ts`). So the outdoor terrain grids are pristine
+> despite the 1995 timestamps; any save mutation lives past byte 520.
 >
 > **Resolved verdict**: the 1995-dated files are confirmed live save-game
 > state, not a second pristine template set — `DNG.SAV`/`DNGX.SAV`/

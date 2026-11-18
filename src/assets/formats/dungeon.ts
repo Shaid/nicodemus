@@ -21,7 +21,7 @@ export const DUNGEON_GRID_SIZE = DUNGEON_WIDTH * DUNGEON_HEIGHT; // 1254
 export const DUNGEON_LEVEL_OFFSET = 0x04e7;
 export const DUNGEON_ENCOUNTER_TABLE_OFFSET = 0x04e8;
 export const DUNGEON_ENCOUNTER_TABLE_SIZE = 10;
-/** Unidentified 9-byte gap between the encounter table and the star table (dungeon-format.md §3, open). */
+/** 9-byte dungeon-exit destination table: 3 x {worldSection, exitY, exitX} indexed by cell-0xD7 (dungeon-format.md §3, resolved 2026-08-12; the game reads it, this parser skips it). */
 export const DUNGEON_UNKNOWN_GAP_OFFSET = 0x04f2;
 export const DUNGEON_UNKNOWN_GAP_SIZE = 9;
 
@@ -33,10 +33,9 @@ export const STAR_TABLE_SLOT_COUNT = 35;
 export const STAR_TABLE_SLOT_SIZE = 5;
 
 /**
- * Terminator scan safety bound — the confirmed reserved region is ~290
- * bytes (145 two-byte slots, §3.1); real files always terminate well
- * before this, so this is only a guard against a corrupt/foreign file
- * looping forever.
+ * Safety bound for the legacy `terminator` walk only. The real P1/P2 table is
+ * a fixed 256 slots (`P1P2_ACTION_TABLE_SLOT_COUNT` in `star-action.ts`;
+ * dungeon-format.md §3.1 correction, 2026-11-13).
  */
 export const ACTION_TABLE_MAX_SLOTS = 512;
 
